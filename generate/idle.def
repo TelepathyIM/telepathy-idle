@@ -1,0 +1,4 @@
+idle-connection-manager.xml	IdleConnectionManager	ConnectionManager
+idle-connection.xml	IdleConnection	Connection, ConnectionInterfaceCapabilities, ConnectionInterfacePresence, ConnectionInterfaceRenaming
+idle-im-channel.xml	IdleIMChannel	ChannelTypeText
+idle-muc-channel.xml	IdleMUCChannel	ChannelTypeText, ChannelInterfaceGroup, ChannelInterfacePassword, PropertiesInterface
