@@ -21,6 +21,8 @@
 #include <glib.h>
 #include <glib-object.h>
 
+#include <telepathy-glib/errors.h>
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>
@@ -36,8 +38,6 @@
 #include "idle-server-connection.h"
 #include "idle-server-connection-iface.h"
 #include "idle-server-connection-util.h"
-
-#include "telepathy-errors.h"
 
 #include "idle-dns-resolver.h"
 
@@ -356,28 +356,28 @@ static gboolean iface_connect_impl(IdleServerConnectionIface *iface, GError **er
 	if (priv->state != SERVER_CONNECTION_STATE_NOT_CONNECTED)
 	{
 		g_debug("%s: already connecting or connected!", G_STRFUNC);
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "already connecting or connected!");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "already connecting or connected!");
 		return FALSE;
 	}
 
 	if ((priv->host == NULL) || (priv->host[0] == '\0'))
 	{
 		g_debug("%s: host not set!", G_STRFUNC);
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "host not set!");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "host not set!");
 		return FALSE;
 	}
 
 	if (priv->port == 0)
 	{
 		g_debug("%s: port not set!", G_STRFUNC);
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "port not set!");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "port not set!");
 		return FALSE;
 	}
 
 	if (!do_connect(conn))
 	{
 		g_debug("%s: do_connect failed", G_STRFUNC);
-		*error = g_error_new(TELEPATHY_ERRORS, NetworkError, "failed to connect");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "failed to connect");
 		return FALSE;
 	}
 	
@@ -661,7 +661,7 @@ static gboolean iface_disconnect_impl_full(IdleServerConnectionIface *iface, GEr
 	if (priv->state != SERVER_CONNECTION_STATE_CONNECTED)
 	{
 		g_debug("%s: the connection was not open", G_STRFUNC);
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "the connection was not open");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "the connection was not open");
 		return FALSE;
 	}
 
@@ -708,7 +708,7 @@ static gboolean iface_send_impl(IdleServerConnectionIface *iface, const gchar *c
 	{
 		g_debug("%s: connection was not open!", G_STRFUNC);
 
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "connection was not open!");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection was not open!");
 		
 		return FALSE;
 	}
@@ -736,7 +736,7 @@ static gboolean iface_send_impl(IdleServerConnectionIface *iface, const gchar *c
 				g_error_free(local_error);
 			}
 
-			*error = g_error_new(TELEPATHY_ERRORS, NetworkError, "got G_IO_STATUS_ERROR");
+			*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "got G_IO_STATUS_ERROR");
 			
 			return FALSE;
 		}
@@ -757,7 +757,7 @@ static gboolean iface_send_impl(IdleServerConnectionIface *iface, const gchar *c
 				g_error_free(local_error);
 			}
 			
-			*error = g_error_new(TELEPATHY_ERRORS, NetworkError, "got G_IO_STATUS_EOF");
+			*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "got G_IO_STATUS_EOF");
 			
 			return FALSE;
 		}
@@ -766,7 +766,7 @@ static gboolean iface_send_impl(IdleServerConnectionIface *iface, const gchar *c
 		{
 			g_debug("%s: got G_IO_STATUS_AGAIN", G_STRFUNC);
 
-			*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "got G_IO_STATUS_AGAIN");
+			*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "got G_IO_STATUS_AGAIN");
 			
 			return FALSE;
 		}

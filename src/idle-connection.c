@@ -26,6 +26,7 @@
 #include <telepathy-glib/intset.h>
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/interfaces.h>
+#include <telepathy-glib/errors.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,7 +48,6 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include "telepathy-errors.h"
 #include "telepathy-helpers.h"
 
 #include "idle-handles.h"
@@ -87,7 +87,7 @@ G_DEFINE_TYPE(IdleConnection, idle_connection, G_TYPE_OBJECT);
     { \
     /*  if (((PRIV)->conn.crashed)) socket_conn_close(CONN);*/ \
       g_debug ("%s: rejected request as disconnected", G_STRFUNC); \
-      (ERROR) = g_error_new(TELEPATHY_ERRORS, NotAvailable, \
+      (ERROR) = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, \
                             "Connection is disconnected"); \
       return FALSE; \
     }
@@ -97,7 +97,7 @@ G_DEFINE_TYPE(IdleConnection, idle_connection, G_TYPE_OBJECT);
     { \
       /*if (((PRIV)->conn.crashed)) socket_conn_close(CONN); */\
       g_debug ("%s: rejected request as disconnected", G_STRFUNC); \
-      (ERROR) = g_error_new(TELEPATHY_ERRORS, NotAvailable, \
+      (ERROR) = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, \
                             "Connection is disconnected"); \
       dbus_g_method_return_error ((CONTEXT), (ERROR)); \
       g_error_free ((ERROR)); \
@@ -835,7 +835,7 @@ gboolean _idle_connection_register(IdleConnection *conn, gchar **bus_name, gchar
 							G_TYPE_UINT, &request_name_result,
 							G_TYPE_INVALID))
 	{
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, request_error->message);
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, request_error->message);
 		return FALSE;
 	}
 
@@ -867,7 +867,7 @@ gboolean _idle_connection_register(IdleConnection *conn, gchar **bus_name, gchar
 			break;
 		}
 
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "Error acquiring bus name %s, %s", priv->bus_name, msg);
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "Error acquiring bus name %s, %s", priv->bus_name, msg);
 		return FALSE;
 	}
 
@@ -1174,7 +1174,7 @@ gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
 		{
 			g_debug("%s: invalid nickname %s", G_STRFUNC, priv->nickname);
 
-			*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "invalid nickname %s", priv->nickname);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "invalid nickname %s", priv->nickname);
 
 			return FALSE;
 		}
@@ -1209,7 +1209,7 @@ gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
 		if (!idle_server_connection_iface_connect(sconn, &conn_error))
 		{
 			g_debug("%s: server connection failed to connect: %s", G_STRFUNC, conn_error->message);
-			*error = g_error_new(TELEPATHY_ERRORS, NetworkError, "failed to open low-level network connection: %s", conn_error->message);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "failed to open low-level network connection: %s", conn_error->message);
 
 			g_error_free(conn_error);
 			g_object_unref(sconn);
@@ -1227,7 +1227,7 @@ gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
 	{
 		g_debug("%s: conn already open!", G_STRFUNC);
 
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "connection already open!");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection already open!");
 
 		return FALSE;
 	}
@@ -2727,7 +2727,7 @@ static gboolean socket_conn_open(IdleConnection *conn, GError **error)
 
 	if (priv->conn.fd)
 	{
-		*error = g_error_new(TELEPATHY_ERRORS, NetworkError, "Connection already open!");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "Connection already open!");
 		return FALSE;
 	}
 	else
@@ -2745,7 +2745,7 @@ static gboolean socket_conn_open(IdleConnection *conn, GError **error)
 		{
 			g_debug("%s: socket() failed: %s", G_STRFUNC, strerror(errno));
 			
-			*error = g_error_new(TELEPATHY_ERRORS, NetworkError, "socket() failed: %s", strerror(errno));
+			*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "socket() failed: %s", strerror(errno));
 			
 			return FALSE;
 		}
@@ -2756,7 +2756,7 @@ static gboolean socket_conn_open(IdleConnection *conn, GError **error)
 			
 			close(fd);
 			
-			*error = g_error_new(TELEPATHY_ERRORS, NetworkError, "bind() failed: %s", strerror(errno));
+			*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "bind() failed: %s", strerror(errno));
 
 			return FALSE;
 		}
@@ -2772,7 +2772,7 @@ static gboolean socket_conn_open(IdleConnection *conn, GError **error)
 			priv->conn.fd = 0;
 			g_async_queue_unref(priv->conn.out_queue);
 
-			*error = g_error_new(TELEPATHY_ERRORS, NetworkError, "Failed to create a thread for the socket connection: %s", strerror(rc));
+			*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "Failed to create a thread for the socket connection: %s", strerror(rc));
 
 			return FALSE;
 		}
@@ -2820,7 +2820,7 @@ static gboolean threaded_connection_open(IdleConnection *conn, GError **error)
 	{
 		close(priv->conn.fd);
 
-		*error = g_error_new(TELEPATHY_ERRORS, NetworkError, "Failed to resolve server %s", priv->server);
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "Failed to resolve server %s", priv->server);
 
 		return FALSE;
 	}
@@ -2835,7 +2835,7 @@ static gboolean threaded_connection_open(IdleConnection *conn, GError **error)
 
 		g_debug("%s: connect() failed: %s", G_STRFUNC, strerror(errno));
 		
-		*error = g_error_new(TELEPATHY_ERRORS, NetworkError, "connect() failed: %s", strerror(errno));
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "connect() failed: %s", strerror(errno));
 
 		return FALSE;
 	}
@@ -3529,21 +3529,21 @@ static void muc_channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer 
 		break;
 		case MUC_CHANNEL_JOIN_ERROR_BANNED:
 		{
-			error = g_error_new(TELEPATHY_ERRORS, ChannelBanned, "banned from room");
+			error = g_error_new(TP_ERRORS, TP_ERROR_CHANNEL_BANNED, "banned from room");
 			dbus_g_method_return_error(ctx, error);
 			g_error_free(error);
 		}
 		break;
 		case MUC_CHANNEL_JOIN_ERROR_FULL:
 		{
-			error = g_error_new(TELEPATHY_ERRORS, ChannelFull, "room full");
+			error = g_error_new(TP_ERRORS, TP_ERROR_CHANNEL_FULL, "room full");
 			dbus_g_method_return_error(ctx, error);
 			g_error_free(error);
 		}
 		break;
 		case MUC_CHANNEL_JOIN_ERROR_INVITE_ONLY:
 		{
-			error = g_error_new(TELEPATHY_ERRORS, ChannelInviteOnly, "room invite only");
+			error = g_error_new(TP_ERRORS, TP_ERROR_CHANNEL_INVITE_ONLY, "room invite only");
 			dbus_g_method_return_error(ctx, error);
 			g_error_free(error);
 		}
@@ -4042,7 +4042,7 @@ gboolean idle_connection_add_status (IdleConnection *obj, const gchar * status, 
 
 	ERROR_IF_NOT_CONNECTED(obj, priv, *error);
 
-	*error = g_error_new(TELEPATHY_ERRORS, NotImplemented, 
+	*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED, 
 			"Only one status is possible at a time with this protocol");
 	
   	return FALSE;
@@ -4207,7 +4207,7 @@ gboolean idle_connection_get_capabilities (IdleConnection *obj, GArray *handles,
 		{
 			g_debug("%s: invalid handle %u", G_STRFUNC, handle);
 		
-			*error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, "invalid handle %u", handle);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid handle %u", handle);
 
 			return FALSE;
 		}
@@ -4427,7 +4427,7 @@ gboolean idle_connection_hold_handles (IdleConnection *obj,
 	{
 		g_debug("%s: invalid handle type %u", G_STRFUNC, handle_type);
 		
-		error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, "invalid handle type %u", handle_type);
+		error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid handle type %u", handle_type);
 		dbus_g_method_return_error(context, error);
 		g_error_free(error);
 
@@ -4448,7 +4448,7 @@ gboolean idle_connection_hold_handles (IdleConnection *obj,
 		{
 			g_debug("%s: invalid handle %u", G_STRFUNC, handle);
 
-			error = g_error_new(TELEPATHY_ERRORS, InvalidHandle, "invalid handle %u", handle);
+			error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid handle %u", handle);
 
 			dbus_g_method_return_error(context, error);
 		
@@ -4489,7 +4489,7 @@ gboolean idle_connection_inspect_handle (IdleConnection *obj, guint handle_type,
 	{
 		g_debug("%s: invalid handle type %u", G_STRFUNC, handle_type);
 
-		*_error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, "invalid handle type %u", handle_type);
+		*_error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid handle type %u", handle_type);
 
 		return FALSE;
 	}
@@ -4500,7 +4500,7 @@ gboolean idle_connection_inspect_handle (IdleConnection *obj, guint handle_type,
 	{
 		g_debug("%s: invalid handle %u (type %u)", G_STRFUNC, handle, handle_type);
 
-		*_error = g_error_new(TELEPATHY_ERRORS, InvalidHandle, "invalid handle %u", handle);
+		*_error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid handle %u", handle);
 
 		return FALSE;
 	}
@@ -4524,7 +4524,7 @@ gboolean idle_connection_inspect_handles (IdleConnection *conn, guint handle_typ
 	{
 		g_debug("%s: invalid handle type %u", G_STRFUNC, handle_type);
 
-		error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, "invalid handle type %u", handle_type);
+		error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid handle type %u", handle_type);
 
 		dbus_g_method_return_error(ctx, error);
 
@@ -4543,7 +4543,7 @@ gboolean idle_connection_inspect_handles (IdleConnection *conn, guint handle_typ
 		{
 			g_debug("%s: invalid handle %u (type %u)", G_STRFUNC, handle, handle_type);
 
-			error = g_error_new(TELEPATHY_ERRORS, InvalidHandle, "invalid handle %u", handle);
+			error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid handle %u", handle);
 
 			g_free(ret);
 
@@ -4688,7 +4688,7 @@ gboolean idle_connection_release_handles (IdleConnection *obj,
 	{
 		g_debug("%s: invalid handle type %u", G_STRFUNC, handle_type);
 
-		error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, "invalid handle type %u", handle_type);
+		error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid handle type %u", handle_type);
 
 		dbus_g_method_return_error(context, error);
 
@@ -4711,7 +4711,7 @@ gboolean idle_connection_release_handles (IdleConnection *obj,
 		{
 			g_debug("%s: invalid handle %u", G_STRFUNC, handle);
 
-			error = g_error_new(TELEPATHY_ERRORS, InvalidHandle, "unknown handle %u", handle);
+			error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "unknown handle %u", handle);
 
 			dbus_g_method_return_error(context, error);
 
@@ -4764,7 +4764,7 @@ gboolean idle_connection_remove_status (IdleConnection *obj, const gchar * statu
 	}
 	else
 	{
-		*error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, "Attempting to remove non-existant presence.");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "Attempting to remove non-existant presence.");
 		return FALSE;
 	}
 }
@@ -4866,7 +4866,7 @@ NOT_AVAILABLE:
   g_debug ("request_channel: requested channel is unavailable with "
            "handle type %u", handle_type);
 
-  error = g_error_new (TELEPATHY_ERRORS, NotAvailable,
+  error = g_error_new (TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
                         "requested channel is not available with "
                         "handle type %u", handle_type);
   dbus_g_method_return_error(ctx, error);
@@ -4877,7 +4877,7 @@ NOT_AVAILABLE:
 INVALID_HANDLE:
   g_debug ("request_channel: handle %u (type %u) not valid", handle, handle_type);
 
-  error = g_error_new (TELEPATHY_ERRORS, InvalidHandle,
+  error = g_error_new (TP_ERRORS, TP_ERROR_INVALID_HANDLE,
                         "handle %u (type %u) not valid", handle, handle_type);
   dbus_g_method_return_error(ctx, error);
   g_free(error);
@@ -4887,7 +4887,7 @@ INVALID_HANDLE:
 NOT_IMPLEMENTED:
   g_debug ("request_channel: unsupported channel type %s", type);
 
-  error = g_error_new (TELEPATHY_ERRORS, NotImplemented,
+  error = g_error_new (TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
                         "unsupported channel type %s", type);
   dbus_g_method_return_error(ctx, error);
   g_free(error);
@@ -4931,7 +4931,7 @@ gboolean idle_connection_request_handles (IdleConnection *obj,
 	{
 		g_debug("%s: invalid handle type %u", G_STRFUNC, handle_type);
 
-		error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, "invalid handle type %u", handle_type);
+		error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid handle type %u", handle_type);
 		dbus_g_method_return_error(context, error);
 		g_error_free(error);
 
@@ -5017,7 +5017,7 @@ static IdleHandle _idle_connection_request_handle(IdleConnection *obj,
 		{
 			g_debug("%s: unimplemented handle type %u", G_STRFUNC, handle_type);
 
-			*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "unimplemented handle type %u", handle_type);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "unimplemented handle type %u", handle_type);
 			return 0;
 		}
 		break;
@@ -5027,7 +5027,7 @@ static IdleHandle _idle_connection_request_handle(IdleConnection *obj,
 	{
 		g_debug("%s: requested name %s was invalid", G_STRFUNC, name);
 
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "requested name %s was invalid", name);
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "requested name %s was invalid", name);
 
 		return 0;
 	}
@@ -5117,7 +5117,7 @@ gboolean idle_connection_request_presence (IdleConnection *obj, const GArray * c
 		{
 			g_debug("%s: invalid handle %u", G_STRFUNC, handle);
 
-			*error = g_error_new(TELEPATHY_ERRORS, InvalidHandle, "invalid handle %u", handle);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid handle %u", handle);
 
 			return FALSE;
 		}
@@ -5204,7 +5204,7 @@ static void setstatuses_foreach(gpointer key, gpointer value, gpointer user_data
 					*(data->error) = NULL;
 				}
 
-				*(data->error) = g_error_new(TELEPATHY_ERRORS, InvalidArgument,
+				*(data->error) = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
 								"Status argument 'message' requires a string");
 				data->retval = FALSE;
 				return;
@@ -5237,7 +5237,7 @@ static void setstatuses_foreach(gpointer key, gpointer value, gpointer user_data
 			*(data->error) = NULL;
 		}
 		
-		*(data->error) = g_error_new(TELEPATHY_ERRORS, InvalidArgument,
+		*(data->error) = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
 									"unknown status identifier received: %s",
 									(const gchar *)(key));
 		data->retval = FALSE;
@@ -5273,7 +5273,7 @@ gboolean idle_connection_set_status (IdleConnection *obj, GHashTable * statuses,
 	{
 		g_debug("%s: got %i statuses instead of 1", G_STRFUNC, size);
 		
-		*error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, "Got %i statuses instead of 1", size);
+		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "Got %i statuses instead of 1", size);
 		
 		return FALSE;
 	}
@@ -5305,7 +5305,7 @@ gboolean idle_connection_request_rename(IdleConnection *obj, const gchar *nick, 
 	{
 		g_debug("%s: failed to get handle for (%s)", G_STRFUNC, nick);
 
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "Failed to get handle for (%s)", nick);
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "Failed to get handle for (%s)", nick);
 
 		return FALSE;
 	}
@@ -5339,7 +5339,7 @@ gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **o
 	if (ret == NULL)
 	{
 		g_debug("%s: g_convert failed: %s", G_STRFUNC, error->message);
-		*_error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "character set conversion failed: %s", error->message);
+		*_error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "character set conversion failed: %s", error->message);
 		g_error_free(error);
 		*output = NULL;
 		return FALSE;

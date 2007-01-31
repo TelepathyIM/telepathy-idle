@@ -23,6 +23,7 @@
 
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/interfaces.h>
+#include <telepathy-glib/errors.h>
 
 #define _GNU_SOURCE
 #include <stdlib.h>
@@ -40,7 +41,6 @@
 #include "idle-handle-set.h"
 
 #include "telepathy-helpers.h"
-#include "telepathy-errors.h"
 
 #define IRC_MSG_MAXLEN 510
 
@@ -2077,7 +2077,7 @@ static gboolean send_invite_request(IdleMUCChannel *obj, IdleHandle handle, GErr
 	{
 		g_debug("%s: invalid handle %u passed", G_STRFUNC, handle);
 		
-		*error = g_error_new(TELEPATHY_ERRORS, InvalidHandle, "invalid handle %u passed", handle);
+		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid handle %u passed", handle);
 
 		return FALSE;
 	}
@@ -2106,7 +2106,7 @@ static gboolean send_kick_request(IdleMUCChannel *obj, IdleHandle handle, const 
 	{
 		g_debug("%s: invalid handle %u passed", G_STRFUNC, handle);
 		
-		*error = g_error_new(TELEPATHY_ERRORS, InvalidHandle, "invalid handle %u passed", handle);
+		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid handle %u passed", handle);
 
 		return FALSE;
 	}
@@ -2142,7 +2142,7 @@ static gboolean add_member(IdleMUCChannel *obj, IdleHandle handle, GError **erro
 		{
 			g_debug("%s: we are already a member of or trying to join the channel with handle %u", G_STRFUNC, priv->handle);
 
-			*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "we are already a member of or trying to join the channel with handle %u", priv->handle);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "we are already a member of or trying to join the channel with handle %u", priv->handle);
 
 			return FALSE;
 		}
@@ -2165,7 +2165,7 @@ static gboolean add_member(IdleMUCChannel *obj, IdleHandle handle, GError **erro
 		{
 			g_debug("%s: the requested contact (handle %u) to be added to the room (handle %u) is already a member of or has already been invited to join the room", G_STRFUNC, handle, priv->handle);
 
-			*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "the requested contact (handle %u) to be added to the room (handle %u) is already a member of or has already been invited to join the room", handle, priv->handle);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "the requested contact (handle %u) to be added to the room (handle %u) is already a member of or has already been invited to join the room", handle, priv->handle);
 
 			return FALSE;
 		}
@@ -2240,7 +2240,7 @@ gboolean idle_muc_channel_acknowledge_pending_messages (IdleMUCChannel *obj,
 		{
 			g_debug("%s: message %u not found", G_STRFUNC, id);
 
-			*error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, "message id %u not found", id);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "message id %u not found", id);
 
 			return FALSE;
 		}
@@ -2646,7 +2646,7 @@ gboolean idle_muc_channel_get_properties (IdleMUCChannel *obj, const GArray * pr
 		{
 			g_debug("%s: invalid property id %u", G_STRFUNC, prop);
 
-			*error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, "invalid property id %u", prop);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid property id %u", prop);
 
 			return FALSE;
 		}
@@ -2655,7 +2655,7 @@ gboolean idle_muc_channel_get_properties (IdleMUCChannel *obj, const GArray * pr
 		{
 			g_debug("%s: not allowed to read property %u", G_STRFUNC, prop);
 
-			*error = g_error_new(TELEPATHY_ERRORS, PermissionDenied, "not allowed to read property %u", prop);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_PERMISSION_DENIED, "not allowed to read property %u", prop);
 
 			return FALSE;;
 		}
@@ -2867,7 +2867,7 @@ gboolean idle_muc_channel_list_properties (IdleMUCChannel *obj, GPtrArray ** ret
 			default:
 			{
 				g_debug("%s: encountered unknown type %s", G_STRFUNC, g_type_name(property_signatures[i].type));
-				*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "internal error in %s", G_STRFUNC);
+				*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "internal error in %s", G_STRFUNC);
 
 				return FALSE;
 			}
@@ -2921,7 +2921,7 @@ gboolean idle_muc_channel_provide_password (IdleMUCChannel *obj, const gchar * p
 	{
 		g_debug("%s: don't need a password now or authentication already in process (handle %u)", G_STRFUNC, priv->handle);
 
-		error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "don't need a password now or authentication already in process (handle %u)", priv->handle);
+		error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "don't need a password now or authentication already in process (handle %u)", priv->handle);
 
 		dbus_g_method_return_error(context, error);
 		g_error_free(error);
@@ -2975,7 +2975,7 @@ gboolean idle_muc_channel_remove_members (IdleMUCChannel *obj, const GArray * co
 		{
 			g_debug("%s: handle %u not a current member!", G_STRFUNC, handle);
 
-			*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "handle %u is not a current member of the channel", handle);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "handle %u is not a current member of the channel", handle);
 
 			return FALSE;
 		}
@@ -2984,7 +2984,7 @@ gboolean idle_muc_channel_remove_members (IdleMUCChannel *obj, const GArray * co
 		{
 			g_debug("%s: send_kick_request failed: %s", G_STRFUNC, kick_error->message);
 
-			*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, kick_error->message);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, kick_error->message);
 
 			g_error_free(kick_error);
 
@@ -3030,7 +3030,7 @@ gboolean idle_muc_channel_send (IdleMUCChannel *obj, guint type, const gchar * t
 	{
 		g_debug("%s: invalid recipient (handle %u)", G_STRFUNC, priv->handle);
 
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "invalid recipient");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "invalid recipient");
 
 		return FALSE;
 	}
@@ -3059,7 +3059,7 @@ gboolean idle_muc_channel_send (IdleMUCChannel *obj, guint type, const gchar * t
 		{
 			g_debug("%s: invalid message type %u", G_STRFUNC, type);
 
-			*error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, "invalid message type %u", type);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid message type %u", type);
 
 			return FALSE;
 		}
@@ -3434,7 +3434,7 @@ gboolean idle_muc_channel_set_properties (IdleMUCChannel *obj, const GPtrArray *
 		{
 			g_debug("%s: invalid property id %u", G_STRFUNC, prop_id);
 
-			*error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, "invalid property id %u", prop_id);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid property id %u", prop_id);
 
 			return FALSE;
 		}
@@ -3443,7 +3443,7 @@ gboolean idle_muc_channel_set_properties (IdleMUCChannel *obj, const GPtrArray *
 		{
 			g_debug("%s: not allowed to set property with id %u", G_STRFUNC, prop_id);
 
-			*error = g_error_new(TELEPATHY_ERRORS, PermissionDenied, "not allowed to set property with id %u", prop_id);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_PERMISSION_DENIED, "not allowed to set property with id %u", prop_id);
 
 			return FALSE;
 		}
@@ -3452,7 +3452,7 @@ gboolean idle_muc_channel_set_properties (IdleMUCChannel *obj, const GPtrArray *
 		{
 			g_debug("%s: incompatible value type %s for prop_id %u", G_STRFUNC, g_type_name(G_VALUE_TYPE(prop_val)), prop_id);
 
-			*error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, "incompatible value type %s for prop_id %u", g_type_name(G_VALUE_TYPE(prop_val)), prop_id);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "incompatible value type %s for prop_id %u", g_type_name(G_VALUE_TYPE(prop_val)), prop_id);
 
 			return FALSE;
 		}

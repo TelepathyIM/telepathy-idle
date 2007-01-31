@@ -21,12 +21,11 @@
 #include "idle.h"
 
 #include "idle-connection-manager.h"
-#include "telepathy-errors.h"
-#include "telepathy-errors-enumtypes.h"
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <execinfo.h>
+
+#include <telepathy-glib/errors.h>
 
 GSource *timeout = NULL;
 GMainLoop *mainloop = NULL;
@@ -162,8 +161,7 @@ int main(int argc, char **argv) {
 
   mainloop = g_main_loop_new (NULL, FALSE);
 
-  dbus_g_error_domain_register (TELEPATHY_ERRORS,
-      "org.freedesktop.Telepathy.Error", TELEPATHY_TYPE_ERRORS);
+  dbus_g_error_domain_register (TP_ERRORS, "org.freedesktop.Telepathy.Error", TP_TYPE_ERROR);
 
   manager = g_object_new (IDLE_TYPE_CONNECTION_MANAGER, NULL);
 

@@ -22,13 +22,13 @@
 #include <dbus/dbus-protocol.h>
 
 #include <telepathy-glib/enums.h>
+#include <telepathy-glib/errors.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "idle-connection.h"
-#include "telepathy-errors.h"
 #include "telepathy-helpers.h"
 
 #include "idle-connection-manager.h"
@@ -186,7 +186,7 @@ static gboolean get_parameters (const char *proto, const IdleParamSpec **params,
 	{
 		g_debug("%s: unknown protocol %s", G_STRFUNC, proto);
 
-		*error = g_error_new (TELEPATHY_ERRORS, NotImplemented, "unknown protocol %s", proto);
+		*error = g_error_new (TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED, "unknown protocol %s", proto);
 
 		return FALSE;
 	}
@@ -227,7 +227,7 @@ static gboolean set_param_from_value (const IdleParamSpec *paramspec, GValue *va
 																	g_type_name (paramspec->gtype), 
 																	paramspec->name,
                														G_VALUE_TYPE_NAME (value));
-		*error = g_error_new(TELEPATHY_ERRORS, InvalidArgument,
+		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
 								"expected type %s for account parameter %s, got %s",
                             	g_type_name (paramspec->gtype), paramspec->name,
                             	G_VALUE_TYPE_NAME (value));
@@ -277,7 +277,7 @@ static gboolean parse_parameters (const IdleParamSpec *paramspec, GHashTable *pr
 			if (paramspec[i].flags & TP_CONN_MGR_PARAM_FLAG_REQUIRED)
 			{
 				g_debug("%s: missing REQUIRED param %s", G_STRFUNC, paramspec[i].name);
-				*error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, 
+				*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, 
 										"missing REQUIRED account parameter %s",
 										paramspec[i].name);
 				return FALSE;

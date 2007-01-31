@@ -21,6 +21,8 @@
 #include <glib.h>
 #include <glib-object.h>
 
+#include <telepathy-glib/errors.h>
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>
@@ -40,8 +42,6 @@
 #include "idle-server-connection-iface.h"
 
 #include "idle-server-connection-util.h"
-
-#include "telepathy-errors.h"
 
 #include "idle-dns-resolver.h"
 
@@ -617,7 +617,7 @@ static gboolean iface_ssl_connect_impl(IdleServerConnectionIface *iface, GError 
 	{
 		g_debug("%s: connection was not in state NOT_CONNECTED", G_STRFUNC);
 
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "connection was in state NOT_CONNECTED");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection was in state NOT_CONNECTED");
 
 		return FALSE;
 	}
@@ -626,7 +626,7 @@ static gboolean iface_ssl_connect_impl(IdleServerConnectionIface *iface, GError 
 	{
 		g_debug("%s: no hostname provided", G_STRFUNC);
 
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "no hostname provided");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "no hostname provided");
 
 		return FALSE;
 	}
@@ -635,7 +635,7 @@ static gboolean iface_ssl_connect_impl(IdleServerConnectionIface *iface, GError 
 	{
 		g_debug("%s: no port provided", G_STRFUNC);
 
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "no port provided");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "no port provided");
 
 		return FALSE;
 	}
@@ -656,7 +656,7 @@ static gboolean iface_ssl_disconnect_impl_full(IdleServerConnectionIface *iface,
 	{
 		g_debug("%s: not connected", G_STRFUNC);
 
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "not connected");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "not connected");
 
 		return FALSE;
 	}
@@ -714,7 +714,7 @@ static gboolean iface_ssl_send_impl(IdleServerConnectionIface *iface, const gcha
 	{
 		g_debug("%s: connection was not in state CONNECTED", G_STRFUNC);
 
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "connection was not in state CONNECTED");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection was not in state CONNECTED");
 
 		return FALSE;
 	}
@@ -739,7 +739,7 @@ static gboolean iface_ssl_send_impl(IdleServerConnectionIface *iface, const gcha
 			g_error_free(local_error);
 		}
 		
-		*error = g_error_new(TELEPATHY_ERRORS, NetworkError, "SSL_write failed");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "SSL_write failed");
 		
 		return FALSE;
 	}

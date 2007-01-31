@@ -23,6 +23,7 @@
 
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/interfaces.h>
+#include <telepathy-glib/errors.h>
 
 #define _GNU_SOURCE
 #include <string.h>
@@ -30,7 +31,6 @@
 
 #include "idle-connection.h"
 #include "idle-handles.h"
-#include "telepathy-errors.h"
 #include "telepathy-helpers.h"
 
 #include "idle-im-channel.h"
@@ -506,7 +506,7 @@ gboolean idle_im_channel_acknowledge_pending_messages (IdleIMChannel *obj, const
 		{
 			g_debug("%s: message id %u not found", G_STRFUNC, id);
 
-			*error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, "message id %u not found", id);
+			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "message id %u not found", id);
 
 			return FALSE;
 		}
@@ -739,7 +739,7 @@ gboolean idle_im_channel_send (IdleIMChannel *obj, guint type, const gchar * tex
 	{
 		g_debug("%s: invalid recipient", G_STRFUNC);
 
-		*error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "invalid recipient");
+		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "invalid recipient");
 
 		return FALSE;
 	}
@@ -763,7 +763,7 @@ gboolean idle_im_channel_send (IdleIMChannel *obj, guint type, const gchar * tex
 	{
 		g_debug("%s: invalid message type %u", G_STRFUNC, type);
 
-		*error = g_error_new(TELEPATHY_ERRORS, InvalidArgument, "invalid message type %u", type);
+		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid message type %u", type);
 
 		return FALSE;
 	}
