@@ -186,7 +186,6 @@ typedef void (*socket_conn_message_cb_t)(IdleConnection *conn, const gchar *msg)
 struct _socket_conn
 {
 	int fd;
-	/*FILE *stream;*/
 
 	/* we need to spawn a thread to play ping-pong with the server
 	 * while it does that it also sends to the server whatever gets in out_queue
@@ -304,16 +303,6 @@ static void
 idle_connection_init (IdleConnection *obj)
 {
   IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE (obj);
-  
-#if 0
-  priv->conn.fd = 0;
-/*  priv->conn.stream = NULL; */
-  priv->conn.thread = (pthread_t)(0);
-  priv->conn.out_queue = NULL;
-  priv->conn.exit = FALSE;
-  priv->conn.crashed = FALSE;
-  priv->conn.msg_store = NULL;
-#endif
   
   priv->port = 6667;
   priv->password = NULL;
@@ -2809,7 +2798,6 @@ static gboolean threaded_connection_open(IdleConnection *conn, GError **error)
 	IdleConnectionPrivate *priv;
 	struct sockaddr_in sin = {0};
 	struct hostent *dst_host;
-/*	FILE *stream;*/
 
 	g_assert(conn != NULL);
 	g_assert(IDLE_IS_CONNECTION(conn));
@@ -2839,20 +2827,7 @@ static gboolean threaded_connection_open(IdleConnection *conn, GError **error)
 
 		return FALSE;
 	}
-/*
-	if ((stream = fdopen(priv->conn.fd, "r+")) == NULL)
-	{
-		close(priv->conn.fd);
 
-		g_debug("%s: fdopen() failed: %s", G_STRFUNC, strerror(errno));
-		
-		*error = g_error_new(TELEPATHY_ERRORS, NetworkError, "fdopen() failed: %s", strerror(errno));
-			
-		return FALSE;
-	}
-
-	priv->conn.stream = stream;
-*/
 	g_debug("%s: success?", G_STRFUNC);
 
 	return TRUE;
@@ -5366,17 +5341,6 @@ gboolean idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **o
 	}
 
 	ret = g_convert(input, -1, "UTF-8", priv->charset, NULL, &bytes_written, &error);
-
-#if 0
-	if (ret == NULL)
-	{
-		g_debug("%s: g_convert failed: %s", G_STRFUNC, error->message);
-		*_error = g_error_new(TELEPATHY_ERRORS, NotAvailable, "character set conversion failed: %s", error->message);
-		g_error_free(error);
-		*output = NULL;
-		return FALSE;
-	}
-#endif
 
 	if (ret == NULL)
 	{
