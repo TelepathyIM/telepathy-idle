@@ -459,11 +459,13 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 		
 		g_debug("%s: re-using existing socket for trying again", G_STRFUNC);
 
+    errno = 0;
 		connect(connect_data->fd, next->ai_addr, next->ai_addrlen);
 
 		for (i=0; i<5 && errno == ECONNABORTED; i++)
 		{
 			g_debug("%s: got ECONNABORTED for (%i+1)th time", G_STRFUNC, i);
+      errno = 0;
 			connect(connect_data->fd, next->ai_addr, next->ai_addrlen);
 		}
 
@@ -524,9 +526,8 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 		return FALSE;
 	}
 
-	rc = connect(fd, cur->ai_addr, cur->ai_addrlen);
-
-	g_assert(rc == -1);
+  errno = 0;
+	connect(fd, cur->ai_addr, cur->ai_addrlen);
 
 	if (errno != EINPROGRESS)
 	{
