@@ -912,7 +912,7 @@ static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpP
 	g_ptr_array_free(changed_props, TRUE);
 }
 
-static void change_sets(IdleMUCChannel *obj, GIntSet *add_current, GIntSet *remove_current, GIntSet *add_local, GIntSet *remove_local, GIntSet *add_remote, GIntSet *remove_remote, IdleHandle actor, TpChannelGroupChangeReason reason);
+static void change_sets(IdleMUCChannel *obj, TpIntSet *add_current, TpIntSet *remove_current, TpIntSet *add_local, TpIntSet *remove_local, TpIntSet *add_remote, TpIntSet *remove_remote, IdleHandle actor, TpChannelGroupChangeReason reason);
 
 static void provide_password_reply(IdleMUCChannel *chan, gboolean success);
 
@@ -1219,17 +1219,17 @@ static void change_password_flags(IdleMUCChannel *obj, guint flag, gboolean stat
 }
 
 static void change_sets(IdleMUCChannel *obj,
-						GIntSet *add_current,
-						GIntSet *remove_current,
-						GIntSet *add_local,
-						GIntSet *remove_local,
-						GIntSet *add_remote,
-						GIntSet *remove_remote,
+						TpIntSet *add_current,
+						TpIntSet *remove_current,
+						TpIntSet *add_local,
+						TpIntSet *remove_local,
+						TpIntSet *add_remote,
+						TpIntSet *remove_remote,
 						IdleHandle actor,
 						TpChannelGroupChangeReason reason)
 {
 	IdleMUCChannelPrivate *priv;
-	GIntSet *add, *remove, *local_pending, *remote_pending, *tmp1, *tmp2;
+	TpIntSet *add, *remove, *local_pending, *remote_pending, *tmp1, *tmp2;
 	GArray *vadd, *vremove, *vlocal, *vremote;
 
 	g_assert(obj != NULL);
@@ -1237,93 +1237,93 @@ static void change_sets(IdleMUCChannel *obj,
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	add = g_intset_new();
-	remove = g_intset_new();
-	local_pending = g_intset_new();
-	remote_pending = g_intset_new();
+	add = tp_intset_new();
+	remove = tp_intset_new();
+	local_pending = tp_intset_new();
+	remote_pending = tp_intset_new();
 
 	if (add_current)
 	{
 		tmp1 = idle_handle_set_update(priv->current_members, add_current);
-		tmp2 = g_intset_union(add, tmp1);
+		tmp2 = tp_intset_union(add, tmp1);
 
-		g_intset_destroy(add);
+		tp_intset_destroy(add);
 		add = tmp2;
 		
-		g_intset_destroy(tmp1);
+		tp_intset_destroy(tmp1);
 	}
 
 	if (remove_current)
 	{
 		tmp1 = idle_handle_set_difference_update(priv->current_members, remove_current);
-		tmp2 = g_intset_union(remove, tmp1);
+		tmp2 = tp_intset_union(remove, tmp1);
 		
-		g_intset_destroy(remove);
+		tp_intset_destroy(remove);
 		remove = tmp2;
 
-		g_intset_destroy(tmp1);
+		tp_intset_destroy(tmp1);
 	}
 	
 	if (add_local)
 	{
 		tmp1 = idle_handle_set_update(priv->local_pending, add_local);
-		tmp2 = g_intset_union(local_pending, tmp1);
+		tmp2 = tp_intset_union(local_pending, tmp1);
 
-		g_intset_destroy(local_pending);
+		tp_intset_destroy(local_pending);
 		local_pending = tmp2;
 
-		g_intset_destroy(tmp1);
+		tp_intset_destroy(tmp1);
 	}
 
 	if (remove_local)
 	{
 		tmp1 = idle_handle_set_difference_update(priv->local_pending, remove_local);
-		tmp2 = g_intset_union(remove, tmp1);
+		tmp2 = tp_intset_union(remove, tmp1);
 
-		g_intset_destroy(remove);
+		tp_intset_destroy(remove);
 		remove = tmp2;
 
-		g_intset_destroy(tmp1);
+		tp_intset_destroy(tmp1);
 	}
 
 	if (add_remote)
 	{
 		tmp1 = idle_handle_set_update(priv->remote_pending, add_remote);
-		tmp2 = g_intset_union(remote_pending, tmp1);
+		tmp2 = tp_intset_union(remote_pending, tmp1);
 
-		g_intset_destroy(remote_pending);
+		tp_intset_destroy(remote_pending);
 		remote_pending = tmp2;
 
-		g_intset_destroy(tmp1);
+		tp_intset_destroy(tmp1);
 	}
 
 	if (remove_remote)
 	{
 		tmp1 = idle_handle_set_difference_update(priv->remote_pending, remove_remote);
-		tmp2 = g_intset_union(remove, tmp1);
+		tmp2 = tp_intset_union(remove, tmp1);
 
-		g_intset_destroy(remove);
+		tp_intset_destroy(remove);
 		remove = tmp2;
 
-		g_intset_destroy(tmp1);
+		tp_intset_destroy(tmp1);
 	}
 	
-	tmp1 = g_intset_difference(remove, add);
-	g_intset_destroy(remove);
+	tmp1 = tp_intset_difference(remove, add);
+	tp_intset_destroy(remove);
 	remove = tmp1;
 
-	tmp1 = g_intset_difference(remove, local_pending);
-	g_intset_destroy(remove);
+	tmp1 = tp_intset_difference(remove, local_pending);
+	tp_intset_destroy(remove);
 	remove = tmp1;
 
-	tmp1 = g_intset_difference(remove, remote_pending);
-	g_intset_destroy(remove);
+	tmp1 = tp_intset_difference(remove, remote_pending);
+	tp_intset_destroy(remove);
 	remove = tmp1;
 
-	vadd = g_intset_to_array(add);
-	vremove = g_intset_to_array(remove);
-	vlocal = g_intset_to_array(local_pending);
-	vremote = g_intset_to_array(remote_pending);
+	vadd = tp_intset_to_array(add);
+	vremove = tp_intset_to_array(remove);
+	vlocal = tp_intset_to_array(local_pending);
+	vremote = tp_intset_to_array(remote_pending);
 
 	if ((vadd->len + vremove->len + vlocal->len + vremote->len) > 0)
 	{
@@ -1336,10 +1336,10 @@ static void change_sets(IdleMUCChannel *obj,
 	g_array_free(vlocal, TRUE);
 	g_array_free(vremote, TRUE);
 
-	g_intset_destroy(add);
-	g_intset_destroy(remove);
-	g_intset_destroy(local_pending);
-	g_intset_destroy(remote_pending);
+	tp_intset_destroy(add);
+	tp_intset_destroy(remove);
+	tp_intset_destroy(local_pending);
+	tp_intset_destroy(remote_pending);
 }
 
 gboolean _idle_muc_channel_receive(IdleMUCChannel *chan, TpChannelTextMessageType type, IdleHandle sender, const gchar *text)
@@ -1394,7 +1394,7 @@ void _idle_muc_channel_join(IdleMUCChannel *chan, const gchar *nick)
 {
 	IdleMUCChannelPrivate *priv;
 	IdleHandle handle;
-	GIntSet *set;
+	TpIntSet *set;
 
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
@@ -1402,7 +1402,7 @@ void _idle_muc_channel_join(IdleMUCChannel *chan, const gchar *nick)
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 
-	set = g_intset_new();
+	set = tp_intset_new();
 
 	handle = idle_handle_for_contact(_idle_connection_get_handles(priv->connection), nick);
 
@@ -1417,7 +1417,7 @@ void _idle_muc_channel_join(IdleMUCChannel *chan, const gchar *nick)
 	{
 		/* woot we managed to get into a channel, great */
 		change_state(chan, MUC_STATE_JOINED);
-		g_intset_add(set, handle);
+		tp_intset_add(set, handle);
 		change_sets(chan, set, NULL, NULL, set, NULL, set, handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 		change_group_flags(chan, TP_CHANNEL_GROUP_FLAG_CAN_ADD, 0);
 
@@ -1431,14 +1431,14 @@ void _idle_muc_channel_join(IdleMUCChannel *chan, const gchar *nick)
 	}
 	else
 	{
-		g_intset_add(set, handle);
+		tp_intset_add(set, handle);
 
 		change_sets(chan, set, NULL, NULL, NULL, NULL, set, handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 	}
 
 	g_debug("%s: member joined with handle %u and nick %s", G_STRFUNC, handle, nick);
 
-	g_intset_destroy(set);
+	tp_intset_destroy(set);
 }
 
 void _idle_muc_channel_part(IdleMUCChannel *chan, const gchar *nick)
@@ -1487,16 +1487,16 @@ void _idle_muc_channel_handle_quit(IdleMUCChannel *chan,
 								   TpChannelGroupChangeReason reason)
 {
 	IdleMUCChannelPrivate *priv;
-	GIntSet *set;
+	TpIntSet *set;
 
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 
-	set = g_intset_new();
+	set = tp_intset_new();
 
-	g_intset_add(set, handle);
+	tp_intset_add(set, handle);
 
 	change_sets(chan, NULL, set, NULL, set, NULL, set, actor, reason);
 	
@@ -1514,33 +1514,33 @@ void _idle_muc_channel_handle_quit(IdleMUCChannel *chan,
 		}
 	}
 
-	g_intset_destroy(set);
+	tp_intset_destroy(set);
 }
 
 void _idle_muc_channel_invited(IdleMUCChannel *chan, IdleHandle inviter)
 {
 	IdleMUCChannelPrivate *priv;
-	GIntSet *handles_to_add;
+	TpIntSet *handles_to_add;
 
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 
-	handles_to_add = g_intset_new();
+	handles_to_add = tp_intset_new();
 
-	g_intset_add(handles_to_add, priv->own_handle);
+	tp_intset_add(handles_to_add, priv->own_handle);
 
 	change_sets(chan, NULL, NULL, handles_to_add, NULL, NULL, NULL, inviter, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 
-	g_intset_destroy(handles_to_add);
+	tp_intset_destroy(handles_to_add);
 }
 
 void _idle_muc_channel_names(IdleMUCChannel *chan, GArray *names)
 {
 	IdleMUCChannelPrivate *priv;
 	int i;
-	GIntSet *handles_to_add;
+	TpIntSet *handles_to_add;
 	IdleHandleStorage *handles; 
 
 	g_assert(chan != NULL);
@@ -1551,7 +1551,7 @@ void _idle_muc_channel_names(IdleMUCChannel *chan, GArray *names)
 
 	handles = _idle_connection_get_handles(priv->connection);
 	
-	handles_to_add = g_intset_new();
+	handles_to_add = tp_intset_new();
 
 	for (i=0; i<names->len; i++)
 	{
@@ -1615,7 +1615,7 @@ void _idle_muc_channel_names(IdleMUCChannel *chan, GArray *names)
 			change_mode_state(chan, add, remove);
 		}
 
-		g_intset_add(handles_to_add, handle);
+		tp_intset_add(handles_to_add, handle);
 
 	}
 
@@ -1967,19 +1967,19 @@ void _idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError 
 void _idle_muc_channel_rename(IdleMUCChannel *chan, IdleHandle old, IdleHandle new)
 {
 	IdleMUCChannelPrivate *priv;
-	GIntSet *cadd, *cremove, *ladd, *lremove, *radd, *rremove;
+	TpIntSet *cadd, *cremove, *ladd, *lremove, *radd, *rremove;
 
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 
-	cadd = g_intset_new();
-	cremove = g_intset_new();
-	ladd = g_intset_new();
-	lremove = g_intset_new();
-	radd = g_intset_new();
-	rremove = g_intset_new();
+	cadd = tp_intset_new();
+	cremove = tp_intset_new();
+	ladd = tp_intset_new();
+	lremove = tp_intset_new();
+	radd = tp_intset_new();
+	rremove = tp_intset_new();
 
 	if (priv->own_handle == old)
 	{
@@ -2001,28 +2001,28 @@ void _idle_muc_channel_rename(IdleMUCChannel *chan, IdleHandle old, IdleHandle n
 	
 	if (idle_handle_set_contains(priv->current_members, old))
 	{
-		g_intset_add(cadd, new);
-		g_intset_add(cremove, old);
+		tp_intset_add(cadd, new);
+		tp_intset_add(cremove, old);
 	}
 	else if (idle_handle_set_contains(priv->local_pending, old))
 	{
-		g_intset_add(ladd, new);
-		g_intset_add(lremove, old);
+		tp_intset_add(ladd, new);
+		tp_intset_add(lremove, old);
 	}
 	else if (idle_handle_set_contains(priv->remote_pending, old))
 	{
-		g_intset_add(radd, new);
-		g_intset_add(rremove, old);
+		tp_intset_add(radd, new);
+		tp_intset_add(rremove, old);
 	}
 
 	change_sets(chan, cadd, cremove, ladd, lremove, radd, rremove, new, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 
-	g_intset_destroy(cadd);
-	g_intset_destroy(cremove);
-	g_intset_destroy(ladd);
-	g_intset_destroy(lremove);
-	g_intset_destroy(radd);
-	g_intset_destroy(rremove);
+	tp_intset_destroy(cadd);
+	tp_intset_destroy(cremove);
+	tp_intset_destroy(ladd);
+	tp_intset_destroy(lremove);
+	tp_intset_destroy(radd);
+	tp_intset_destroy(rremove);
 }
 
 static void send_join_request(IdleMUCChannel *obj, const gchar *password)
@@ -2147,13 +2147,13 @@ static gboolean add_member(IdleMUCChannel *obj, IdleHandle handle, GError **erro
 		}
 		else
 		{
-			GIntSet *add_set = g_intset_new();
+			TpIntSet *add_set = tp_intset_new();
 			
 			send_join_request(obj, NULL);
 
 			change_state(obj, MUC_STATE_JOINING);
 
-			g_intset_add(add_set, handle);
+			tp_intset_add(add_set, handle);
 
 			change_sets(obj, NULL, NULL, NULL, NULL, add_set, NULL, 0, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 		}
@@ -2171,7 +2171,7 @@ static gboolean add_member(IdleMUCChannel *obj, IdleHandle handle, GError **erro
 		else
 		{
 			GError *invite_error;
-			GIntSet *add_set = g_intset_new();
+			TpIntSet *add_set = tp_intset_new();
 			
 			if (!send_invite_request(obj, handle, &invite_error))
 			{
@@ -2180,7 +2180,7 @@ static gboolean add_member(IdleMUCChannel *obj, IdleHandle handle, GError **erro
 				return FALSE;
 			}
 
-			g_intset_add(add_set, handle);
+			tp_intset_add(add_set, handle);
 
 			change_sets(obj,
 						NULL, NULL,

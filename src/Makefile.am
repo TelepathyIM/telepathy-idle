@@ -30,8 +30,6 @@ CORE_SOURCES = \
     idle-handles.h \
     idle-handle-set.h \
 	idle-handles-private.h \
-    gintset.h \
-	gheap.h \
     telepathy-errors.h \
     telepathy-helpers.h \
 	telepathy-constants.h \
@@ -47,8 +45,6 @@ CORE_SOURCES = \
 	idle-muc-channel.c \
     idle-handles.c \
     idle-handle-set.c \
-    gintset.c \
-	gheap.c \
     telepathy-errors.c \
     telepathy-helpers.c \
 	idle-server-connection-iface.c \

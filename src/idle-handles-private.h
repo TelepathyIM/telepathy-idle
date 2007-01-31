@@ -22,9 +22,9 @@
 #define __IDLE_HANDLES_PRIVATE_H__
 
 #include <glib.h>
+#include <telepathy-glib/heap.h>
 
 #include "idle-connection.h"
-#include "gheap.h"
 
 typedef struct _IdleHandlePriv IdleHandlePriv;
 
@@ -46,8 +46,8 @@ struct _IdleHandleStorage
 	guint contact_serial;
 	guint room_serial;
 
-	GHeap *contact_unused;
-	GHeap *room_unused;
+	TpHeap *contact_unused;
+	TpHeap *room_unused;
 };
 
 #endif 

@@ -19,7 +19,8 @@
  */
 
 #include <glib.h>
-#include "gintset.h"
+
+#include <telepathy-glib/intset.h>
 
 #include "idle-handles.h"
 #include "idle-handles-private.h"
@@ -29,7 +30,7 @@
 struct _IdleHandleSet
 {
 	IdleHandleStorage *storage;
-	GIntSet *intset;
+	TpIntSet *intset;
 	TpHandleType type;
 };
 
@@ -39,7 +40,7 @@ IdleHandleSet *idle_handle_set_new(IdleHandleStorage *storage, TpHandleType type
 
 	set = g_new(IdleHandleSet, 1);
 	set->storage = storage;
-	set->intset = g_intset_new();
+	set->intset = tp_intset_new();
 	set->type = type;
 
 	return set;
@@ -53,7 +54,7 @@ static void freer(IdleHandleSet *set, IdleHandle handle, gpointer userdata)
 void idle_handle_set_destroy(IdleHandleSet *set)
 {
 	idle_handle_set_foreach(set, freer, NULL);
-	g_intset_destroy(set->intset);
+	tp_intset_destroy(set->intset);
 	g_free(set);
 }
 
@@ -62,14 +63,14 @@ void idle_handle_set_add(IdleHandleSet *set, IdleHandle handle)
 	g_return_if_fail(set != NULL);
 	g_return_if_fail(handle != 0);
 
-	if (!g_intset_is_member(set->intset, handle))
+	if (!tp_intset_is_member(set->intset, handle))
 	{
 		if (!idle_handle_ref(set->storage, set->type, handle))
 		{
 			return;
 		}
 
-		g_intset_add(set->intset, handle);
+		tp_intset_add(set->intset, handle);
 	}
 }
 
@@ -80,11 +81,11 @@ gboolean idle_handle_set_remove(IdleHandleSet *set, IdleHandle handle)
 		return FALSE;
 	}
 
-	if (g_intset_is_member(set->intset, handle))
+	if (tp_intset_is_member(set->intset, handle))
 	{
 		if (idle_handle_unref(set->storage, set->type, handle))
 		{
-			g_intset_remove(set->intset, handle);
+			tp_intset_remove(set->intset, handle);
 			return TRUE;
 		}
 		else
@@ -100,7 +101,7 @@ gboolean idle_handle_set_remove(IdleHandleSet *set, IdleHandle handle)
 
 gboolean idle_handle_set_contains(IdleHandleSet *set, IdleHandle handle)
 {
-	return g_intset_is_member(set->intset, handle);
+	return tp_intset_is_member(set->intset, handle);
 }
 
 typedef struct __idle_handle_set_foreach_data
@@ -122,19 +123,19 @@ static void foreach_helper(guint i, gpointer userdata)
 void idle_handle_set_foreach(IdleHandleSet *set, IdleHandleFunc func, gpointer userdata)
 {
 	_idle_handle_set_foreach_data data = {set, func, userdata};
-	g_intset_foreach(set->intset, foreach_helper, &data);
+	tp_intset_foreach(set->intset, foreach_helper, &data);
 }
 
 gint idle_handle_set_size(IdleHandleSet *set)
 {
-	return (set != NULL) ? g_intset_size(set->intset) : 0;
+	return (set != NULL) ? tp_intset_size(set->intset) : 0;
 }
 
 GArray *idle_handle_set_to_array(IdleHandleSet *set)
 {
 	if (set != NULL)
 	{
-		return g_intset_to_array(set->intset);
+		return tp_intset_to_array(set->intset);
 	}
 	else
 	{
@@ -150,20 +151,20 @@ static void _idle_handle_set_ref_one(guint handle, gpointer data)
 	idle_handle_ref(set->storage, set->type, handle);
 }
 
-GIntSet *idle_handle_set_update(IdleHandleSet *set, const GIntSet *add)
+TpIntSet *idle_handle_set_update(IdleHandleSet *set, const TpIntSet *add)
 {
-	GIntSet *ret, *tmp;
+	TpIntSet *ret, *tmp;
 
 	if ((set == NULL) || (add == NULL))
 	{
 		return NULL;
 	}
 
-	ret = g_intset_difference(add, set->intset);
-	g_intset_foreach(ret, _idle_handle_set_ref_one, set);
+	ret = tp_intset_difference(add, set->intset);
+	tp_intset_foreach(ret, _idle_handle_set_ref_one, set);
 
-	tmp = g_intset_union(add, set->intset);
-	g_intset_destroy(set->intset);
+	tmp = tp_intset_union(add, set->intset);
+	tp_intset_destroy(set->intset);
 	set->intset = tmp;
 
 	return ret;
@@ -175,20 +176,20 @@ static void _idle_handle_set_unref_one(guint handle, gpointer data)
 	idle_handle_unref(set->storage, set->type, handle);
 }
 
-GIntSet *idle_handle_set_difference_update(IdleHandleSet *set, const GIntSet *remove)
+TpIntSet *idle_handle_set_difference_update(IdleHandleSet *set, const TpIntSet *remove)
 {
-	GIntSet *ret, *tmp;
+	TpIntSet *ret, *tmp;
 
 	if ((set == NULL) || (remove == NULL))
 	{
 		return NULL;
 	}
 
-	ret = g_intset_intersection(remove, set->intset);
-	g_intset_foreach(ret, _idle_handle_set_unref_one, set);
+	ret = tp_intset_intersection(remove, set->intset);
+	tp_intset_foreach(ret, _idle_handle_set_unref_one, set);
 
-	tmp = g_intset_difference(set->intset, remove);
-	g_intset_destroy(set->intset);
+	tmp = tp_intset_difference(set->intset, remove);
+	tp_intset_destroy(set->intset);
 	set->intset = tmp;
 
 	return ret;

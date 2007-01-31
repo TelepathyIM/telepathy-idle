@@ -21,13 +21,12 @@
 #include <glib.h>
 #include <string.h>
 #include <ctype.h>
+#include <telepathy-glib/heap.h>
 
 #include "idle-handles.h"
 #include "idle-handles-private.h"
 
 #include "idle-connection.h"
-
-#include "gintset.h"
 
 #define idle_handle_priv_new() (g_slice_new0(IdleHandlePriv))
 
@@ -179,7 +178,7 @@ static IdleHandle idle_handle_alloc(IdleHandleStorage *storage, TpHandleType typ
 	{
 		case TP_HANDLE_TYPE_CONTACT:
 		{
-			ret = GPOINTER_TO_INT(g_heap_extract_first(storage->contact_unused));
+			ret = GPOINTER_TO_INT(tp_heap_extract_first(storage->contact_unused));
 
 			if (ret == 0)
 			{
@@ -189,7 +188,7 @@ static IdleHandle idle_handle_alloc(IdleHandleStorage *storage, TpHandleType typ
 		break;
 		case TP_HANDLE_TYPE_ROOM:
 		{
-			ret = GPOINTER_TO_INT(g_heap_extract_first(storage->room_unused));
+			ret = GPOINTER_TO_INT(tp_heap_extract_first(storage->room_unused));
 
 			if (ret == 0)
 			{
@@ -264,7 +263,7 @@ void handle_priv_remove(IdleHandleStorage *storage, TpHandleType type, IdleHandl
 			}
 			else
 			{
-				g_heap_add(storage->contact_unused, GINT_TO_POINTER(handle));
+				tp_heap_add(storage->contact_unused, GINT_TO_POINTER(handle));
 			}			
 		}
 		break;
@@ -279,7 +278,7 @@ void handle_priv_remove(IdleHandleStorage *storage, TpHandleType type, IdleHandl
 			}
 			else
 			{
-				g_heap_add(storage->room_unused, GINT_TO_POINTER(handle));
+				tp_heap_add(storage->room_unused, GINT_TO_POINTER(handle));
 			}			
 		}
 		break;
@@ -358,8 +357,8 @@ IdleHandleStorage *idle_handle_storage_new()
 	ret->contact_strings = g_hash_table_new_full(g_strncase_hash, g_strncase_equal, NULL, NULL);
 	ret->room_strings = g_hash_table_new_full(g_strncase_hash, g_strncase_equal, NULL, NULL);
 
-	ret->contact_unused = g_heap_new(idle_handle_compare);
-	ret->room_unused = g_heap_new(idle_handle_compare);
+	ret->contact_unused = tp_heap_new(idle_handle_compare);
+	ret->room_unused = tp_heap_new(idle_handle_compare);
 
 	ret->contact_serial = 1;
 	ret->room_serial = 1;
@@ -379,8 +378,8 @@ void idle_handle_storage_destroy(IdleHandleStorage *storage)
 	g_hash_table_destroy(storage->contact_strings);
 	g_hash_table_destroy(storage->room_strings);
 
-	g_heap_destroy(storage->contact_unused);
-	g_heap_destroy(storage->room_unused);
+	tp_heap_destroy(storage->contact_unused);
+	tp_heap_destroy(storage->room_unused);
 
 	g_slice_free(IdleHandleStorage, storage);
 }

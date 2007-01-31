@@ -23,6 +23,8 @@
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus-glib-lowlevel.h>
 
+#include <telepathy-glib/intset.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -52,7 +54,6 @@
 #include "idle-handle-set.h"
 #include "idle-im-channel.h"
 #include "idle-muc-channel.h"
-#include "gintset.h"
 
 #include "idle-server-connection.h"
 #include "idle-ssl-server-connection.h"
@@ -270,7 +271,7 @@ struct _IdleConnectionPrivate
 	GData *cl_room_handle_sets;
 
 	/* Set of handles whose presence status we should poll and associated polling timer */
-	GIntSet *polled_presences;
+	TpIntSet *polled_presences;
 	guint presence_polling_timer_id;
 
 	/* presence query queue, unload timer and pending reply list */
@@ -331,7 +332,7 @@ idle_connection_init (IdleConnection *obj)
   priv->im_channels = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_object_unref);
   priv->muc_channels = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_object_unref);
 
-  priv->polled_presences = g_intset_new();
+  priv->polled_presences = tp_intset_new();
   priv->presence_polling_timer_id = 0;
 
   priv->presence_queue = g_queue_new();
@@ -738,7 +739,7 @@ idle_connection_finalize (GObject *object)
 
   g_hash_table_destroy(priv->chan_req_ctxs);
 
-  g_intset_destroy(priv->polled_presences);
+  tp_intset_destroy(priv->polled_presences);
   
   while ((nick = g_queue_pop_head(priv->presence_queue)) != NULL)
   {
@@ -2606,7 +2607,7 @@ static void polling_foreach_func(guint i, gpointer user_data)
 	}
 	else
 	{
-		g_intset_remove(priv->polled_presences, handle);
+		tp_intset_remove(priv->polled_presences, handle);
 	}
 }
 
@@ -2615,9 +2616,9 @@ static gboolean presence_polling_cb(gpointer user_data)
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(user_data);
 
-	g_intset_foreach(priv->polled_presences, polling_foreach_func, conn);
+	tp_intset_foreach(priv->polled_presences, polling_foreach_func, conn);
 
-	if (!g_intset_size(priv->polled_presences))
+	if (!tp_intset_size(priv->polled_presences))
 	{
 		return FALSE;
 	}
@@ -2629,7 +2630,7 @@ static void polled_presence_add(IdleConnection *conn, IdleHandle handle)
 {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	
-	g_intset_add(priv->polled_presences, handle);
+	tp_intset_add(priv->polled_presences, handle);
 
 	if (!priv->presence_polling_timer_id)
 	{
@@ -2642,9 +2643,9 @@ static void polled_presence_remove(IdleConnection *conn, IdleHandle handle)
 {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	
-	g_intset_remove(priv->polled_presences, handle);
+	tp_intset_remove(priv->polled_presences, handle);
 
-	if (priv->presence_polling_timer_id && !g_intset_size(priv->polled_presences))
+	if (priv->presence_polling_timer_id && !tp_intset_size(priv->polled_presences))
 	{
 		g_source_remove(priv->presence_polling_timer_id);
 		priv->presence_polling_timer_id = 0;

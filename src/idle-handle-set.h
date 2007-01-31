@@ -22,8 +22,8 @@
 #define __IDLE_HANDLE_SET_H__
 
 #include <glib.h>
+#include <telepathy-glib/intset.h>
 
-#include "gintset.h"
 #include "idle-handles.h"
 #include "telepathy-constants.h"
 
@@ -44,7 +44,7 @@ void idle_handle_set_foreach(IdleHandleSet *set, IdleHandleFunc func, gpointer u
 gint idle_handle_set_size(IdleHandleSet *set);
 GArray *idle_handle_set_to_array(IdleHandleSet *set);
 
-GIntSet *idle_handle_set_update(IdleHandleSet *set, const GIntSet *add);
-GIntSet *idle_handle_set_difference_update(IdleHandleSet *set, const GIntSet *remove);
+TpIntSet *idle_handle_set_update(IdleHandleSet *set, const TpIntSet *add);
+TpIntSet *idle_handle_set_difference_update(IdleHandleSet *set, const TpIntSet *remove);
 
 #endif /* __IDLE_HANDLE_SET_H__ */
