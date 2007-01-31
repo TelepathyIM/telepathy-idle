@@ -25,6 +25,7 @@
 
 #include <telepathy-glib/intset.h>
 #include <telepathy-glib/enums.h>
+#include <telepathy-glib/interfaces.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,7 +49,6 @@
 
 #include "telepathy-errors.h"
 #include "telepathy-helpers.h"
-#include "telepathy-interfaces.h"
 
 #include "idle-handles.h"
 #include "idle-handle-set.h"
@@ -4241,10 +4241,7 @@ gboolean idle_connection_get_capabilities (IdleConnection *obj, GArray *handles,
  */
 gboolean idle_connection_get_interfaces (IdleConnection *obj, gchar *** ret, GError **error)
 {
-	const char *interfaces[] = {TP_IFACE_CONN_INTERFACE_PRESENCE,
-								/*TP_IFACE_CONN_INTERFACE_CAPABILITIES,*/
-								TP_IFACE_CONN_INTERFACE_RENAMING,
-								NULL};
+	const char *interfaces[] = {TP_IFACE_CONNECTION_INTERFACE_PRESENCE, TP_IFACE_CONNECTION_INTERFACE_RENAMING,	NULL};
 	IdleConnectionPrivate *priv;
 
 	g_assert(obj != NULL);

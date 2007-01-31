@@ -22,6 +22,7 @@
 #include <dbus/dbus-glib.h>
 
 #include <telepathy-glib/enums.h>
+#include <telepathy-glib/interfaces.h>
 
 #define _GNU_SOURCE
 #include <stdlib.h>
@@ -40,7 +41,6 @@
 
 #include "telepathy-helpers.h"
 #include "telepathy-errors.h"
-#include "telepathy-interfaces.h"
 
 #define IRC_MSG_MAXLEN 510
 
@@ -2510,10 +2510,7 @@ gboolean idle_muc_channel_get_handle_owners (IdleMUCChannel *obj, const GArray *
  */
 gboolean idle_muc_channel_get_interfaces (IdleMUCChannel *obj, gchar *** ret, GError **error)
 {
-	/* TODO implement Properties */
-	const gchar *interfaces[] = {TP_IFACE_CHANNEL_INTERFACE_PASSWORD,
-								 TP_IFACE_CHANNEL_INTERFACE_GROUP,
-								 TP_IFACE_PROPERTIES, NULL};
+	const gchar *interfaces[] = {TP_IFACE_CHANNEL_INTERFACE_PASSWORD, TP_IFACE_CHANNEL_INTERFACE_GROUP, TP_IFACE_PROPERTIES_INTERFACE, NULL};
 	
 	*ret = g_strdupv((gchar **)(interfaces));
 
