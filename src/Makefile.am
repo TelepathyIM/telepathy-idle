@@ -32,8 +32,6 @@ CORE_SOURCES = \
 	idle-handles-private.h \
     telepathy-errors.h \
     telepathy-helpers.h \
-	telepathy-constants.h \
-	telepathy-interfaces.h \
 	idle-server-connection-iface.h \
 	idle-server-connection.h \
 	idle-server-connection-util.h \
