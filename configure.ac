@@ -66,6 +66,12 @@ dnl ])
 AC_SUBST(SOFIA_CFLAGS)
 AC_SUBST(SOFIA_LIBS)
 
+dnl Check for telepathy-glib
+PKG_CHECK_MODULES(TELEPATHY, [telepathy-glib])
+
+AC_SUBST(TELEPATHY_CFLAGS)
+AC_SUBST(TELEPATHY_LIBS)
+
 dnl Check for OpenSSL
 PKG_CHECK_MODULES(OPENSSL, [openssl >= 0.9.7])
 

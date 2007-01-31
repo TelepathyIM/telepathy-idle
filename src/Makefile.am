@@ -70,8 +70,8 @@ telepathy_idle_LDADD = libidle-convenience.la
 
 noinst_LTLIBRARIES = libidle-convenience.la
 
-AM_CFLAGS = $(ERROR_CFLAGS) @DBUS_CFLAGS@ @GLIB_CFLAGS@ @SOFIA_CFLAGS@ @OPENSSL_CFLAGS@
-AM_LDFLAGS = @DBUS_LIBS@ @GLIB_LIBS@ @SOFIA_LIBS@ @OPENSSL_LIBS@
+AM_CFLAGS = $(ERROR_CFLAGS) @DBUS_CFLAGS@ @GLIB_CFLAGS@ @SOFIA_CFLAGS@ @OPENSSL_CFLAGS@ @TELEPATHY_CFLAGS@
+AM_LDFLAGS = @DBUS_LIBS@ @GLIB_LIBS@ @SOFIA_LIBS@ @OPENSSL_LIBS@ @TELEPATHY_LIBS@
 
 # rule to generate the binding headers
 %-glue.h: ../generate/xml-modified/%.xml Makefile
