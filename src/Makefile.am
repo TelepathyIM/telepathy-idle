@@ -28,8 +28,6 @@ CORE_SOURCES = \
     idle-handles.h \
     idle-handle-set.h \
 	idle-handles-private.h \
-    telepathy-errors.h \
-    telepathy-helpers.h \
 	idle-server-connection-iface.h \
 	idle-server-connection.h \
 	idle-server-connection-util.h \
@@ -41,7 +39,6 @@ CORE_SOURCES = \
 	idle-muc-channel.c \
     idle-handles.c \
     idle-handle-set.c \
-    telepathy-helpers.c \
 	idle-server-connection-iface.c \
 	idle-server-connection.c \
 	idle-server-connection-util.c \

@@ -23,13 +23,13 @@
 
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/errors.h>
+#include <telepathy-glib/dbus.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "idle-connection.h"
-#include "telepathy-helpers.h"
 
 #include "idle-connection-manager.h"
 #include "idle-connection-manager-glue.h"

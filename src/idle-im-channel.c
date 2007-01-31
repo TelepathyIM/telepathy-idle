@@ -24,6 +24,7 @@
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/errors.h>
+#include <telepathy-glib/dbus.h>
 
 #define _GNU_SOURCE
 #include <string.h>
@@ -31,7 +32,6 @@
 
 #include "idle-connection.h"
 #include "idle-handles.h"
-#include "telepathy-helpers.h"
 
 #include "idle-im-channel.h"
 #include "idle-im-channel-glue.h"

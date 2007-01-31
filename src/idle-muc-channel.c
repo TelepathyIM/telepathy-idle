@@ -24,6 +24,7 @@
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/errors.h>
+#include <telepathy-glib/dbus.h>
 
 #define _GNU_SOURCE
 #include <stdlib.h>
@@ -39,8 +40,6 @@
 #include "idle-connection.h"
 #include "idle-handles.h"
 #include "idle-handle-set.h"
-
-#include "telepathy-helpers.h"
 
 #define IRC_MSG_MAXLEN 510
 

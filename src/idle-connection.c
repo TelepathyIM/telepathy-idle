@@ -27,6 +27,7 @@
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/errors.h>
+#include <telepathy-glib/dbus.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,8 +48,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-
-#include "telepathy-helpers.h"
 
 #include "idle-handles.h"
 #include "idle-handle-set.h"
