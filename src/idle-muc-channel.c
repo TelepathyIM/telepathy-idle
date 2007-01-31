@@ -21,6 +21,8 @@
 #include <glib.h>
 #include <dbus/dbus-glib.h>
 
+#include <telepathy-glib/enums.h>
+
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <ctype.h>
@@ -38,7 +40,6 @@
 
 #include "telepathy-helpers.h"
 #include "telepathy-errors.h"
-#include "telepathy-constants.h"
 #include "telepathy-interfaces.h"
 
 #define IRC_MSG_MAXLEN 510

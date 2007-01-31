@@ -23,9 +23,9 @@
 
 #include <glib.h>
 #include <telepathy-glib/intset.h>
+#include <telepathy-glib/enums.h>
 
 #include "idle-handles.h"
-#include "telepathy-constants.h"
 
 G_BEGIN_DECLS
 

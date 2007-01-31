@@ -21,13 +21,14 @@
 #include <glib.h>
 #include <dbus/dbus-glib.h>
 
+#include <telepathy-glib/enums.h>
+
 #define _GNU_SOURCE
 #include <string.h>
 #include <time.h>
 
 #include "idle-connection.h"
 #include "idle-handles.h"
-#include "telepathy-constants.h"
 #include "telepathy-errors.h"
 #include "telepathy-helpers.h"
 #include "telepathy-interfaces.h"

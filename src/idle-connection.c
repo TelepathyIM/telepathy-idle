@@ -24,6 +24,7 @@
 #include <dbus/dbus-glib-lowlevel.h>
 
 #include <telepathy-glib/intset.h>
+#include <telepathy-glib/enums.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,7 +46,6 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include "telepathy-constants.h"
 #include "telepathy-errors.h"
 #include "telepathy-helpers.h"
 #include "telepathy-interfaces.h"
@@ -83,7 +83,7 @@ G_DEFINE_TYPE(IdleConnection, idle_connection, G_TYPE_OBJECT);
 #define IRC_MSG_MAXLEN 510
 
 #define ERROR_IF_NOT_CONNECTED(CONN, PRIV, ERROR) \
-  if ((PRIV)->status != TP_CONN_STATUS_CONNECTED) \
+  if ((PRIV)->status != TP_CONNECTION_STATUS_CONNECTED) \
     { \
     /*  if (((PRIV)->conn.crashed)) socket_conn_close(CONN);*/ \
       g_debug ("%s: rejected request as disconnected", G_STRFUNC); \
@@ -93,7 +93,7 @@ G_DEFINE_TYPE(IdleConnection, idle_connection, G_TYPE_OBJECT);
     }
 
 #define ERROR_IF_NOT_CONNECTED_ASYNC(CONN, PRIV, ERROR, CONTEXT) \
-  if ((PRIV)->status != TP_CONN_STATUS_CONNECTED) \
+  if ((PRIV)->status != TP_CONNECTION_STATUS_CONNECTED) \
     { \
       /*if (((PRIV)->conn.crashed)) socket_conn_close(CONN); */\
       g_debug ("%s: rejected request as disconnected", G_STRFUNC); \
@@ -125,9 +125,9 @@ struct _IdleStatusInfo
 
 static const IdleStatusInfo idle_statuses[LAST_IDLE_PRESENCE_ENUM] =
 {
-	{IRC_PRESENCE_SHOW_AVAILABLE,	TP_CONN_PRESENCE_TYPE_AVAILABLE, TRUE, TRUE},
-	{IRC_PRESENCE_SHOW_AWAY,		TP_CONN_PRESENCE_TYPE_AWAY, TRUE, TRUE},
-	{IRC_PRESENCE_SHOW_OFFLINE,		TP_CONN_PRESENCE_TYPE_OFFLINE, FALSE, TRUE}
+	{IRC_PRESENCE_SHOW_AVAILABLE,	TP_CONNECTION_PRESENCE_TYPE_AVAILABLE, TRUE, TRUE},
+	{IRC_PRESENCE_SHOW_AWAY,		TP_CONNECTION_PRESENCE_TYPE_AWAY, TRUE, TRUE},
+	{IRC_PRESENCE_SHOW_OFFLINE,		TP_CONNECTION_PRESENCE_TYPE_OFFLINE, FALSE, TRUE}
 };
 
 void idle_contact_presence_free(IdleContactPresence *cp)
@@ -339,7 +339,7 @@ idle_connection_init (IdleConnection *obj)
   priv->presence_unload_timer_id = 0;
   priv->presence_reply_list = NULL;
 
-  priv->status = TP_CONN_STATUS_DISCONNECTED;
+  priv->status = TP_CONNECTION_STATUS_DISCONNECTED;
 
   g_datalist_init(&(priv->cl_contact_handle_sets));
   g_datalist_init(&(priv->cl_room_handle_sets));
@@ -927,7 +927,7 @@ static void handle_err_nicknameinuse(IdleConnection *conn)
 
 	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	*/
-	connection_status_change(conn, TP_CONN_STATUS_DISCONNECTED, TP_CONN_STATUS_REASON_NAME_IN_USE);
+	connection_status_change(conn, TP_CONNECTION_STATUS_DISCONNECTED, TP_CONNECTION_STATUS_REASON_NAME_IN_USE);
 	/* CHANGE: do not handle it ourselves anymore. Instead fail and signal UI about the situation. */
 #if 0
 	g_assert(priv->nickname != NULL);
@@ -965,7 +965,7 @@ static void handle_err_nicknameinuse(IdleConnection *conn)
 
 static void handle_err_erroneusnickname(IdleConnection *conn)
 {
-	connection_status_change(conn, TP_CONN_STATUS_DISCONNECTED, TP_CONN_STATUS_REASON_AUTHENTICATION_FAILED);
+	connection_status_change(conn, TP_CONNECTION_STATUS_DISCONNECTED, TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED);
 }
 
 typedef struct
@@ -989,7 +989,7 @@ static gboolean sconn_timeout_cb(gpointer user_data)
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	
 	connection_connect_cb(conn, FALSE);
-	connection_disconnect_cb(conn, TP_CONN_STATUS_REASON_NETWORK_ERROR);
+	connection_disconnect_cb(conn, TP_CONNECTION_STATUS_REASON_NETWORK_ERROR);
 	
 	return FALSE;
 }
@@ -1006,12 +1006,12 @@ static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServer
 	{
 		case SERVER_CONNECTION_STATE_REASON_ERROR:
 		{
-			tp_reason = TP_CONN_STATUS_REASON_NETWORK_ERROR;
+			tp_reason = TP_CONNECTION_STATUS_REASON_NETWORK_ERROR;
 		}
 		break;
 		case SERVER_CONNECTION_STATE_REASON_REQUESTED:
 		{
-			tp_reason = TP_CONN_STATUS_REASON_REQUESTED;
+			tp_reason = TP_CONNECTION_STATUS_REASON_REQUESTED;
 		}
 		break;
 		default:
@@ -1031,7 +1031,7 @@ static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServer
 	{
 		case SERVER_CONNECTION_STATE_NOT_CONNECTED:
 		{
-			if (priv->status == TP_CONN_STATUS_CONNECTING)
+			if (priv->status == TP_CONNECTION_STATUS_CONNECTING)
 			{
 				connection_connect_cb(conn, FALSE);
 				connection_disconnect_cb(conn, tp_reason);
@@ -1344,7 +1344,7 @@ static void send_irc_cmd_full(IdleConnection *conn, const gchar *msg, guint prio
 	}
 
 	if ((priority == SERVER_CMD_MAX_PRIORITY)
-          || ((priv->status == TP_CONN_STATUS_CONNECTED)
+          || ((priv->status == TP_CONNECTION_STATUS_CONNECTED)
             && (priv->msg_queue_timeout == 0)
 			&& (curr_time - priv->last_msg_sent > MSG_QUEUE_TIMEOUT)))
 	{
@@ -2580,11 +2580,11 @@ static void connection_connect_cb(IdleConnection *conn, gboolean success)
 	
 	if (success)
 	{
-		connection_status_change(conn, TP_CONN_STATUS_CONNECTED, TP_CONN_STATUS_REASON_REQUESTED);
+		connection_status_change(conn, TP_CONNECTION_STATUS_CONNECTED, TP_CONNECTION_STATUS_REASON_REQUESTED);
 	}
 	else
 	{
-		connection_status_change(conn, TP_CONN_STATUS_DISCONNECTED, TP_CONN_STATUS_REASON_NETWORK_ERROR);
+		connection_status_change(conn, TP_CONNECTION_STATUS_DISCONNECTED, TP_CONNECTION_STATUS_REASON_NETWORK_ERROR);
 	}
 }
 
@@ -2865,7 +2865,7 @@ static void *socket_conn_thread_fn(void *conn_closure)
 	IdleConnection *conn = (IdleConnection *)(conn_closure);
 	IdleConnectionPrivate *priv;
 	GAsyncQueue *sendq = NULL;
-	TpConnectionStatusReason disconnect_reason = TP_CONN_STATUS_REASON_REQUESTED;
+	TpConnectionStatusReason disconnect_reason = TP_CONNECTION_STATUS_REASON_REQUESTED;
 	GError *error;
 
 	g_assert(conn != NULL);
@@ -2883,7 +2883,7 @@ static void *socket_conn_thread_fn(void *conn_closure)
 		
 		g_error_free(error);
 		
-		disconnect_reason = TP_CONN_STATUS_REASON_NETWORK_ERROR;
+		disconnect_reason = TP_CONNECTION_STATUS_REASON_NETWORK_ERROR;
 		
 		goto exitl;
 	}
@@ -2902,7 +2902,7 @@ static void *socket_conn_thread_fn(void *conn_closure)
 		if (recv_ret == FALSE)
 		{
 			g_debug("%s: network error in receive_line", G_STRFUNC);
-			disconnect_reason = TP_CONN_STATUS_REASON_NETWORK_ERROR;
+			disconnect_reason = TP_CONNECTION_STATUS_REASON_NETWORK_ERROR;
 			goto exitl;
 		}
 		
@@ -2911,7 +2911,7 @@ static void *socket_conn_thread_fn(void *conn_closure)
 			if (!send_all_queued(priv->conn.fd, priv->conn.out_queue))
 			{
 				g_debug("%s: network error in send_all_queued", G_STRFUNC);
-				disconnect_reason = TP_CONN_STATUS_REASON_NETWORK_ERROR;
+				disconnect_reason = TP_CONNECTION_STATUS_REASON_NETWORK_ERROR;
 				goto exitl;
 			}
 		}
@@ -3181,7 +3181,7 @@ static void connection_disconnect(IdleConnection *conn, TpConnectionStatusReason
 
 	send_quit_request(conn);
 
-	connection_status_change(conn, TP_CONN_STATUS_DISCONNECTED, reason);
+	connection_status_change(conn, TP_CONNECTION_STATUS_DISCONNECTED, reason);
 
 	if (priv->conn != NULL)
 	{
@@ -3204,7 +3204,7 @@ static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusRea
 	g_debug("%s: called with reason %u", G_STRFUNC, reason);
 
 	close_all_channels(conn);
-	connection_status_change(conn, TP_CONN_STATUS_DISCONNECTED, reason);
+	connection_status_change(conn, TP_CONNECTION_STATUS_DISCONNECTED, reason);
 
 	if (priv->conn)
 	{
@@ -4154,7 +4154,7 @@ gboolean idle_connection_disconnect (IdleConnection *obj, GError **error)
 	g_assert(obj != NULL);
   	g_assert(IDLE_IS_CONNECTION(obj));
 
-	connection_disconnect(obj, TP_CONN_STATUS_REASON_REQUESTED);
+	connection_disconnect(obj, TP_CONNECTION_STATUS_REASON_REQUESTED);
   	
   	return TRUE;
 }

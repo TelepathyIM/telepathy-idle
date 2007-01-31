@@ -20,12 +20,14 @@
 
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus-protocol.h>
+
+#include <telepathy-glib/enums.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "idle-connection.h"
-#include "telepathy-constants.h"
 #include "telepathy-errors.h"
 #include "telepathy-helpers.h"
 

@@ -23,11 +23,12 @@
 
 #include <glib.h>
 
+#include <telepathy-glib/enums.h>
+
 typedef struct _IdleHandleStorage IdleHandleStorage;
 typedef guint IdleHandle;
 
 #include "idle-connection.h"
-#include "telepathy-constants.h"
 
 G_BEGIN_DECLS
 

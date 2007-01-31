@@ -22,9 +22,9 @@
 #define __IDLE_MUC_CHANNEL_H__
 
 #include <glib-object.h>
+#include <telepathy-glib/enums.h>
 
 #include "idle-handles.h"
-#include "telepathy-constants.h"
 
 G_BEGIN_DECLS
 

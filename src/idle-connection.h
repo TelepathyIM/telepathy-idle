@@ -26,12 +26,13 @@
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus-glib-lowlevel.h>
 
+#include <telepathy-glib/enums.h>
+
 typedef struct _IdleConnection IdleConnection;
 typedef struct _IdleConnectionClass IdleConnectionClass;
 typedef struct _IdleContactPresence IdleContactPresence;
 
 #include "idle-handles.h"
-#include "telepathy-constants.h"
 
 G_BEGIN_DECLS
 
