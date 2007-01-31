@@ -19,17 +19,36 @@
  */
 #include "idle-dns-resolver.h"
 
-#define idle_dns_result_new() \
-	(g_slice_new(IdleDNSResult))
-#define idle_dns_result_new0() \
-	(g_slice_new0(IdleDNSResult))
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+
+typedef struct _IdleDNSResultReal IdleDNSResultReal;
+
+struct _IdleDNSResultReal
+{
+  IdleDNSResult result;
+  struct addrinfo *addrinfo;
+};
+
+#define idle_dns_result_real_new() \
+	(g_slice_new(IdleDNSResultReal))
+#define idle_dns_result_real_new0() \
+	(g_slice_new0(IdleDNSResultReal))
 
 void idle_dns_result_destroy(IdleDNSResult *result)
 {
+  IdleDNSResultReal *real = (IdleDNSResultReal *)(result);
+
 	if (result->ai_next)
 	{
 		idle_dns_result_destroy(result->ai_next);
 	}
+
+  if (real->addrinfo)
+  {
+    freeaddrinfo(real->addrinfo);
+  }
 	
 	g_slice_free(IdleDNSResult, result);
 }
@@ -384,10 +403,6 @@ void idle_dns_resolver_cancel_query(IdleDNSResolver *resolver, guint query_id)
 }
 #endif
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-
 typedef struct _IdleDNSQueryData IdleDNSQueryData;
 
 struct _IdleDNSQueryData
@@ -462,7 +477,7 @@ _resolve_idle_func(struct _idle_helper *helper)
 	struct addrinfo *info = NULL;
 	struct addrinfo *cur;
 	int rc;
-	IdleDNSResult *results = NULL, *tail = NULL;
+	IdleDNSResultReal *results = NULL, *tail = NULL;
 	IdleDNSResultCallback cb;
 	gpointer user_data;
 	gchar *service = g_strdup_printf("%u", data->port);
@@ -480,8 +495,8 @@ _resolve_idle_func(struct _idle_helper *helper)
 
 	for (cur = info; cur != NULL; cur = cur->ai_next)
 	{
-		IdleDNSResult *result = idle_dns_result_new();
-		g_debug("%s: got result with family %u", G_STRFUNC, cur->ai_family);
+		IdleDNSResultReal *real = idle_dns_result_real_new();
+    IdleDNSResult *result = &(real->result);
 
 		result->ai_family = cur->ai_family;
 		result->ai_socktype = cur->ai_socktype;
@@ -490,22 +505,24 @@ _resolve_idle_func(struct _idle_helper *helper)
 		result->ai_addrlen = cur->ai_addrlen;
 		result->ai_next = NULL;
 
+    real->addrinfo = NULL;
+
 		if (tail)
 		{
-			tail->ai_next = result;
+			tail->result.ai_next = (IdleDNSResult *)(real);
 		}
 
 		if (!results)
 		{
-			results = result;
+			results = real;
+      real->addrinfo = info;
 		}
 
-		tail = result;
+		tail = real;
 	}
 
 	g_hash_table_remove(helper->res->queries, GUINT_TO_POINTER(helper->serial));
-	cb(helper->serial, results, user_data);
-	freeaddrinfo(info);
+	cb(helper->serial, (IdleDNSResult *)(results), user_data);
 	g_free(service);
 
 	return FALSE;
