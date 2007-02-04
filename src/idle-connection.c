@@ -3414,6 +3414,8 @@ gboolean idle_connection_hold_handles (IdleConnection *obj,
 	}
 
 	dbus_g_method_return(context);
+
+  free(sender);
 		
 	return TRUE;
 }
@@ -3665,6 +3667,8 @@ gboolean idle_connection_release_handles (IdleConnection *obj,
 	}
 
 	dbus_g_method_return(context);
+
+  free(sender);
 
 	return TRUE;
 }
