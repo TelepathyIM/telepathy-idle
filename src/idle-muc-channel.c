@@ -42,8 +42,6 @@
 
 #define IRC_MSG_MAXLEN 510
 
-#define DEBUGSPIKE {g_debug("at %s, line %u", G_STRFUNC, __LINE__);}
-
 G_DEFINE_TYPE(IdleMUCChannel, idle_muc_channel, G_TYPE_OBJECT)
 
 /* signal enum */
@@ -607,30 +605,6 @@ idle_muc_channel_dispose (GObject *object)
   if (G_OBJECT_CLASS (idle_muc_channel_parent_class)->dispose)
     G_OBJECT_CLASS (idle_muc_channel_parent_class)->dispose (object);
 }
-#if 0
-/* unref all handles in given GArray */
-static void unref_handle_array(TpHandleRepoIface *storage, GArray *handles, TpHandleType type)
-{
-	int i;
-	
-	g_assert(storage != NULL);
-	g_assert(handles != NULL);
-
-	for (i=0; i<handles->len; i++)
-	{
-		tp_handle_unref(storage, type, (IdleHandle)(g_array_index(handles, guint, i)));
-	}
-}
-#endif
-
-#if 0
-static void handle_unref_foreach(IdleHandleSet *set, TpHandle handle, gpointer userdata)
-{
-	TpHandleRepoIface *storage = IDLE_HANDLE_STORAGE(userdata);
-
-	tp_handle_unref(storage, TP_HANDLE_TYPE_CONTACT, handle);
-}
-#endif
 
 void
 idle_muc_channel_finalize (GObject *object)
