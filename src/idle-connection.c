@@ -68,10 +68,6 @@
 #define BUS_NAME 	"org.freedesktop.Telepathy.Connection.idle"
 #define OBJECT_PATH "/org/freedesktop/Telepathy/Connection/idle"
 
-/*
-#define TP_CAPABILITY_PAIR_TYPE (dbus_g_type_get_struct ("GValueArray", G_TYPE_STRING, G_TYPE_UINT, G_TYPE_INVALID))
-*/
-
 G_DEFINE_TYPE(IdleConnection, idle_connection, G_TYPE_OBJECT);
 
 #define IRC_PRESENCE_SHOW_AVAILABLE "available"
@@ -84,7 +80,6 @@ G_DEFINE_TYPE(IdleConnection, idle_connection, G_TYPE_OBJECT);
 #define ERROR_IF_NOT_CONNECTED(CONN, PRIV, ERROR) \
   if ((PRIV)->status != TP_CONNECTION_STATUS_CONNECTED) \
     { \
-    /*  if (((PRIV)->conn.crashed)) socket_conn_close(CONN);*/ \
       g_debug ("%s: rejected request as disconnected", G_STRFUNC); \
       (ERROR) = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, \
                             "Connection is disconnected"); \
@@ -94,7 +89,6 @@ G_DEFINE_TYPE(IdleConnection, idle_connection, G_TYPE_OBJECT);
 #define ERROR_IF_NOT_CONNECTED_ASYNC(CONN, PRIV, ERROR, CONTEXT) \
   if ((PRIV)->status != TP_CONNECTION_STATUS_CONNECTED) \
     { \
-      /*if (((PRIV)->conn.crashed)) socket_conn_close(CONN); */\
       g_debug ("%s: rejected request as disconnected", G_STRFUNC); \
       (ERROR) = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, \
                             "Connection is disconnected"); \
@@ -144,7 +138,6 @@ typedef struct
 /* signal enum */
 enum
 {
-/*    CAPABILITIES_CHANGED,*/
     NEW_CHANNEL,
     PRESENCE_UPDATE,
     STATUS_CHANGED,
@@ -171,48 +164,6 @@ static guint signals[LAST_SIGNAL_ENUM] = {0};
 
 /* private structure */
 typedef struct _IdleConnectionPrivate IdleConnectionPrivate;
-
-#if 0
-/*
- * socket/stdio network connection
- */ 
-typedef struct _socket_conn socket_conn;
-
-typedef void (*socket_conn_connected_cb_t)(IdleConnection *conn, gboolean success);
-typedef void (*socket_conn_disconnected_cb_t)(IdleConnection *conn, TpConnectionStatusReason reason);
-typedef void (*socket_conn_message_cb_t)(IdleConnection *conn, const gchar *msg);
-
-struct _socket_conn
-{
-	int fd;
-
-	/* we need to spawn a thread to play ping-pong with the server
-	 * while it does that it also sends to the server whatever gets in out_queue
-	 */
-	
-	pthread_t thread;
-
-	/* output message queue */
-	GAsyncQueue *out_queue;
-
-	/* possible partial message saved from a earlier bunch */
-	gchar *msg_store;
-
-	/* if the comm thread should pause the sending of the queue for a while */
-	gboolean queue_wait;
-
-	/* if the comm thread should try and exit in a finite time */
-	gboolean exit;
-
-	/* if the comm thread has encountered trouble and wants to be cleaned up */
-	gboolean crashed;
-
-	/* callback to call after a connect attempt / a disconnect / a incoming message line */
-	socket_conn_connected_cb_t connected_cb;
-	socket_conn_disconnected_cb_t disconnected_cb;
-	socket_conn_message_cb_t message_cb;
-};
-#endif
 
 struct _IdleConnectionPrivate
 {
@@ -571,16 +522,6 @@ idle_connection_class_init (IdleConnectionClass *idle_connection_class)
 									
 
   /* signals */
-/*
-  signals[CAPABILITIES_CHANGED] =
-    g_signal_new ("capabilities-changed",
-                  G_OBJECT_CLASS_TYPE (idle_connection_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  idle_connection_marshal_VOID__INT_BOXED_BOXED,
-                  G_TYPE_NONE, 3, G_TYPE_UINT, (dbus_g_type_get_collection ("GPtrArray", (dbus_g_type_get_struct ("GValueArray", G_TYPE_STRING, G_TYPE_UINT, G_TYPE_INVALID)))), (dbus_g_type_get_collection ("GPtrArray", (dbus_g_type_get_struct ("GValueArray", G_TYPE_STRING, G_TYPE_UINT, G_TYPE_INVALID)))));
-				  */
 
   signals[NEW_CHANNEL] =
     g_signal_new ("new-channel",
@@ -631,7 +572,6 @@ idle_connection_class_init (IdleConnectionClass *idle_connection_class)
 }
 
 static void close_all_channels(IdleConnection *conn);
-/*static void socket_conn_close(IdleConnection *conn);*/
 
 void
 idle_connection_dispose (GObject *object)
@@ -759,38 +699,6 @@ idle_connection_finalize (GObject *object)
   G_OBJECT_CLASS (idle_connection_parent_class)->finalize (object);
 }
 
-#if 0
-void socket_conn_close(IdleConnection *conn)
-{
-	IdleConnectionPrivate *priv;
-	
-	g_assert(conn != NULL);
-	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-
-	if (priv->conn.fd)
-	{
-		int rc;
-
-		priv->conn.exit = TRUE;
-
-		if ((rc = pthread_join(priv->conn.thread, NULL)) != 0)
-		{
-			g_debug("%s: pthread_join returned %d", G_STRFUNC, rc);
-		}
-		
-		g_async_queue_unref(priv->conn.out_queue);
-
-		close(priv->conn.fd);
-		priv->conn.fd = 0;
-		priv->conn.crashed = FALSE;
-	}
-	else
-	{
-		g_debug("%s: connection already closed!", G_STRFUNC);
-	}
-}
-#endif
-
 gboolean _idle_connection_register(IdleConnection *conn, gchar **bus_name, gchar **object_path, GError **error)
 {
 	DBusGConnection *bus;
@@ -881,8 +789,6 @@ gboolean _idle_connection_register(IdleConnection *conn, gchar **bus_name, gchar
 	return TRUE;
 }
 
-/*static void *socket_conn_thread_fn(void* conn);*/
-/*static gboolean socket_conn_open(IdleConnection *conn, GError **error);*/
 static void irc_handshakes(IdleConnection *conn);
 static IdleIMChannel *new_im_channel(IdleConnection *conn, TpHandle handle, gboolean suppress_handler);
 static IdleMUCChannel *new_muc_channel(IdleConnection *conn, TpHandle handle, gboolean suppress_handler);
@@ -901,52 +807,7 @@ static void priv_rename(IdleConnection *conn, guint old, guint new);
 
 static void handle_err_nicknameinuse(IdleConnection *conn)
 {
-/*	IdleConnectionPrivate *priv;
-	gchar *newnick;
-	TpHandle handle;
-	gchar cmd[IRC_MSG_MAXLEN+2];
-	GError *error;
-	gchar *tmp;
-
-	g_assert(conn != NULL);
-	g_assert(IDLE_IS_CONNECTION(conn));
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	*/
 	connection_status_change(conn, TP_CONNECTION_STATUS_DISCONNECTED, TP_CONNECTION_STATUS_REASON_NAME_IN_USE);
-	/* CHANGE: do not handle it ourselves anymore. Instead fail and signal UI about the situation. */
-#if 0
-	g_assert(priv->nickname != NULL);
-
-	newnick = g_strdup_printf("%s_", priv->nickname);
-
-	g_free(priv->nickname);
-
-	priv->nickname = newnick;
-
-	if (!idle_connection_hton(conn, newnick, &tmp, &error))
-	{
-		g_debug("%s: failed charset conversion, sending unconverted...: %s", G_STRFUNC, error->message);
-		tmp = newnick;
-	}
-	
-	g_snprintf(cmd, IRC_MSG_MAXLEN+2, "NICK %s", tmp);
-	
-	send_irc_cmd(conn, cmd);
-
-	if (tmp != newnick)
-	{
-		g_free(tmp);
-	}
-
-	g_debug("%s: new nickname is %s", G_STRFUNC, priv->nickname);
-
-	handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], newnick);
-
-	g_assert(handle != 0);
-
-	priv_rename(conn, priv->self_handle, handle);
-#endif
 }
 
 static void handle_err_erroneusnickname(IdleConnection *conn)
@@ -1378,9 +1239,6 @@ static void connection_message_cb(IdleConnection *conn, const gchar *msg)
 
 	IdleConnectionPrivate *priv;
 	
-	/*g_return_if_fail(msg != NULL);
-	g_return_if_fail(msg[0] != '\0');*/
-
 	if (msg == NULL || msg[0] == '\0')
 	{
 		return;
@@ -1388,8 +1246,6 @@ static void connection_message_cb(IdleConnection *conn, const gchar *msg)
 
 	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 
-	/*priv->conn.queue_wait = FALSE;*/
-	
 	if (msg[0] != ':')
 	{
 		cmd_parse(conn, msg);
@@ -2699,359 +2555,6 @@ emit:
 	emit_presence_update(self, handles);
 }
 
-
-#if 0
-static gboolean socket_conn_open(IdleConnection *conn, GError **error)
-{
-	IdleConnectionPrivate *priv;
-
-	g_assert(conn != NULL);
-	g_assert(error != NULL);
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-
-	if (priv->conn.fd)
-	{
-		*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "Connection already open!");
-		return FALSE;
-	}
-	else
-	{
-		int fd;
-		pthread_t thread;
-		int rc;
-		struct sockaddr_in sin = {0};
-
-		sin.sin_family = AF_INET;
-		sin.sin_port = htons(INADDR_ANY);
-		sin.sin_addr.s_addr = INADDR_ANY;
-		
-		if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
-		{
-			g_debug("%s: socket() failed: %s", G_STRFUNC, strerror(errno));
-			
-			*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "socket() failed: %s", strerror(errno));
-			
-			return FALSE;
-		}
-
-		if (bind(fd, (struct sockaddr *)(&sin), sizeof(sin)) == -1)
-		{
-			g_debug("%s: bind() failed: %s", G_STRFUNC, strerror(errno));
-			
-			close(fd);
-			
-			*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "bind() failed: %s", strerror(errno));
-
-			return FALSE;
-		}
-		
-		priv->conn.fd = fd;
-		priv->conn.out_queue = g_async_queue_new();
-		priv->conn.exit = FALSE;
-		priv->conn.crashed = FALSE;
-		priv->conn.queue_wait = TRUE;
-		
-		if ((rc = pthread_create(&thread, NULL, socket_conn_thread_fn, conn)) != 0)
-		{
-			priv->conn.fd = 0;
-			g_async_queue_unref(priv->conn.out_queue);
-
-			*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "Failed to create a thread for the socket connection: %s", strerror(rc));
-
-			return FALSE;
-		}
-		
-		priv->conn.thread = thread;
-
-		g_debug("%s: connection (likely) has been opened", G_STRFUNC);
-
-		return TRUE;
-	}
-}
-
-/**
- * Write everything in a queue to a fd
- * Returns TRUE on success and FALSE on failure (network error, connection closed etc)
- */
-
-static gboolean send_all_queued(int fd, GAsyncQueue *queue);
-
-/**
- * Read a line (terminated by <CR><LF>) from <stream> and make it available to the caller via <msg>
- * A NULL *<msg> signals the last line in a batch
- * Returns TRUE on success and FALSE on network error (connection closed etc)
- *
- * Performs a poll() on <pollfd> with timeout == 0.5 sec, so if no messages are incoming, it also serves as a sleep point.
- */
-
-static gboolean receive_line(int fd, gchar **msg, int poll_fd);
-
-static gboolean threaded_connection_open(IdleConnection *conn, GError **error);
-
-static gboolean threaded_connection_open(IdleConnection *conn, GError **error)
-{
-	IdleConnectionPrivate *priv;
-	struct sockaddr_in sin = {0};
-	struct hostent *dst_host;
-
-	g_assert(conn != NULL);
-	g_assert(IDLE_IS_CONNECTION(conn));
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-
-	if ((dst_host = gethostbyname(priv->server)) == NULL)
-	{
-		close(priv->conn.fd);
-
-		*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "Failed to resolve server %s", priv->server);
-
-		return FALSE;
-	}
-
-	sin.sin_family = AF_INET;
-	sin.sin_port = htons(priv->port);
-	sin.sin_addr = *((struct in_addr *)(dst_host->h_addr));
-
-	if (connect(priv->conn.fd, (struct sockaddr *)(&sin), sizeof(sin)) == -1)
-	{
-		close(priv->conn.fd);
-
-		g_debug("%s: connect() failed: %s", G_STRFUNC, strerror(errno));
-		
-		*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "connect() failed: %s", strerror(errno));
-
-		return FALSE;
-	}
-
-	g_debug("%s: success?", G_STRFUNC);
-
-	return TRUE;
-}
-
-static void msg_split(IdleConnection *conn, gchar *msg, socket_conn_message_cb_t cb);
-
-static void *socket_conn_thread_fn(void *conn_closure)
-{
-	IdleConnection *conn = (IdleConnection *)(conn_closure);
-	IdleConnectionPrivate *priv;
-	GAsyncQueue *sendq = NULL;
-	TpConnectionStatusReason disconnect_reason = TP_CONNECTION_STATUS_REASON_REQUESTED;
-	GError *error;
-
-	g_assert(conn != NULL);
-	g_assert(IDLE_IS_CONNECTION(conn));
-	
-	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-
-	sendq = g_async_queue_ref(priv->conn.out_queue);
-	
-	g_assert(sendq != NULL);
-
-	if (!threaded_connection_open(conn, &error))
-	{
-		g_debug("%s: threaded_connection_open failed: %s", G_STRFUNC, error->message);
-		
-		g_error_free(error);
-		
-		disconnect_reason = TP_CONNECTION_STATUS_REASON_NETWORK_ERROR;
-		
-		goto exitl;
-	}
-
-	while (!(priv->conn.exit))
-	{
-		gchar *msg;
-		gboolean recv_ret;
-		
-		while ((recv_ret = receive_line(priv->conn.fd, &msg, priv->conn.fd)) && (msg != NULL))
-		{
-			msg_split(conn, msg, priv->conn.message_cb);
-			free(msg);
-		}
-
-		if (recv_ret == FALSE)
-		{
-			g_debug("%s: network error in receive_line", G_STRFUNC);
-			disconnect_reason = TP_CONNECTION_STATUS_REASON_NETWORK_ERROR;
-			goto exitl;
-		}
-		
-		if (!priv->conn.queue_wait)
-		{
-			if (!send_all_queued(priv->conn.fd, priv->conn.out_queue))
-			{
-				g_debug("%s: network error in send_all_queued", G_STRFUNC);
-				disconnect_reason = TP_CONNECTION_STATUS_REASON_NETWORK_ERROR;
-				goto exitl;
-			}
-		}
-		else
-		{
-			g_debug("%s: queue holding", G_STRFUNC);
-		}
-	}
-
-exitl:
-
-	g_async_queue_unref(sendq);
-	sendq = NULL;
-
-/*	priv->conn.disconnected_cb(conn, disconnect_reason);*/
-
-	return NULL;
-}
-
-static void msg_split(IdleConnection *conn, gchar *msg, socket_conn_message_cb_t cb)
-{
-	int i;
-	int lasti = 0;
-	gchar *tmp;
-	gboolean line_ends = FALSE;
-	IdleConnectionPrivate *priv;
-	guint len;
-	
-	g_assert(conn != NULL);
-	g_assert(msg != NULL);
-	g_assert(cb != NULL);
-	g_assert(IDLE_IS_CONNECTION(conn));
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-
-	len = strnlen(msg, IRC_MSG_MAXLEN+2);
-
-	for (i = 0; i < len; i++)
-	{
-		if ((msg[i] == '\n' || msg[i] == '\r'))
-		{
-			msg[i] = '\0';
-			
-			if (i>lasti)
-			{
-				if ((lasti == 0) && (priv->conn.msg_store != NULL))
-				{
-					tmp = g_strconcat(priv->conn.msg_store, msg, NULL);
-				
-					g_free(priv->conn.msg_store);
-					priv->conn.msg_store = NULL;
-				}
-				else
-				{
-					tmp = g_strdup(msg+lasti);
-				}
-
-				cb(conn, tmp);
-
-				g_free(tmp);
-			}
-			
-			lasti = i+1;
-
-			line_ends = TRUE;
-		}
-		else
-		{
-			line_ends = FALSE;
-		}
-	}
-
-	if (!line_ends)
-	{
-		priv->conn.msg_store = g_strndup(msg+lasti, IRC_MSG_MAXLEN-lasti+2);
-	}
-}
-
-static gboolean send_all_queued(int fd, GAsyncQueue *queue)
-{
-	gpointer data;
-	size_t length;
-	int i = 0;
-		
-	g_assert(fd != 0);
-	g_assert(queue != NULL);	
-	
-	while ((data = g_async_queue_try_pop(queue)))
-	{
-		size_t written;
-
-		i++;
-		
-		length = strnlen(data, IRC_MSG_MAXLEN+2);
-
-		if ((written = send(fd, data, length, 0)) != length)
-		{
-			g_free(data);
-			
-			g_debug("%s: failed to send whole message (%u bytes written)", G_STRFUNC, written);
-			
-			return FALSE;
-		}
-
-		g_free(data);
-	}
-
-	return TRUE;
-}
-
-static gboolean receive_line(int fd, gchar **msg, int poll_fd)
-{
-	gchar *ret_msg = NULL;
-	struct pollfd pfd = {poll_fd, POLLIN|POLLPRI|POLLERR|POLLHUP|POLLNVAL, 0};
-	int poll_ret;
-
-	g_assert(fd >= 0);
-	g_assert(msg != NULL);
-	g_assert(poll_fd >= 0);
-
-	*msg = NULL;
-
-	if ((poll_ret = poll(&pfd, 1, 500)) != 0)
-	{
-		if (poll_ret == -1)
-		{
-			g_debug("%s: poll() failed: %s", G_STRFUNC, strerror(errno));
-
-			return FALSE;
-		}
-		
-		if (pfd.revents & (POLLERR|POLLHUP|POLLNVAL))
-		{
-			g_debug("%s: pfd.revents & (POLLERR|POLLHUP|POLLNVAL) != 0", G_STRFUNC);
-			
-			return FALSE;
-		}
-
-		if (pfd.revents & (POLLIN|POLLPRI))
-		{
-			size_t n = IRC_MSG_MAXLEN+2;
-			
-			ret_msg = g_malloc0(n);
-			
-			if ((n = recv(fd, ret_msg, n, 0)) <= 0)
-			{
-				g_debug("%s: recv() failed: %s", G_STRFUNC, strerror(errno));
-
-				g_free(ret_msg);
-				
-				return FALSE;
-			}
-			else
-			{
-				ret_msg[n] = '\0';
-			}
-		}
-	}
-	else
-	{
-		*msg = NULL;
-	}
-
-	*msg = ret_msg;
-
-	return TRUE;
-}
-#endif
-
 static void connection_status_change(IdleConnection *conn, TpConnectionStatus status, TpConnectionStatusReason reason)
 {
 	IdleConnectionPrivate *priv;
@@ -3314,44 +2817,6 @@ static void emit_presence_update(IdleConnection *self, const TpHandle *contact_h
 		g_hash_table_insert(presence, GINT_TO_POINTER(contact_handles[i]), vals);
 	}
 	
-#if 0
-	for (i = 0; contact_handles[i] != 0; i++)
-	{
-		GValue *message;
-
-		cp = idle_handle_get_qdata(conn->handles, TP_HANDLE_TYPE_CONTACT, contact_handles[i], data_key);
-
-		if (!cp)
-		{
-			continue;
-		}
-
-		message = g_new0(GValue, 1);
-		g_value_init(message, G_TYPE_STRING);
-		g_value_set_static_string(message, cp->status_message);
-
-		parameters = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, (GDestroyNotify)(g_hash_table_destroy));
-
-		g_hash_table_insert(parameters, "message", message);
-
-		contact_status = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, (GDestroyNotify)(g_hash_table_destroy));
-
-		g_hash_table_insert(contact_status, (gpointer)(idle_statuses[cp->presence_state].name), parameters);
-
-		vals = g_value_array_new(2);
-
-		g_value_array_append(vals, NULL);
-		g_value_init(g_value_array_get_nth(vals, 0), G_TYPE_UINT);
-		g_value_set_uint(g_value_array_get_nth(vals, 0), timestamp);
-
-		g_value_array_append(vals, NULL);
-		g_value_init(g_value_array_get_nth(vals, 1), dbus_g_type_get_map("GHashTable", G_TYPE_STRING,
-														dbus_g_type_get_map("GHashTable", G_TYPE_STRING, G_TYPE_VALUE)));
-		g_value_take_boxed(g_value_array_get_nth(vals, 1), contact_status);
-		
-		g_hash_table_insert(presence, GINT_TO_POINTER(contact_handles[i]), vals);
-	}
-#endif
 	g_debug("%s: emitting PRESENCE_UPDATE with %u presences", G_STRFUNC, g_hash_table_size(presence));
 	g_signal_emit(self, signals[PRESENCE_UPDATE], 0, presence);
 	g_hash_table_destroy(presence);
@@ -3719,275 +3184,6 @@ get_statuses_arguments()
   return arguments;
 }
 
-#if 0
-/* slashcommand handlers */
-
-static void _idle_connection_slashquery(IdleConnection *conn, const gchar *nicks);
-static void _idle_connection_slashmsg(IdleConnection *conn, const gchar *nicknmsg, guint type);
-
-gboolean _idle_connection_slash_cmd(IdleConnection *conn, const gchar *cmd)
-{
-	IdleConnectionPrivate *priv;
-	
-	g_assert(conn != NULL);
-	g_assert(cmd != NULL);
-
-	g_assert(IDLE_IS_CONNECTION(conn));
-	
-	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	
-	if (cmd[0] != '/')
-	{
-		return FALSE;
-	}
-
-	if ((g_strncasecmp(cmd+1, "QUERY ", 6) == 0) && (cmd[7] != '\0'))
-	{
-		_idle_connection_slashquery(conn, cmd+7);
-		
-		return TRUE;
-	}
-	else if (g_strncasecmp(cmd+1, "MSG ", 4))
-	{
-		_idle_connection_slashmsg(conn, cmd+5, TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL);
-		
-		return TRUE;
-	}
-	else if (g_strncasecmp(cmd+1, "NOTICE ", 7))
-	{
-		_idle_connection_slashmsg(conn, cmd+8, TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE);
-
-		return TRUE;
-	}
-	else if (g_strncasecmp(cmd+1, "ACTION ", 7))
-	{
-		_idle_connection_slashmsg(conn, cmd+8, TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION);
-
-		return TRUE;
-	}
-	else
-	{
-		g_debug("%s: unimplemented slash command (%s)", G_STRFUNC, cmd);
-		
-		return FALSE;
-	}
-}
-
-void _idle_connection_slashquery(IdleConnection *conn, const gchar *nicks)
-{
-	int i;
-	int lasti = 0;
-	gchar *nicktmp;
-	IdleConnectionPrivate *priv;
-	IdleIMChannel *chan;
-	TpHandle handle;
-	size_t len = strlen(nicks);
-
-	g_assert(conn != NULL);
-	g_assert(IDLE_IS_CONNECTION(conn));
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-
-	for (i=0; i < len; i++)
-	{
-		if (isblank(nicks[i]))
-		{
-			if (i > lasti)
-			{
-				nicktmp = g_malloc(i-lasti+1);
-				memcpy(nicktmp, nicks+lasti, i-lasti);
-				nicktmp[i-lasti+1] = '\0';
-
-				if ((handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], nicktmp)) == 0)
-				{
-					g_debug("%s: invalid nick %s passed", G_STRFUNC, nicktmp);
-				}
-				else
-				{
-					chan = (IdleIMChannel *)(g_hash_table_lookup(priv->im_channels, GINT_TO_POINTER(handle)));
-
-					if (chan != NULL)
-					{
-						g_debug("%s: query already open for %u", G_STRFUNC, handle);
-					}
-					else
-					{
-						g_debug("%s: spawning new IdleIMChannel for %u", G_STRFUNC, handle);
-					
-						chan = new_im_channel(conn, handle, FALSE); 
-					}
-				}
-				
-				g_free(nicktmp);
-			}
-			
-			lasti = i+1;
-		}
-	}
-}
-
-void _idle_connection_slashmsg(IdleConnection *conn, const gchar *nicknmsg, guint type)
-{	
-	IdleConnectionPrivate *priv;
-	const gchar *nicktmp, *msgtmp;
-	gchar *nickcopy;
-
-	g_assert(conn != NULL);
-	g_assert(nicknmsg != NULL);
-	g_assert(IDLE_IS_CONNECTION(conn));
-	
-	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-
-	for (nicktmp = nicknmsg; isblank(*nicktmp); nicktmp++){}
-
-	for (msgtmp = nicktmp+1; (!isblank(*msgtmp)) && (*msgtmp != '\0'); msgtmp++){}
-
-	nickcopy = g_strndup(nicktmp, msgtmp-nicktmp-1);
-
-	for (msgtmp++; isblank(*msgtmp); msgtmp++){}
-	
-	if (isalpha(nicktmp[0]))
-	{
-		TpHandle handle;
-		IdleIMChannel *chan;
-
-		if ((handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], nickcopy)) == 0)
-		{
-			g_debug("%s: invalid nick %s", G_STRFUNC, nicktmp);
-		}
-		else
-		{
-			chan = (IdleIMChannel *)(g_hash_table_lookup(priv->im_channels, GINT_TO_POINTER(handle)));
-
-			if (chan == NULL)
-			{
-				char *msg;
-				
-				g_debug("%s: sending to %s straight without a channel", G_STRFUNC, nickcopy);
-
-				switch (type)
-				{
-					case TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL:
-					{
-						msg = g_strdup_printf("PRIVMSG %s :%s", nickcopy, msgtmp);
-					}
-					break;
-					case TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE:
-					{
-						msg = g_strdup_printf("NOTICE %s :%s", nickcopy, msgtmp);
-					}
-					break;
-					case TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION:
-					{
-						msg = g_strdup_printf("PRIVMSG %s :\001ACTION %s\001", nickcopy, msgtmp);
-					}
-					break;
-					default:
-					{
-						g_assert_not_reached();
-					}
-					break;
-				}
-
-				send_irc_cmd(conn, msg);
-
-				g_free(msg);
-			}
-			else
-			{
-				GError *send_error = NULL;
-				
-				idle_im_channel_send(chan, type, msgtmp, &send_error);
-
-				if (send_error)
-				{
-					g_debug("%s: error in idle_im_channel_send: %s", G_STRFUNC, send_error->message);
-
-					g_error_free(send_error);
-				}
-			}
-		}
-	}
-	else
-	{
-		switch (nicktmp[0])
-		{
-			case '&':
-			case '#':
-			case '+':
-			case '!':
-			{
-				TpHandle handle;
-				
-				if ((handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], nickcopy)) == 0)
-				{
-					g_debug("%s: failed to get handle for channel %s", G_STRFUNC, nickcopy);
-				}
-				else
-				{
-					IdleMUCChannel *chan;
-					GError *send_error = NULL;
-
-					chan = (IdleMUCChannel *)(g_hash_table_lookup(priv->muc_channels, GINT_TO_POINTER(handle)));
-
-					if (chan == NULL)
-					{
-						gchar *msg;
-
-						g_debug("%s: sending straight to %s without a channel", G_STRFUNC, nickcopy);
-
-						switch (type)
-						{
-							case TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL:
-							{
-								msg = g_strdup_printf("PRIVMSG %s :%s", nickcopy, msgtmp);
-							}
-							break;
-							case TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE:
-							{
-								msg = g_strdup_printf("NOTICE %s :%s", nickcopy, msgtmp);
-							}
-							break;
-							case TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION:
-							{
-								msg = g_strdup_printf("PRIVMSG %s :\001ACTION %s\001", nickcopy, msgtmp);
-							}
-							break;
-							default:
-							{
-								g_assert_not_reached();
-							}
-							break;
-						}
-
-						send_irc_cmd(conn, msg);
-
-						g_free(msg);
-					}
-					else
-					{
-						idle_muc_channel_send(chan, type, msgtmp, &send_error);
-
-						if (send_error != NULL)
-						{
-							g_debug("%s: idle_muc_channel_send failed: %s", G_STRFUNC, send_error->message);
-
-							g_error_free(send_error);
-						}
-					}
-				}
-			}
-			break;
-			default:
-			{
-				g_debug("%s: ignored invalid target %s for /msg, /action or /notice", G_STRFUNC, nickcopy);
-			}
-		}
-	}
-
-	g_free(nickcopy);
-}
-#endif
 /* D-BUS-exported methods */
 
 /**
@@ -4018,34 +3214,6 @@ gboolean idle_connection_add_status (IdleConnection *obj, const gchar * status, 
 	
   	return FALSE;
 }
-
-
-#if 0
-/**
- * idle_connection_advertise_capabilities
- *
- * Implements DBus method AdvertiseCapabilities
- * on interface org.freedesktop.Telepathy.Connection.Interface.Capabilities
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-gboolean idle_connection_advertise_capabilities (IdleConnection *obj, const gchar ** add, const gchar ** remove, GError **error)
-{
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_CONNECTION(obj));
-
-	ERROR_IF_NOT_CONNECTED(obj, IDLE_CONNECTION_GET_PRIVATE(obj), *error);
-	
-	/* collabora doesn't implement these -> I don't implement these . . . . */
-
-	return TRUE;
-}
-#endif
-
 
 /**
  * idle_connection_clear_status
@@ -4129,74 +3297,6 @@ gboolean idle_connection_disconnect (IdleConnection *obj, GError **error)
   	
   	return TRUE;
 }
-
-
-/* bah, capabilites is no good atm */
-#if 0
-/**
- * idle_connection_get_capabilities
- *
- * Implements DBus method GetCapabilities
- * on interface org.freedesktop.Telepathy.Connection.Interface.Capabilities
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-gboolean idle_connection_get_capabilities (IdleConnection *obj, GArray *handles, GPtrArray ** ret, GError **error)
-{
-	int i;
-	IdleConnectionPrivate *priv;
-	TpHandle handle;
-
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_CONNECTION(obj));
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(obj);
-
-	ERROR_IF_NOT_CONNECTED(obj, priv, *error);
-
-	*ret = g_ptr_array_sized_new(handles->len);
-
-	for (i = 0; i<handles->len; i++)
-	{
-		GValue vals = {0.};
-		
-		handle = g_array_index(handles, guint, i);
-
-		g_value_init(&vals, TP_CAPABILITY_PAIR_TYPE);
-		g_value_set_static_boxed(&vals, dbus_g_type_specialized_construct(TP_CAPABILITY_PAIR_TYPE));
-
-		if (handle == 0)
-		{
-			dbus_g_type_struct_set(&vals,
-									0, handle,
-		}	
-		else if (!tp_handle_is_valid(conn->handles[TP_HANDLE_TYPE_CONTACT], handle, NULL) && !tp_handle_is_valid(conn->handles[TP_HANDLE_TYPE_ROOM], handle, NULL))
-		{
-			g_debug("%s: invalid handle %u", G_STRFUNC, handle);
-		
-			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid handle %u", handle);
-
-			return FALSE;
-		}
-
-	*ret = g_ptr_array_sized_new(2);
-
-	g_value_init(&vals, TP_CAPABILITY_PAIR_TYPE);
-	g_value_set_static_boxed(&vals, dbus_g_type_specialized_construct(TP_CAPABILITY_PAIR_TYPE));
-
-	dbus_g_type_struct_set(&vals, 0, TP_IFACE_CHANNEL_TYPE_TEXT, 1, TP_CONN_CAPABILITY_TYPE_CREATE, G_MAXUINT);
-
-	g_ptr_array_add(*ret, g_value_get_boxed(&vals));
-
-	dbus_g_type_struct_set(&vals, 0, TP_IFACE_CHANNEL_TYPE_TEXT, 1, TP_CONN_CAPABILITY_TYPE_CREATE, G_MAXUINT);
-	
-	return TRUE;
-}
-#endif
 
 /**
  * idle_connection_get_interfaces
@@ -5356,3 +4456,4 @@ gboolean idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **o
 	*output = ret;
 	return TRUE;
 }
+
