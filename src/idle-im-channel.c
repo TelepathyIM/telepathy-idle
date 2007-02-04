@@ -71,7 +71,7 @@ struct _IdleIMPendingMessage
 	guint id;
 
 	time_t timestamp;
-	IdleHandle sender;
+	TpHandle sender;
 	
 	TpChannelTextMessageType type;
 	
@@ -85,7 +85,7 @@ struct _IdleIMChannelPrivate
 {
 	IdleConnection *connection;
 	gchar *object_path;
-	IdleHandle handle;
+	TpHandle handle;
 
 	guint recv_id;
 	GQueue *pending_messages;
@@ -132,14 +132,14 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 	GObject *obj;
 	IdleIMChannelPrivate *priv;
 	DBusGConnection *bus;
-	IdleHandleStorage *handles;
+	TpHandleRepoIface *handles;
 	gboolean valid;
 
 	obj = G_OBJECT_CLASS(idle_im_channel_parent_class)->constructor(type, n_props, props);
 	priv = IDLE_IM_CHANNEL_GET_PRIVATE(IDLE_IM_CHANNEL(obj));
 
-	handles = _idle_connection_get_handles(priv->connection);
-	valid = idle_handle_ref(handles, TP_HANDLE_TYPE_CONTACT, priv->handle);
+	handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
+	valid = tp_handle_ref(handles, priv->handle);
 	g_assert(valid);
 
 	bus = tp_get_bus();
@@ -291,7 +291,7 @@ idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_class)
   g_object_class_install_property (object_class, PROP_HANDLE_TYPE, param_spec);
 
   param_spec = g_param_spec_uint ("handle", "Contact handle",
-                                  "The IdleHandle representing the contact "
+                                  "The TpHandle representing the contact "
                                   "with whom this channel communicates.",
                                   0, G_MAXUINT32, 0,
                                   G_PARAM_CONSTRUCT_ONLY |
@@ -367,11 +367,11 @@ idle_im_channel_finalize (GObject *object)
 {
   IdleIMChannel *self = IDLE_IM_CHANNEL (object);
   IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE (self);
-  IdleHandleStorage *handles;
+  TpHandleRepoIface *handles;
   IdleIMPendingMessage *msg;
 
-  handles = _idle_connection_get_handles(priv->connection);
-  idle_handle_unref(handles, TP_HANDLE_TYPE_CONTACT, priv->handle);
+  handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
+  tp_handle_unref(handles, priv->handle);
 
   if (priv->object_path)
   {
@@ -390,7 +390,7 @@ idle_im_channel_finalize (GObject *object)
   G_OBJECT_CLASS (idle_im_channel_parent_class)->finalize (object);
 }
 
-gboolean _idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, IdleHandle sender, const gchar *text)
+gboolean _idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *text)
 {
 	IdleIMChannelPrivate *priv;
 	IdleIMPendingMessage *msg;
@@ -423,10 +423,10 @@ gboolean _idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType 
 	return FALSE;
 }
 
-void _idle_im_channel_rename(IdleIMChannel *chan, IdleHandle new)
+void _idle_im_channel_rename(IdleIMChannel *chan, TpHandle new)
 {
 	IdleIMChannelPrivate *priv;
-	IdleHandleStorage *handles;
+	TpHandleRepoIface *handles;
 	gboolean valid;
 
 	g_assert(chan != NULL);
@@ -435,11 +435,11 @@ void _idle_im_channel_rename(IdleIMChannel *chan, IdleHandle new)
 	g_assert(new != 0);
 
 	priv = IDLE_IM_CHANNEL_GET_PRIVATE(chan);
-	handles = _idle_connection_get_handles(priv->connection);
+	handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
 
-	idle_handle_unref(handles, TP_HANDLE_TYPE_CONTACT, priv->handle);
+	tp_handle_unref(handles, priv->handle);
 	priv->handle = new;
-	valid = idle_handle_ref(handles, TP_HANDLE_TYPE_CONTACT, priv->handle);
+	valid = tp_handle_ref(handles, priv->handle);
 	g_assert(valid);
 
 	g_debug("%s: changed to handle %u", G_STRFUNC, new);
@@ -732,8 +732,7 @@ gboolean idle_im_channel_send (IdleIMChannel *obj, guint type, const gchar * tex
 
 	priv = IDLE_IM_CHANNEL_GET_PRIVATE(obj);
 	
-	recipient = idle_handle_inspect(_idle_connection_get_handles(priv->connection), TP_HANDLE_TYPE_CONTACT,
-										priv->handle);
+	recipient = idle_handle_inspect(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], priv->handle);
 	
 	if ((recipient == NULL) || (strlen(recipient) == 0))
 	{

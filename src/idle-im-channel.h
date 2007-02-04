@@ -52,8 +52,8 @@ GType idle_im_channel_get_type(void);
 #define IDLE_IM_CHANNEL_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_IM_CHANNEL, IdleIMChannelClass))
 
-gboolean _idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, IdleHandle sender, const gchar *msg); 
-void _idle_im_channel_rename(IdleIMChannel *chan, IdleHandle new_handle);
+gboolean _idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *msg); 
+void _idle_im_channel_rename(IdleIMChannel *chan, TpHandle new_handle);
 void _idle_im_channel_nosuchnick(IdleIMChannel *chan);
 
 gboolean idle_im_channel_acknowledge_pending_messages (IdleIMChannel *obj, const GArray *ids, GError **error);

@@ -24,33 +24,22 @@
 #include <glib.h>
 
 #include <telepathy-glib/enums.h>
-
-typedef struct _IdleHandleStorage IdleHandleStorage;
-typedef guint IdleHandle;
+#include <telepathy-glib/handle-repo.h>
 
 #include "idle-connection.h"
 
 G_BEGIN_DECLS
 
-gboolean idle_handle_type_is_valid(TpHandleType type);
-
-IdleHandleStorage *idle_handle_storage_new();
-void idle_handle_storage_destroy(IdleHandleStorage *storage);
-
 gboolean idle_nickname_is_valid(const gchar *nickname);
 gboolean idle_channelname_is_valid(const gchar *channelname);
 
-gboolean idle_handle_is_valid(IdleHandleStorage *storage, TpHandleType type, IdleHandle handle);
-gboolean idle_handle_ref(IdleHandleStorage *storage, TpHandleType type, IdleHandle handle);
-gboolean idle_handle_unref(IdleHandleStorage *storage, TpHandleType type, IdleHandle handle);
-const char *idle_handle_inspect(IdleHandleStorage *storage, TpHandleType type, IdleHandle handle);
+const char *idle_handle_inspect(TpHandleRepoIface *storage, TpHandle handle);
 
-IdleHandle idle_handle_for_contact(IdleHandleStorage *storage, const char *nickname);
-gboolean idle_handle_for_room_exists(IdleHandleStorage *storage, const char *channel);
-IdleHandle idle_handle_for_room(IdleHandleStorage *storage, const char *channel);
+TpHandle idle_handle_for_contact(TpHandleRepoIface *storage, const char *nickname);
+TpHandle idle_handle_for_room(TpHandleRepoIface *storage, const char *channel);
 
-gboolean idle_handle_set_presence(IdleHandleStorage *storage, IdleHandle contact_handle, IdleContactPresence *presence);
-IdleContactPresence *idle_handle_get_presence(IdleHandleStorage *storage, IdleHandle contact_handle);
+gboolean idle_handle_set_presence(TpHandleRepoIface *storage, TpHandle contact_handle, IdleContactPresence *presence);
+IdleContactPresence *idle_handle_get_presence(TpHandleRepoIface *storage, TpHandle contact_handle);
 
 G_END_DECLS
 

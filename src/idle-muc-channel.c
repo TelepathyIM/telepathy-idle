@@ -39,7 +39,6 @@
 
 #include "idle-connection.h"
 #include "idle-handles.h"
-#include "idle-handle-set.h"
 
 #define IRC_MSG_MAXLEN 510
 
@@ -210,17 +209,17 @@ struct _IdleMUCChannelPrivate
 {
 	IdleConnection *connection;
 	gchar *object_path;
-	IdleHandle handle;
+	TpHandle handle;
 	const gchar *channel_name;
 	
-	IdleHandle own_handle;
+	TpHandle own_handle;
 
 	guint recv_id;
 	GQueue *pending_messages;
 
-	IdleHandleSet *local_pending;
-	IdleHandleSet *remote_pending;
-	IdleHandleSet *current_members;
+	TpHandleSet *local_pending;
+	TpHandleSet *remote_pending;
+	TpHandleSet *current_members;
 
 	IdleMUCState state;
 
@@ -245,7 +244,7 @@ struct _IdleMUCPendingMessage
 	guint id;
 
 	time_t timestamp;
-	IdleHandle sender;
+	TpHandle sender;
 
 	TpChannelTextMessageType type;
 
@@ -306,24 +305,25 @@ static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectC
 	GObject *obj;
 	IdleMUCChannelPrivate *priv;
 	DBusGConnection *bus;
-	IdleHandleStorage *handles;
+  TpHandleRepoIface *handles;
 	gboolean valid;
 
 	obj = G_OBJECT_CLASS(idle_muc_channel_parent_class)->constructor(type, n_props, props);
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(IDLE_MUC_CHANNEL(obj));
 
-	handles = _idle_connection_get_handles(priv->connection);
-	valid = idle_handle_ref(handles, TP_HANDLE_TYPE_ROOM, priv->handle);
+	handles = priv->connection->handles[TP_HANDLE_TYPE_ROOM];
+	valid = tp_handle_ref(handles, priv->handle);
 	g_assert(valid);
-	priv->channel_name = idle_handle_inspect(handles, TP_HANDLE_TYPE_ROOM, priv->handle);
+	priv->channel_name = idle_handle_inspect(handles, priv->handle);
 
 	idle_connection_get_self_handle(priv->connection, &(priv->own_handle), NULL);
-	valid = idle_handle_ref(handles, TP_HANDLE_TYPE_CONTACT, priv->own_handle);
+  handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
+	valid = tp_handle_ref(handles, priv->own_handle);
 	g_assert(valid);
 
-	priv->local_pending = idle_handle_set_new(handles, TP_HANDLE_TYPE_CONTACT);
-	priv->remote_pending = idle_handle_set_new(handles, TP_HANDLE_TYPE_CONTACT);
-	priv->current_members = idle_handle_set_new(handles, TP_HANDLE_TYPE_CONTACT);
+	priv->local_pending = tp_handle_set_new(handles);
+	priv->remote_pending = tp_handle_set_new(handles);
+	priv->current_members = tp_handle_set_new(handles);
 
 	bus = tp_get_bus();
 	dbus_g_connection_register_g_object(bus, priv->object_path, obj);
@@ -477,7 +477,7 @@ idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class)
   g_object_class_install_property (object_class, PROP_HANDLE_TYPE, param_spec);
 
   param_spec = g_param_spec_uint ("handle", "Contact handle",
-                                  "The IdleHandle representing this room.",
+                                  "The TpHandle representing this room.",
                                   0, G_MAXUINT32, 0,
                                   G_PARAM_CONSTRUCT_ONLY |
                                   G_PARAM_READWRITE |
@@ -609,7 +609,7 @@ idle_muc_channel_dispose (GObject *object)
 }
 #if 0
 /* unref all handles in given GArray */
-static void unref_handle_array(IdleHandleStorage *storage, GArray *handles, TpHandleType type)
+static void unref_handle_array(TpHandleRepoIface *storage, GArray *handles, TpHandleType type)
 {
 	int i;
 	
@@ -618,17 +618,17 @@ static void unref_handle_array(IdleHandleStorage *storage, GArray *handles, TpHa
 
 	for (i=0; i<handles->len; i++)
 	{
-		idle_handle_unref(storage, type, (IdleHandle)(g_array_index(handles, guint, i)));
+		tp_handle_unref(storage, type, (IdleHandle)(g_array_index(handles, guint, i)));
 	}
 }
 #endif
 
 #if 0
-static void handle_unref_foreach(IdleHandleSet *set, IdleHandle handle, gpointer userdata)
+static void handle_unref_foreach(IdleHandleSet *set, TpHandle handle, gpointer userdata)
 {
-	IdleHandleStorage *storage = IDLE_HANDLE_STORAGE(userdata);
+	TpHandleRepoIface *storage = IDLE_HANDLE_STORAGE(userdata);
 
-	idle_handle_unref(storage, TP_HANDLE_TYPE_CONTACT, handle);
+	tp_handle_unref(storage, TP_HANDLE_TYPE_CONTACT, handle);
 }
 #endif
 
@@ -637,13 +637,14 @@ idle_muc_channel_finalize (GObject *object)
 {
   IdleMUCChannel *self = IDLE_MUC_CHANNEL (object);
   IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (self);
-  IdleHandleStorage *handles;
+  TpHandleRepoIface *handles;
   IdleMUCPendingMessage *msg;
 
-  handles = _idle_connection_get_handles(priv->connection);
-  idle_handle_unref(handles, TP_HANDLE_TYPE_ROOM, priv->handle);
+  handles = priv->connection->handles[TP_HANDLE_TYPE_ROOM];
+  tp_handle_unref(handles, priv->handle);
 
-  idle_handle_unref(handles, TP_HANDLE_TYPE_CONTACT, priv->own_handle);
+  handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
+  tp_handle_unref(handles, priv->own_handle);
 
   if (priv->object_path)
   {
@@ -670,9 +671,9 @@ idle_muc_channel_finalize (GObject *object)
   muc_channel_tp_properties_destroy(self);
   g_free(priv->properties);
 
-  idle_handle_set_destroy(priv->current_members);
-  idle_handle_set_destroy(priv->local_pending);
-  idle_handle_set_destroy(priv->remote_pending);
+  tp_handle_set_destroy(priv->current_members);
+  tp_handle_set_destroy(priv->local_pending);
+  tp_handle_set_destroy(priv->remote_pending);
 
   G_OBJECT_CLASS (idle_muc_channel_parent_class)->finalize (object);
 }
@@ -912,7 +913,7 @@ static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpP
 	g_ptr_array_free(changed_props, TRUE);
 }
 
-static void change_sets(IdleMUCChannel *obj, TpIntSet *add_current, TpIntSet *remove_current, TpIntSet *add_local, TpIntSet *remove_local, TpIntSet *add_remote, TpIntSet *remove_remote, IdleHandle actor, TpChannelGroupChangeReason reason);
+static void change_sets(IdleMUCChannel *obj, TpIntSet *add_current, TpIntSet *remove_current, TpIntSet *add_local, TpIntSet *remove_local, TpIntSet *add_remote, TpIntSet *remove_remote, TpHandle actor, TpChannelGroupChangeReason reason);
 
 static void provide_password_reply(IdleMUCChannel *chan, gboolean success);
 
@@ -1225,7 +1226,7 @@ static void change_sets(IdleMUCChannel *obj,
 						TpIntSet *remove_local,
 						TpIntSet *add_remote,
 						TpIntSet *remove_remote,
-						IdleHandle actor,
+						TpHandle actor,
 						TpChannelGroupChangeReason reason)
 {
 	IdleMUCChannelPrivate *priv;
@@ -1244,7 +1245,7 @@ static void change_sets(IdleMUCChannel *obj,
 
 	if (add_current)
 	{
-		tmp1 = idle_handle_set_update(priv->current_members, add_current);
+		tmp1 = tp_handle_set_update(priv->current_members, add_current);
 		tmp2 = tp_intset_union(add, tmp1);
 
 		tp_intset_destroy(add);
@@ -1255,7 +1256,7 @@ static void change_sets(IdleMUCChannel *obj,
 
 	if (remove_current)
 	{
-		tmp1 = idle_handle_set_difference_update(priv->current_members, remove_current);
+		tmp1 = tp_handle_set_difference_update(priv->current_members, remove_current);
 		tmp2 = tp_intset_union(remove, tmp1);
 		
 		tp_intset_destroy(remove);
@@ -1266,7 +1267,7 @@ static void change_sets(IdleMUCChannel *obj,
 	
 	if (add_local)
 	{
-		tmp1 = idle_handle_set_update(priv->local_pending, add_local);
+		tmp1 = tp_handle_set_update(priv->local_pending, add_local);
 		tmp2 = tp_intset_union(local_pending, tmp1);
 
 		tp_intset_destroy(local_pending);
@@ -1277,7 +1278,7 @@ static void change_sets(IdleMUCChannel *obj,
 
 	if (remove_local)
 	{
-		tmp1 = idle_handle_set_difference_update(priv->local_pending, remove_local);
+		tmp1 = tp_handle_set_difference_update(priv->local_pending, remove_local);
 		tmp2 = tp_intset_union(remove, tmp1);
 
 		tp_intset_destroy(remove);
@@ -1288,7 +1289,7 @@ static void change_sets(IdleMUCChannel *obj,
 
 	if (add_remote)
 	{
-		tmp1 = idle_handle_set_update(priv->remote_pending, add_remote);
+		tmp1 = tp_handle_set_update(priv->remote_pending, add_remote);
 		tmp2 = tp_intset_union(remote_pending, tmp1);
 
 		tp_intset_destroy(remote_pending);
@@ -1299,7 +1300,7 @@ static void change_sets(IdleMUCChannel *obj,
 
 	if (remove_remote)
 	{
-		tmp1 = idle_handle_set_difference_update(priv->remote_pending, remove_remote);
+		tmp1 = tp_handle_set_difference_update(priv->remote_pending, remove_remote);
 		tmp2 = tp_intset_union(remove, tmp1);
 
 		tp_intset_destroy(remove);
@@ -1342,7 +1343,7 @@ static void change_sets(IdleMUCChannel *obj,
 	tp_intset_destroy(remote_pending);
 }
 
-gboolean _idle_muc_channel_receive(IdleMUCChannel *chan, TpChannelTextMessageType type, IdleHandle sender, const gchar *text)
+gboolean _idle_muc_channel_receive(IdleMUCChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *text)
 {
 	IdleMUCChannelPrivate *priv;
 	IdleMUCPendingMessage *msg;
@@ -1393,7 +1394,7 @@ static void send_mode_query_request(IdleMUCChannel *chan)
 void _idle_muc_channel_join(IdleMUCChannel *chan, const gchar *nick)
 {
 	IdleMUCChannelPrivate *priv;
-	IdleHandle handle;
+	TpHandle handle;
 	TpIntSet *set;
 
 	g_assert(chan != NULL);
@@ -1404,7 +1405,7 @@ void _idle_muc_channel_join(IdleMUCChannel *chan, const gchar *nick)
 
 	set = tp_intset_new();
 
-	handle = idle_handle_for_contact(_idle_connection_get_handles(priv->connection), nick);
+	handle = idle_handle_for_contact(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], nick);
 
 	if (handle == 0)
 	{
@@ -1449,15 +1450,15 @@ void _idle_muc_channel_part(IdleMUCChannel *chan, const gchar *nick)
 void _idle_muc_channel_kick(IdleMUCChannel *chan, const gchar *nick, const gchar *kicker, TpChannelGroupChangeReason reason)
 {
 	IdleMUCChannelPrivate *priv;
-	IdleHandle handle;
-	IdleHandle kicker_handle;
+	TpHandle handle;
+	TpHandle kicker_handle;
 
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 
-	handle = idle_handle_for_contact(_idle_connection_get_handles(priv->connection), nick);
+	handle = idle_handle_for_contact(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], nick);
 
 	if (handle == 0)
 	{
@@ -1466,7 +1467,7 @@ void _idle_muc_channel_kick(IdleMUCChannel *chan, const gchar *nick, const gchar
 		return;
 	}
 
-	kicker_handle = idle_handle_for_contact(_idle_connection_get_handles(priv->connection), kicker);
+	kicker_handle = idle_handle_for_contact(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], kicker);
 
 	if (kicker_handle == 0)
 	{
@@ -1481,9 +1482,9 @@ void _idle_muc_channel_kick(IdleMUCChannel *chan, const gchar *nick, const gchar
 }
 
 void _idle_muc_channel_handle_quit(IdleMUCChannel *chan,
-								   IdleHandle handle,
+								   TpHandle handle,
 								   gboolean suppress,
-								   IdleHandle actor,
+								   TpHandle actor,
 								   TpChannelGroupChangeReason reason)
 {
 	IdleMUCChannelPrivate *priv;
@@ -1517,7 +1518,7 @@ void _idle_muc_channel_handle_quit(IdleMUCChannel *chan,
 	tp_intset_destroy(set);
 }
 
-void _idle_muc_channel_invited(IdleMUCChannel *chan, IdleHandle inviter)
+void _idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter)
 {
 	IdleMUCChannelPrivate *priv;
 	TpIntSet *handles_to_add;
@@ -1541,7 +1542,7 @@ void _idle_muc_channel_names(IdleMUCChannel *chan, GArray *names)
 	IdleMUCChannelPrivate *priv;
 	int i;
 	TpIntSet *handles_to_add;
-	IdleHandleStorage *handles; 
+	TpHandleRepoIface *handles; 
 
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
@@ -1549,13 +1550,13 @@ void _idle_muc_channel_names(IdleMUCChannel *chan, GArray *names)
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 
-	handles = _idle_connection_get_handles(priv->connection);
+	handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
 	
 	handles_to_add = tp_intset_new();
 
 	for (i=0; i<names->len; i++)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		gchar *nick = g_array_index(names, gchar *, i);
 		gunichar ucs4char;
 
@@ -1669,7 +1670,7 @@ void _idle_muc_channel_mode(IdleMUCChannel *chan, const gchar *mode_str)
 		goto cleanupl;
 	}
 
-	own_nick = idle_handle_inspect(_idle_connection_get_handles(priv->connection), TP_HANDLE_TYPE_CONTACT, priv->own_handle);
+	own_nick = idle_handle_inspect(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], priv->own_handle);
 	
 	while (*operation != '\0')
 	{
@@ -1835,7 +1836,7 @@ void _idle_muc_channel_topic(IdleMUCChannel *chan, const char *topic)
 	g_ptr_array_free(arr, TRUE);
 }
 
-void _idle_muc_channel_topic_touch(IdleMUCChannel *chan, const IdleHandle toucher, const guint timestamp)
+void _idle_muc_channel_topic_touch(IdleMUCChannel *chan, const TpHandle toucher, const guint timestamp)
 {
 	GValue prop = {0, };
 	GValue val = {0, };
@@ -1873,7 +1874,7 @@ void _idle_muc_channel_topic_touch(IdleMUCChannel *chan, const IdleHandle touche
 	g_ptr_array_free(arr, TRUE);
 }
 
-void _idle_muc_channel_topic_full(IdleMUCChannel *chan, const IdleHandle toucher, const guint timestamp, const gchar *topic)
+void _idle_muc_channel_topic_full(IdleMUCChannel *chan, const TpHandle toucher, const guint timestamp, const gchar *topic)
 {
 	GValue prop = {0, };
 	GValue val = {0, };
@@ -1964,7 +1965,7 @@ void _idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError 
 	}
 }
 
-void _idle_muc_channel_rename(IdleMUCChannel *chan, IdleHandle old, IdleHandle new)
+void _idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old, TpHandle new)
 {
 	IdleMUCChannelPrivate *priv;
 	TpIntSet *cadd, *cremove, *ladd, *lremove, *radd, *rremove;
@@ -1984,32 +1985,32 @@ void _idle_muc_channel_rename(IdleMUCChannel *chan, IdleHandle old, IdleHandle n
 	if (priv->own_handle == old)
 	{
 		gboolean valid;
-		IdleHandleStorage *handles;
+		TpHandleRepoIface *handles;
 
-		handles = _idle_connection_get_handles(priv->connection);
+		handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
 		
-		valid = idle_handle_unref(handles, TP_HANDLE_TYPE_CONTACT, old);
+		valid = tp_handle_unref(handles, old);
 		g_assert(valid);
 		
 		priv->own_handle = new;
 		
-		valid = idle_handle_ref(handles, TP_HANDLE_TYPE_CONTACT, new);
+		valid = tp_handle_ref(handles, new);
 		g_assert(valid);
 
 		g_debug("%s: changed own_handle to %u", G_STRFUNC, new);
 	}
 	
-	if (idle_handle_set_contains(priv->current_members, old))
+	if (tp_handle_set_is_member(priv->current_members, old))
 	{
 		tp_intset_add(cadd, new);
 		tp_intset_add(cremove, old);
 	}
-	else if (idle_handle_set_contains(priv->local_pending, old))
+	else if (tp_handle_set_is_member(priv->local_pending, old))
 	{
 		tp_intset_add(ladd, new);
 		tp_intset_add(lremove, old);
 	}
-	else if (idle_handle_set_contains(priv->remote_pending, old))
+	else if (tp_handle_set_is_member(priv->remote_pending, old))
 	{
 		tp_intset_add(radd, new);
 		tp_intset_add(rremove, old);
@@ -2052,14 +2053,14 @@ void _idle_muc_channel_join_attempt(IdleMUCChannel *obj)
 	return send_join_request(obj, NULL);
 }
 
-gboolean _idle_muc_channel_has_current_member(IdleMUCChannel *chan, IdleHandle handle)
+gboolean _idle_muc_channel_has_current_member(IdleMUCChannel *chan, TpHandle handle)
 {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 
-	return idle_handle_set_contains(priv->current_members, handle);
+	return tp_handle_set_is_member(priv->current_members, handle);
 }
 
-static gboolean send_invite_request(IdleMUCChannel *obj, IdleHandle handle, GError **error)
+static gboolean send_invite_request(IdleMUCChannel *obj, TpHandle handle, GError **error)
 {
 	IdleMUCChannelPrivate *priv;
 	gchar cmd[IRC_MSG_MAXLEN+1];
@@ -2070,7 +2071,7 @@ static gboolean send_invite_request(IdleMUCChannel *obj, IdleHandle handle, GErr
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	nick = idle_handle_inspect(_idle_connection_get_handles(priv->connection), TP_HANDLE_TYPE_CONTACT, handle);
+	nick = idle_handle_inspect(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], handle);
 
 	if ((nick == NULL) || (nick[0] == '\0'))
 	{
@@ -2088,7 +2089,7 @@ static gboolean send_invite_request(IdleMUCChannel *obj, IdleHandle handle, GErr
 	return TRUE;
 }
 
-static gboolean send_kick_request(IdleMUCChannel *obj, IdleHandle handle, const gchar *msg, GError **error)
+static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gchar *msg, GError **error)
 {
 	IdleMUCChannelPrivate *priv;
 	gchar cmd[IRC_MSG_MAXLEN+1];
@@ -2099,7 +2100,7 @@ static gboolean send_kick_request(IdleMUCChannel *obj, IdleHandle handle, const 
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	nick = idle_handle_inspect(_idle_connection_get_handles(priv->connection), TP_HANDLE_TYPE_CONTACT, handle);
+	nick = idle_handle_inspect(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], handle);
 
 	if ((nick == NULL) || (nick[0] == '\0'))
 	{
@@ -2124,20 +2125,20 @@ static gboolean send_kick_request(IdleMUCChannel *obj, IdleHandle handle, const 
 	return TRUE;
 }
 
-static gboolean add_member(IdleMUCChannel *obj, IdleHandle handle, GError **error)
+static gboolean add_member(IdleMUCChannel *obj, TpHandle handle, GError **error)
 {
 	IdleMUCChannelPrivate *priv;
-	IdleHandleStorage *handles;
+	TpHandleRepoIface *handles;
 
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
-	handles = _idle_connection_get_handles(priv->connection);
+	handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
 	
 	if (handle == priv->own_handle)
 	{
-		if (idle_handle_set_contains(priv->current_members, handle) || idle_handle_set_contains(priv->remote_pending, handle))
+		if (tp_handle_set_is_member(priv->current_members, handle) || tp_handle_set_is_member(priv->remote_pending, handle))
 		{
 			g_debug("%s: we are already a member of or trying to join the channel with handle %u", G_STRFUNC, priv->handle);
 
@@ -2160,7 +2161,7 @@ static gboolean add_member(IdleMUCChannel *obj, IdleHandle handle, GError **erro
 	}
 	else
 	{
-		if (idle_handle_set_contains(priv->current_members, handle) || idle_handle_set_contains(priv->remote_pending, handle))
+		if (tp_handle_set_is_member(priv->current_members, handle) || tp_handle_set_is_member(priv->remote_pending, handle))
 		{
 			g_debug("%s: the requested contact (handle %u) to be added to the room (handle %u) is already a member of or has already been invited to join the room", G_STRFUNC, handle, priv->handle);
 
@@ -2280,10 +2281,10 @@ gboolean idle_muc_channel_add_members (IdleMUCChannel *obj, const GArray * conta
 
 	for (i=0; i < contacts->len; i++)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		GError *add_error;
 
-		handle = (IdleHandle)(g_array_index(contacts, guint, i));
+		handle = (TpHandle)(g_array_index(contacts, guint, i));
 
 		if (!add_member(obj, handle, &add_error))
 		{
@@ -2380,9 +2381,9 @@ gboolean idle_muc_channel_get_all_members (IdleMUCChannel *obj, GArray ** ret, G
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	*ret = idle_handle_set_to_array(priv->current_members);
-	*ret1 = idle_handle_set_to_array(priv->local_pending);
-	*ret2 = idle_handle_set_to_array(priv->remote_pending);
+	*ret = tp_handle_set_to_array(priv->current_members);
+	*ret1 = tp_handle_set_to_array(priv->local_pending);
+	*ret2 = tp_handle_set_to_array(priv->remote_pending);
 
 	return TRUE;
 }
@@ -2533,7 +2534,7 @@ gboolean idle_muc_channel_get_local_pending_members (IdleMUCChannel *obj, GArray
 {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 	
-	*ret = idle_handle_set_to_array(priv->local_pending);
+	*ret = tp_handle_set_to_array(priv->local_pending);
 
   return TRUE;
 }
@@ -2555,7 +2556,7 @@ gboolean idle_muc_channel_get_members (IdleMUCChannel *obj, GArray ** ret, GErro
 {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	*ret = idle_handle_set_to_array(priv->current_members);
+	*ret = tp_handle_set_to_array(priv->current_members);
 	
   return TRUE;
 }
@@ -2699,7 +2700,7 @@ gboolean idle_muc_channel_get_remote_pending_members (IdleMUCChannel *obj, GArra
 {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	*ret = idle_handle_set_to_array(priv->remote_pending);
+	*ret = tp_handle_set_to_array(priv->remote_pending);
 	
 	return TRUE;
 }
@@ -2961,7 +2962,7 @@ gboolean idle_muc_channel_remove_members (IdleMUCChannel *obj, const GArray * co
 	for (i=0; i<contacts->len; i++)
 	{
 		GError *kick_error;
-		IdleHandle handle = g_array_index(contacts, guint, i);
+		TpHandle handle = g_array_index(contacts, guint, i);
 		
 		if (handle == priv->own_handle)
 		{
@@ -2970,7 +2971,7 @@ gboolean idle_muc_channel_remove_members (IdleMUCChannel *obj, const GArray * co
 			return TRUE;
 		}
 
-		if (!idle_handle_set_contains(priv->current_members, handle))
+		if (!tp_handle_set_is_member(priv->current_members, handle))
 		{
 			g_debug("%s: handle %u not a current member!", G_STRFUNC, handle);
 
@@ -3023,7 +3024,7 @@ gboolean idle_muc_channel_send (IdleMUCChannel *obj, guint type, const gchar * t
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	recipient = idle_handle_inspect(_idle_connection_get_handles(priv->connection), TP_HANDLE_TYPE_ROOM, priv->handle);
+	recipient = idle_handle_inspect(priv->connection->handles[TP_HANDLE_TYPE_ROOM], priv->handle);
 
 	if ((recipient == NULL) || (recipient[0] == '\0'))
 	{

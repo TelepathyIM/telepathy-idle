@@ -27,6 +27,7 @@
 #include <dbus/dbus-glib-lowlevel.h>
 
 #include <telepathy-glib/enums.h>
+#include <telepathy-glib/handle-repo.h>
 
 typedef struct _IdleConnection IdleConnection;
 typedef struct _IdleConnectionClass IdleConnectionClass;
@@ -52,6 +53,7 @@ struct _IdleConnectionClass
 struct _IdleConnection 
 {
     GObject parent;
+    TpHandleRepoIface *handles[LAST_TP_HANDLE_TYPE + 1];
 };
 
 void idle_contact_presence_free(IdleContactPresence *cp);
@@ -74,9 +76,8 @@ GType idle_connection_get_type(void);
 
 gboolean _idle_connection_register(IdleConnection *conn, char **bus_name, char **object_path, GError **error);
 gboolean _idle_connection_send(IdleConnection *conn, const gchar *msg);
-IdleHandleStorage *_idle_connection_get_handles(IdleConnection *conn);
-void _idle_connection_client_hold_handle(IdleConnection *conn, gchar *client_name, IdleHandle handle, TpHandleType type);
-gboolean _idle_connection_client_release_handle(IdleConnection *conn, gchar *client_name, IdleHandle handle, TpHandleType type);
+void _idle_connection_client_hold_handle(IdleConnection *conn, gchar *client_name, TpHandle handle, TpHandleType type);
+gboolean _idle_connection_client_release_handle(IdleConnection *conn, gchar *client_name, TpHandle handle, TpHandleType type);
 
 gboolean idle_connection_add_status (IdleConnection *obj, const gchar *status, GHashTable *parms, GError **error);
 gboolean idle_connection_clear_status (IdleConnection *obj, GError **error);

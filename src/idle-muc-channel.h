@@ -88,26 +88,26 @@ gboolean idle_muc_channel_set_properties (IdleMUCChannel *obj, const GPtrArray *
 
 void _idle_muc_channel_join_attempt(IdleMUCChannel *chan);
 
-gboolean _idle_muc_channel_receive(IdleMUCChannel *chan, TpChannelTextMessageType type, IdleHandle sender, const gchar *msg);
+gboolean _idle_muc_channel_receive(IdleMUCChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *msg);
 void _idle_muc_channel_rename(IdleMUCChannel *chan, guint old, guint _new);
 
 void _idle_muc_channel_join(IdleMUCChannel *chan, const gchar *nick);
 void _idle_muc_channel_part(IdleMUCChannel *chan, const gchar *nick);
 void _idle_muc_channel_kick(IdleMUCChannel *chan, const gchar *nick, const gchar *kicker, TpChannelGroupChangeReason reason);
-void _idle_muc_channel_handle_quit(IdleMUCChannel *chan, IdleHandle handle, gboolean suppress, IdleHandle actor, TpChannelGroupChangeReason reason);
-void _idle_muc_channel_invited(IdleMUCChannel *chan, IdleHandle inviter);
+void _idle_muc_channel_handle_quit(IdleMUCChannel *chan, TpHandle handle, gboolean suppress, TpHandle actor, TpChannelGroupChangeReason reason);
+void _idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter);
 
 void _idle_muc_channel_names(IdleMUCChannel *chan, GArray *nicks);
 void _idle_muc_channel_mode(IdleMUCChannel *chan, const gchar *params);
 void _idle_muc_channel_topic(IdleMUCChannel *chan, const gchar *topic);
-void _idle_muc_channel_topic_touch(IdleMUCChannel *chan, const IdleHandle handle, const guint timestamp);
-void _idle_muc_channel_topic_full(IdleMUCChannel *chan, const IdleHandle handle, const guint timestamp, const gchar *topic);
+void _idle_muc_channel_topic_touch(IdleMUCChannel *chan, const TpHandle handle, const guint timestamp);
+void _idle_muc_channel_topic_full(IdleMUCChannel *chan, const TpHandle handle, const guint timestamp, const gchar *topic);
 void _idle_muc_channel_topic_unset(IdleMUCChannel *chan);
 
 void _idle_muc_channel_badchannelkey(IdleMUCChannel *chan);
 void _idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError err);
 
-gboolean _idle_muc_channel_has_current_member(IdleMUCChannel *chan, IdleHandle handle);
+gboolean _idle_muc_channel_has_current_member(IdleMUCChannel *chan, TpHandle handle);
 
 G_END_DECLS
 

@@ -28,6 +28,7 @@
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/dbus.h>
+#include <telepathy-glib/handle-repo-dynamic.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,7 +51,6 @@
 #include <netdb.h>
 
 #include "idle-handles.h"
-#include "idle-handle-set.h"
 #include "idle-im-channel.h"
 #include "idle-muc-channel.h"
 
@@ -253,9 +253,8 @@ struct _IdleConnectionPrivate
 	/* connection status */
 	TpConnectionStatus status;
 	
-	/* handles */
-	IdleHandleStorage *handles;
-	IdleHandle self_handle;
+  /* self handle */
+	TpHandle self_handle;
 
 	/* channel request contexts */
 	GHashTable *chan_req_ctxs;
@@ -302,6 +301,7 @@ static void
 idle_connection_init (IdleConnection *obj)
 {
   IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE (obj);
+  int i;
   
   priv->port = 6667;
   priv->password = NULL;
@@ -315,10 +315,17 @@ idle_connection_init (IdleConnection *obj)
   
   priv->ctcp_version_string = g_strdup_printf("telepathy-idle %s Telepathy IM/VoIP framework http://telepathy.freedesktop.org", TELEPATHY_IDLE_VERSION);
   
-  priv->handles = idle_handle_storage_new();
   priv->chan_req_ctxs = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_free);
   priv->im_channels = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_object_unref);
   priv->muc_channels = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_object_unref);
+
+  for (i = 0; i < LAST_TP_HANDLE_TYPE; i++)
+  {
+    obj->handles[i] = NULL;
+  }
+
+  obj->handles[TP_HANDLE_TYPE_CONTACT] = (TpHandleRepoIface *)(g_object_new(TP_TYPE_DYNAMIC_HANDLE_REPO, "handle-type", TP_HANDLE_TYPE_CONTACT, NULL));
+  obj->handles[TP_HANDLE_TYPE_ROOM] = (TpHandleRepoIface *)(g_object_new(TP_TYPE_DYNAMIC_HANDLE_REPO, "handle-type", TP_HANDLE_TYPE_ROOM, NULL));
 
   priv->polled_presences = tp_intset_new();
   priv->presence_polling_timer_id = 0;
@@ -874,28 +881,19 @@ gboolean _idle_connection_register(IdleConnection *conn, gchar **bus_name, gchar
 	return TRUE;
 }
 
-IdleHandleStorage *_idle_connection_get_handles(IdleConnection *conn)
-{
-	IdleConnectionPrivate *priv;
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-
-	return priv->handles;
-}
-
 /*static void *socket_conn_thread_fn(void* conn);*/
 /*static gboolean socket_conn_open(IdleConnection *conn, GError **error);*/
 static void irc_handshakes(IdleConnection *conn);
-static IdleIMChannel *new_im_channel(IdleConnection *conn, IdleHandle handle, gboolean suppress_handler);
-static IdleMUCChannel *new_muc_channel(IdleConnection *conn, IdleHandle handle, gboolean suppress_handler);
+static IdleIMChannel *new_im_channel(IdleConnection *conn, TpHandle handle, gboolean suppress_handler);
+static IdleMUCChannel *new_muc_channel(IdleConnection *conn, TpHandle handle, gboolean suppress_handler);
 static void connection_connect_cb(IdleConnection *conn, gboolean success);
 static void connection_disconnect(IdleConnection *conn, TpConnectionStatusReason reason);
 static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusReason reason);
-static void update_presence(IdleConnection *self, IdleHandle contact_handle, IdlePresenceState presence_id, const gchar *status_message);
-static void update_presence_full(IdleConnection *self, IdleHandle contact_handle, IdlePresenceState presence_id, const gchar *status_message, guint last_activity);
+static void update_presence(IdleConnection *self, TpHandle contact_handle, IdlePresenceState presence_id, const gchar *status_message);
+static void update_presence_full(IdleConnection *self, TpHandle contact_handle, IdlePresenceState presence_id, const gchar *status_message, guint last_activity);
 static void connection_status_change(IdleConnection *conn, TpConnectionStatus status, TpConnectionStatusReason reason);
 static void connection_message_cb(IdleConnection *conn, const gchar *msg);
-static void emit_presence_update(IdleConnection *self, const IdleHandle *contact_handles);
+static void emit_presence_update(IdleConnection *self, const TpHandle *contact_handles);
 static void send_irc_cmd(IdleConnection *conn, const gchar *msg);
 static void handle_err_erroneusnickname(IdleConnection *conn);
 static void handle_err_nicknameinuse(IdleConnection *conn);
@@ -905,7 +903,7 @@ static void handle_err_nicknameinuse(IdleConnection *conn)
 {
 /*	IdleConnectionPrivate *priv;
 	gchar *newnick;
-	IdleHandle handle;
+	TpHandle handle;
 	gchar cmd[IRC_MSG_MAXLEN+2];
 	GError *error;
 	gchar *tmp;
@@ -943,7 +941,7 @@ static void handle_err_nicknameinuse(IdleConnection *conn)
 
 	g_debug("%s: new nickname is %s", G_STRFUNC, priv->nickname);
 
-	handle = idle_handle_for_contact(priv->handles, newnick);
+	handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], newnick);
 
 	g_assert(handle != 0);
 
@@ -1102,20 +1100,20 @@ static void priv_rename(IdleConnection *conn, guint old, guint new)
 		return;
 	}
 
-	cp = idle_handle_get_presence(priv->handles, old);
+	cp = idle_handle_get_presence(conn->handles[TP_HANDLE_TYPE_CONTACT], old);
 
-	idle_handle_set_presence(priv->handles, new, cp);
-	idle_handle_set_presence(priv->handles, old, NULL);
+	idle_handle_set_presence(conn->handles[TP_HANDLE_TYPE_CONTACT], new, cp);
+	idle_handle_set_presence(conn->handles[TP_HANDLE_TYPE_CONTACT], old, NULL);
 
 	if (old == priv->self_handle)
 	{
 		g_debug("%s: renaming self_handle (%u, %u)", G_STRFUNC, old, new);
 
-		idle_handle_unref(priv->handles, TP_HANDLE_TYPE_CONTACT, old);
+		tp_handle_unref(conn->handles[TP_HANDLE_TYPE_CONTACT], old);
 
 		priv->self_handle = new;
 
-		idle_handle_ref(priv->handles, TP_HANDLE_TYPE_CONTACT, new);
+		tp_handle_ref(conn->handles[TP_HANDLE_TYPE_CONTACT], new);
 	}
 
 	chan = g_hash_table_lookup(priv->im_channels, GINT_TO_POINTER(old));
@@ -1158,7 +1156,7 @@ gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
 										? IDLE_TYPE_SSL_SERVER_CONNECTION 
 										: IDLE_TYPE_SERVER_CONNECTION;
 		
-		if ((priv->self_handle = idle_handle_for_contact(priv->handles, priv->nickname)) == 0)
+		if ((priv->self_handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], priv->nickname)) == 0)
 		{
 			g_debug("%s: invalid nickname %s", G_STRFUNC, priv->nickname);
 
@@ -1183,7 +1181,7 @@ gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
       }
     }
 
-		valid = idle_handle_ref(priv->handles, TP_HANDLE_TYPE_CONTACT, priv->self_handle);
+		valid = tp_handle_ref(conn->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
 
 		g_assert(valid == TRUE);
 		
@@ -1435,7 +1433,7 @@ static void cmd_parse(IdleConnection *conn, const gchar *msg)
 static void muc_channel_handle_quit_foreach(gpointer key, gpointer value, gpointer user_data)
 {
 	IdleMUCChannel *chan = value;
-	IdleHandle handle = GPOINTER_TO_INT(user_data);
+	TpHandle handle = GPOINTER_TO_INT(user_data);
 
 	g_debug("%s: for %p %p %p", G_STRFUNC, key, value, user_data);
 
@@ -1488,7 +1486,7 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 
 	if ((g_strncasecmp(cmd, "NOTICE", 6) == 0) || (g_strncasecmp(cmd, "PRIVMSG", 7) == 0))
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		gchar *body;
 		TpChannelTextMessageType msgtype;
 		
@@ -1554,7 +1552,7 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 		{
 			IdleIMChannel *chan;
 			
-			if ((handle = idle_handle_for_contact(priv->handles, from)) == 0)
+			if ((handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], from)) == 0)
 			{
 				g_debug("%s: got NOTICE/PRIVMSG with malformed sender %s (%s)", G_STRFUNC, from, msg);
 				goto cleanupl;
@@ -1578,15 +1576,15 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 		else if ((recipient[0] == '#') || (recipient[0] == '&') || (recipient[0] == '!') || (recipient[0] == '+'))
 		{
 			IdleMUCChannel *chan;
-			IdleHandle sender_handle;
+			TpHandle sender_handle;
 			
-			if ((handle = idle_handle_for_room(priv->handles, recipient)) == 0)
+			if ((handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], recipient)) == 0)
 			{
 				g_debug("%s: got NOTICE/PRIVMSG with malformed IRC channel recipient %s (%s)", G_STRFUNC, from, msg);
 				goto cleanupl;
 			}
 
-			if ((sender_handle = idle_handle_for_contact(priv->handles, from)) == 0)
+			if ((sender_handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], from)) == 0)
 			{
 				g_debug("%s: got NOTICE/PRIVMSG with malformed sender %s (%s)", G_STRFUNC, from, msg);
 				goto cleanupl;
@@ -1610,7 +1608,7 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 	}
 	else if (g_strncasecmp(cmd, "JOIN", 4) == 0)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		char *channel = recipient;
 		IdleMUCChannel *chan;
 
@@ -1620,7 +1618,7 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 			channel++;
 		}
 
-		handle = idle_handle_for_room(priv->handles, channel);
+		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], channel);
 
 		if (handle == 0)
 		{
@@ -1643,14 +1641,14 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 	}
 	else if (g_strncasecmp(cmd, "NICK", 4) == 0)
 	{
-		IdleHandle old_handle, new_handle;
+		TpHandle old_handle, new_handle;
 		gchar *old_down, *new_down;
 
 		old_down = from;
-		old_handle = idle_handle_for_contact(priv->handles, old_down);
+		old_handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], old_down);
 
 		new_down = recipient+1;
-		new_handle = idle_handle_for_contact(priv->handles, new_down);
+		new_handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], new_down);
 
 		g_debug("%s: got NICK (%s) -> (%s), %u -> %u", G_STRFUNC, old_down, new_down, old_handle, new_handle);
 
@@ -1658,7 +1656,7 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 	}
 	else if (g_strncasecmp(cmd, "MODE", 4) == 0)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		IdleMUCChannel *chan;
 		gchar *tmp;
 		ucs4char = g_utf8_get_char_validated(recipient, -1);
@@ -1669,7 +1667,7 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 			goto cleanupl;
 		}
 		
-		handle = idle_handle_for_room(priv->handles, recipient);
+		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], recipient);
 
 		if (handle == 0)
 		{
@@ -1699,13 +1697,13 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 	}
 	else if (g_strncasecmp(cmd, "PART", 4) == 0)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		IdleMUCChannel *chan;
 		gchar *chan_down;
 
 		chan_down = recipient;
 
-		handle = idle_handle_for_room(priv->handles, chan_down);
+		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], chan_down);
 
 		if (handle == 0)
 		{
@@ -1727,7 +1725,7 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 	}
 	else if (g_strncasecmp(cmd, "KICK", 4) == 0)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		IdleMUCChannel *chan;
 		gchar *chan_down;
 		gchar *nick;
@@ -1736,7 +1734,7 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 
 		chan_down = recipient;
 
-		handle = idle_handle_for_room(priv->handles, chan_down);
+		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], chan_down);
 
 		if (handle == 0)
 		{
@@ -1796,11 +1794,11 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 	}
 	else if (g_strncasecmp(cmd, "INVITE", 6) == 0)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		IdleMUCChannel *chan;
 		gboolean worked_around = FALSE;
 		gchar *tmp;
-		IdleHandle inviter_handle;
+		TpHandle inviter_handle;
 
 		if (tokenc != 4)
 		{
@@ -1815,7 +1813,7 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 			worked_around = TRUE;
 		}
 
-		handle = idle_handle_for_room(priv->handles, tokens[3]);
+		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], tokens[3]);
 
 		if (worked_around)
 		{
@@ -1835,7 +1833,7 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 			*tmp = '\0';
 		}
 
-		inviter_handle = idle_handle_for_contact(priv->handles, tokens[0]);
+		inviter_handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], tokens[0]);
 
 		if (!inviter_handle)
 		{
@@ -1860,10 +1858,10 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 	}
 	else if (g_strncasecmp(cmd, "QUIT", 4) == 0)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		IdleIMChannel *chan;
 
-		handle = idle_handle_for_contact(priv->handles, from);
+		handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], from);
 
 		if (handle == 0)
 		{
@@ -1890,11 +1888,11 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 	}
 	else if (g_strncasecmp(cmd, "TOPIC", 5) == 0)
 	{
-		IdleHandle handle, setter_handle;
+		TpHandle handle, setter_handle;
 		IdleMUCChannel *chan;
 		char *tmp;
 
-		handle = idle_handle_for_room(priv->handles, recipient);
+		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], recipient);
 
 		if (handle == 0)
 		{
@@ -1918,7 +1916,7 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 			goto cleanupl;
 		}
 
-		setter_handle = idle_handle_for_contact(priv->handles, from);
+		setter_handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], from);
 
 		if (setter_handle == 0)
 		{
@@ -2016,7 +2014,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 		char *identifier;
 		char *channeltmp;
 		char *channel;
-		IdleHandle handle;
+		TpHandle handle;
 		GArray *names_array;
 		guint i, lasti;
 		guint length;
@@ -2056,7 +2054,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 		
 		channel = g_strstrip(channeltmp);
 
-		handle = idle_handle_for_room(priv->handles, channel);
+		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], channel);
 
 		if (handle == 0)
 		{
@@ -2120,7 +2118,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 	{
 		gchar *channel;
 		gchar *tmp;
-		IdleHandle handle;
+		TpHandle handle;
 		IdleMUCChannel *chan;
 
 	 	if (((channel = strchr(msg, '#')) == NULL) && 
@@ -2142,7 +2140,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 
 		channel = g_strstrip(channel);
 
-		handle = idle_handle_for_room(priv->handles, channel);
+		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], channel);
 
 		if (handle == 0)
 		{
@@ -2200,7 +2198,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 	}
 	else if (numeric == IRC_RPL_TOPIC)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		IdleMUCChannel *chan;
 		gchar *tmp;
 		
@@ -2210,7 +2208,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 			goto cleanupl;
 		}
 
-		handle = idle_handle_for_room(priv->handles, tokens[3]);
+		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], tokens[3]);
 
 		if (handle == 0)
 		{
@@ -2241,7 +2239,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 	}
 	else if (numeric == IRC_RPL_TOPIC_STAMP)
 	{
-		IdleHandle handle, toucher_handle;
+		TpHandle handle, toucher_handle;
 		IdleMUCChannel *chan;
 		guint timestamp;
 		
@@ -2251,7 +2249,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 			goto cleanupl;
 		}
 
-		handle = idle_handle_for_room(priv->handles, tokens[3]);
+		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], tokens[3]);
 
 		if (handle == 0)
 		{
@@ -2267,7 +2265,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 			goto cleanupl;
 		}
 
-		toucher_handle = idle_handle_for_contact(priv->handles, tokens[4]);
+		toucher_handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], tokens[4]);
 
 		if (toucher_handle == 0)
 		{
@@ -2287,7 +2285,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 	}
 	else if (numeric == IRC_RPL_MODEREPLY)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		IdleMUCChannel *chan;
 		gchar *tmp;
 
@@ -2297,7 +2295,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 			goto cleanupl;
 		}
 		
-		handle = idle_handle_for_room(priv->handles, tokens[3]);
+		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], tokens[3]);
 
 		if (handle == 0)
 		{
@@ -2327,7 +2325,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 	}
 	else if (numeric == IRC_ERR_NOSUCHNICK)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		IdleIMChannel *chan;
 		GList *link;
 
@@ -2344,7 +2342,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 			priv->presence_reply_list = g_list_delete_link(priv->presence_reply_list, link);
 		}
 		
-		handle = idle_handle_for_contact(priv->handles, tokens[3]);
+		handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], tokens[3]);
 
 		if (handle == 0)
 		{
@@ -2370,11 +2368,11 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 			|| numeric == IRC_ERR_CHANNELISFULL
 			|| numeric == IRC_ERR_INVITEONLYCHAN)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		IdleMUCChannel *chan;
 		guint err;
 
-		handle = idle_handle_for_room(priv->handles, tokens[3]);
+		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], tokens[3]);
 
 		if (handle == 0)
 		{
@@ -2426,7 +2424,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 	}
 	else if (numeric == IRC_RPL_AWAY)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		char *tmp;
 		GList *link;
 		
@@ -2436,7 +2434,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 			goto cleanupl;
 		}
 
-		handle = idle_handle_for_contact(priv->handles, tokens[3]);
+		handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], tokens[3]);
 
 		if (handle == 0)
 		{
@@ -2466,7 +2464,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 	else if (numeric == IRC_RPL_ENDOFWHOIS)
 	{
 		GList *link;
-		IdleHandle handle;
+		TpHandle handle;
 		
 		if (tokenc < 4)
 		{
@@ -2481,7 +2479,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 			g_free(link->data);
 			priv->presence_reply_list = g_list_remove_link(priv->presence_reply_list, link);
 
-			handle = idle_handle_for_contact(priv->handles, tokens[3]);
+			handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], tokens[3]);
 
 			if (handle == 0)
 			{
@@ -2494,7 +2492,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 	}
 	else if (numeric == IRC_RPL_WHOISIDLE)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		IdleContactPresence *cp;
 		guint last_activity;
 
@@ -2504,7 +2502,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 			goto cleanupl;
 		}
 
-		handle = idle_handle_for_contact(priv->handles, tokens[2]);
+		handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], tokens[2]);
 
 		if (handle == 0)
 		{
@@ -2512,7 +2510,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 			goto cleanupl;
 		}
 
-		cp = idle_handle_get_presence(priv->handles, handle);
+		cp = idle_handle_get_presence(conn->handles[TP_HANDLE_TYPE_CONTACT], handle);
 
 		if (cp == NULL)
 		{
@@ -2585,11 +2583,11 @@ static void polling_foreach_func(guint i, gpointer user_data)
 {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	IdleHandle handle = (IdleHandle)(i);
+	TpHandle handle = (TpHandle)(i);
 
-	if (idle_handle_is_valid(priv->handles, TP_HANDLE_TYPE_CONTACT, handle))
+	if (tp_handle_is_valid(conn->handles[TP_HANDLE_TYPE_CONTACT], handle, NULL))
 	{
-		const gchar *nick = idle_handle_inspect(priv->handles, TP_HANDLE_TYPE_CONTACT, handle);
+		const gchar *nick = idle_handle_inspect(conn->handles[TP_HANDLE_TYPE_CONTACT], handle);
 
 		presence_request_push(conn, nick);
 	}
@@ -2614,7 +2612,7 @@ static gboolean presence_polling_cb(gpointer user_data)
 	return TRUE;
 }
 
-static void polled_presence_add(IdleConnection *conn, IdleHandle handle)
+static void polled_presence_add(IdleConnection *conn, TpHandle handle)
 {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	
@@ -2627,7 +2625,7 @@ static void polled_presence_add(IdleConnection *conn, IdleHandle handle)
 	}
 }
 
-static void polled_presence_remove(IdleConnection *conn, IdleHandle handle)
+static void polled_presence_remove(IdleConnection *conn, TpHandle handle)
 {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	
@@ -2640,16 +2638,15 @@ static void polled_presence_remove(IdleConnection *conn, IdleHandle handle)
 	}
 }
 
-static void update_presence(IdleConnection *self, IdleHandle contact_handle, IdlePresenceState presence_state, const gchar *status_message)
+static void update_presence(IdleConnection *self, TpHandle contact_handle, IdlePresenceState presence_state, const gchar *status_message)
 {
 	return update_presence_full(self, contact_handle, presence_state, status_message, 0);
 }
 
-static void update_presence_full(IdleConnection *self, IdleHandle contact_handle, IdlePresenceState presence_state, const gchar *status_message, guint last_activity)
+static void update_presence_full(IdleConnection *self, TpHandle contact_handle, IdlePresenceState presence_state, const gchar *status_message, guint last_activity)
 {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(self);
-	IdleContactPresence *cp = idle_handle_get_presence(priv->handles, contact_handle);
-	IdleHandle handles[2] = {contact_handle, 0};
+	IdleContactPresence *cp = idle_handle_get_presence(self->handles[TP_HANDLE_TYPE_CONTACT], contact_handle);
+	TpHandle handles[2] = {contact_handle, 0};
 
 	if (cp)
 	{
@@ -2665,13 +2662,13 @@ static void update_presence_full(IdleConnection *self, IdleHandle contact_handle
 		{
 			polled_presence_remove(self, contact_handle);
 			idle_contact_presence_free(cp);
-			idle_handle_set_presence(priv->handles, contact_handle, NULL);
+			idle_handle_set_presence(self->handles[TP_HANDLE_TYPE_CONTACT], contact_handle, NULL);
 		}
 	}
 	else if (presence_state != IDLE_PRESENCE_AVAILABLE)
 	{
 		cp = idle_contact_presence_new0();
-		g_assert(idle_handle_set_presence(priv->handles, contact_handle, cp));
+		g_assert(idle_handle_set_presence(self->handles[TP_HANDLE_TYPE_CONTACT], contact_handle, cp));
 
 		polled_presence_add(self, contact_handle);
 	}
@@ -3203,7 +3200,7 @@ static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusRea
 
 struct member_check_data
 {
-	IdleHandle handle;
+	TpHandle handle;
 	gboolean is_present;
 };
 
@@ -3218,12 +3215,12 @@ static void member_check_foreach(gpointer key, gpointer value, gpointer user_dat
 	}
 }
 
-const IdleContactPresence *get_contact_presence(IdleConnection *conn, IdleHandle handle)
+const IdleContactPresence *get_contact_presence(IdleConnection *conn, TpHandle handle)
 {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	const IdleContactPresence *ret;
 
-	ret = idle_handle_get_presence(priv->handles, handle);
+	ret = idle_handle_get_presence(conn->handles[TP_HANDLE_TYPE_CONTACT], handle);
 
 	if (!ret)
 	{
@@ -3261,7 +3258,7 @@ bastard_destroyer_from_collabora(GValue *value)
 	g_free(value);
 }
 
-static void emit_presence_update(IdleConnection *self, const IdleHandle *contact_handles)
+static void emit_presence_update(IdleConnection *self, const TpHandle *contact_handles)
 {
 	IdleConnectionPrivate *priv;
 	const IdleContactPresence *cp; 
@@ -3322,7 +3319,7 @@ static void emit_presence_update(IdleConnection *self, const IdleHandle *contact
 	{
 		GValue *message;
 
-		cp = idle_handle_get_qdata(priv->handles, TP_HANDLE_TYPE_CONTACT, contact_handles[i], data_key);
+		cp = idle_handle_get_qdata(conn->handles, TP_HANDLE_TYPE_CONTACT, contact_handles[i], data_key);
 
 		if (!cp)
 		{
@@ -3372,7 +3369,7 @@ static gboolean signal_own_presence (IdleConnection *self, GError **error)
 
 	priv = IDLE_CONNECTION_GET_PRIVATE(self);
 	
-	cp = idle_handle_get_presence(priv->handles, priv->self_handle);
+	cp = idle_handle_get_presence(self->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
 
 	g_assert(cp != NULL);
 	
@@ -3409,7 +3406,7 @@ static gboolean signal_own_presence (IdleConnection *self, GError **error)
 	return TRUE;
 }
 
-static IdleIMChannel *new_im_channel(IdleConnection *conn, IdleHandle handle, gboolean suppress_handler)
+static IdleIMChannel *new_im_channel(IdleConnection *conn, TpHandle handle, gboolean suppress_handler)
 {
 	IdleConnectionPrivate *priv;
 	IdleIMChannel *chan;
@@ -3441,7 +3438,7 @@ static IdleIMChannel *new_im_channel(IdleConnection *conn, IdleHandle handle, gb
 	return chan;
 }
 
-static IdleMUCChannel *new_muc_channel(IdleConnection *conn, IdleHandle handle, gboolean suppress_handler)
+static IdleMUCChannel *new_muc_channel(IdleConnection *conn, TpHandle handle, gboolean suppress_handler)
 {
 	IdleConnectionPrivate *priv;
 	IdleMUCChannel *chan;
@@ -3535,7 +3532,7 @@ static void muc_channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer 
 	g_free(obj_path);
 }
 
-static IdleMUCChannel *new_muc_channel_async_req(IdleConnection *conn, IdleHandle handle, gboolean suppress_handler, DBusGMethodInvocation *ctx)
+static IdleMUCChannel *new_muc_channel_async_req(IdleConnection *conn, TpHandle handle, gboolean suppress_handler, DBusGMethodInvocation *ctx)
 {
 	IdleConnectionPrivate *priv;
 	IdleMUCChannel *chan;
@@ -3579,7 +3576,7 @@ static void im_channel_closed_cb(IdleIMChannel *chan, gpointer user_data)
 {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	IdleConnectionPrivate *priv;
-	IdleHandle contact_handle;
+	TpHandle contact_handle;
 
 	g_assert(conn != NULL);
 	g_assert(IDLE_IS_CONNECTION(conn));
@@ -3600,7 +3597,7 @@ static void muc_channel_closed_cb(IdleMUCChannel *chan, gpointer user_data)
 {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	IdleHandle room_handle;
+	TpHandle room_handle;
 
 	if (priv->muc_channels)
 	{
@@ -3614,19 +3611,19 @@ static void muc_channel_closed_cb(IdleMUCChannel *chan, gpointer user_data)
 
 static void destroy_handle_sets(gpointer set)
 {
-	IdleHandleSet *handle_set;
+	TpHandleSet *handle_set;
 
 	g_assert(set != NULL);
-	handle_set = (IdleHandleSet *)(set);
+	handle_set = (TpHandleSet *)(set);
 	
-	idle_handle_set_destroy(handle_set);
+	tp_handle_set_destroy(handle_set);
 }
 
 void _idle_connection_client_hold_handle(IdleConnection *conn, gchar *client_name,
-											IdleHandle handle, TpHandleType type)
+											TpHandle handle, TpHandleType type)
 {
 	IdleConnectionPrivate *priv;
-	IdleHandleSet *handle_set;
+	TpHandleSet *handle_set;
 	GData **handle_set_list;
 	
 	g_assert(conn != NULL);
@@ -3653,22 +3650,22 @@ void _idle_connection_client_hold_handle(IdleConnection *conn, gchar *client_nam
 		}
 	}
 	
-	handle_set = (IdleHandleSet *)(g_datalist_get_data(handle_set_list, client_name));
+	handle_set = (TpHandleSet *)(g_datalist_get_data(handle_set_list, client_name));
 
 	if (handle_set == NULL)
 	{
-		handle_set = idle_handle_set_new(priv->handles, type);
+		handle_set = tp_handle_set_new(conn->handles[type]);
 		g_datalist_set_data_full(handle_set_list, client_name, handle_set, destroy_handle_sets);
 	}
 
-	idle_handle_set_add(handle_set, handle);
+	tp_handle_set_add(handle_set, handle);
 }
 
 gboolean _idle_connection_client_release_handle(IdleConnection *conn, gchar *client_name,
-													IdleHandle handle, TpHandleType type)
+													TpHandle handle, TpHandleType type)
 {
 	IdleConnectionPrivate *priv;
-	IdleHandleSet *handle_set;
+	TpHandleSet *handle_set;
 	GData **handle_set_list;
 
 	g_assert(conn != NULL);
@@ -3695,11 +3692,11 @@ gboolean _idle_connection_client_release_handle(IdleConnection *conn, gchar *cli
 		}
 	}
 
-	handle_set = (IdleHandleSet *)(g_datalist_get_data(handle_set_list, client_name));
+	handle_set = (TpHandleSet *)(g_datalist_get_data(handle_set_list, client_name));
 
 	if (handle_set)
 	{
-		return idle_handle_set_remove(handle_set, handle);
+		return tp_handle_set_remove(handle_set, handle);
 	}
 	else
 	{
@@ -3783,7 +3780,7 @@ void _idle_connection_slashquery(IdleConnection *conn, const gchar *nicks)
 	gchar *nicktmp;
 	IdleConnectionPrivate *priv;
 	IdleIMChannel *chan;
-	IdleHandle handle;
+	TpHandle handle;
 	size_t len = strlen(nicks);
 
 	g_assert(conn != NULL);
@@ -3801,7 +3798,7 @@ void _idle_connection_slashquery(IdleConnection *conn, const gchar *nicks)
 				memcpy(nicktmp, nicks+lasti, i-lasti);
 				nicktmp[i-lasti+1] = '\0';
 
-				if ((handle = idle_handle_for_contact(priv->handles, nicktmp)) == 0)
+				if ((handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], nicktmp)) == 0)
 				{
 					g_debug("%s: invalid nick %s passed", G_STRFUNC, nicktmp);
 				}
@@ -3851,10 +3848,10 @@ void _idle_connection_slashmsg(IdleConnection *conn, const gchar *nicknmsg, guin
 	
 	if (isalpha(nicktmp[0]))
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		IdleIMChannel *chan;
 
-		if ((handle = idle_handle_for_contact(priv->handles, nickcopy)) == 0)
+		if ((handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], nickcopy)) == 0)
 		{
 			g_debug("%s: invalid nick %s", G_STRFUNC, nicktmp);
 		}
@@ -3920,9 +3917,9 @@ void _idle_connection_slashmsg(IdleConnection *conn, const gchar *nicknmsg, guin
 			case '+':
 			case '!':
 			{
-				IdleHandle handle;
+				TpHandle handle;
 				
-				if ((handle = idle_handle_for_room(priv->handles, nickcopy)) == 0)
+				if ((handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], nickcopy)) == 0)
 				{
 					g_debug("%s: failed to get handle for channel %s", G_STRFUNC, nickcopy);
 				}
@@ -4074,7 +4071,7 @@ gboolean idle_connection_clear_status (IdleConnection *obj, GError **error)
 
 	ERROR_IF_NOT_CONNECTED(obj, priv, *error);
 
-	cp = idle_handle_get_presence(priv->handles, priv->self_handle);
+	cp = idle_handle_get_presence(obj->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
 
     if (!cp)
     {
@@ -4152,7 +4149,7 @@ gboolean idle_connection_get_capabilities (IdleConnection *obj, GArray *handles,
 {
 	int i;
 	IdleConnectionPrivate *priv;
-	IdleHandle handle;
+	TpHandle handle;
 
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_CONNECTION(obj));
@@ -4177,7 +4174,7 @@ gboolean idle_connection_get_capabilities (IdleConnection *obj, GArray *handles,
 			dbus_g_type_struct_set(&vals,
 									0, handle,
 		}	
-		else if (!idle_handle_is_valid(priv->handles, TP_HANDLE_TYPE_CONTACT, handle) && !idle_handle_is_valid(priv->handles, TP_HANDLE_TYPE_ROOM, handle))
+		else if (!tp_handle_is_valid(conn->handles[TP_HANDLE_TYPE_CONTACT], handle, NULL) && !tp_handle_is_valid(conn->handles[TP_HANDLE_TYPE_ROOM], handle, NULL))
 		{
 			g_debug("%s: invalid handle %u", G_STRFUNC, handle);
 		
@@ -4397,7 +4394,7 @@ gboolean idle_connection_hold_handles (IdleConnection *obj,
 
 	ERROR_IF_NOT_CONNECTED_ASYNC(obj, priv, error, context);
 
-	if (!idle_handle_type_is_valid(handle_type))
+	if (!tp_handle_type_is_valid(handle_type, NULL))
 	{
 		g_debug("%s: invalid handle type %u", G_STRFUNC, handle_type);
 		
@@ -4412,11 +4409,11 @@ gboolean idle_connection_hold_handles (IdleConnection *obj,
 
 	for (i=0; i<handles->len; i++)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		gboolean valid;
 
 		handle = g_array_index(handles, guint, i);
-		valid = idle_handle_is_valid(priv->handles, handle_type, handle);
+		valid = tp_handle_is_valid(obj->handles[handle_type], handle, NULL);
 
 		if (!valid)
 		{
@@ -4459,7 +4456,7 @@ gboolean idle_connection_inspect_handle (IdleConnection *obj, guint handle_type,
 
 	ERROR_IF_NOT_CONNECTED(obj, priv, *_error);
 
-	if (!idle_handle_type_is_valid(handle_type))
+	if (!tp_handle_type_is_valid(handle_type, NULL))
 	{
 		g_debug("%s: invalid handle type %u", G_STRFUNC, handle_type);
 
@@ -4468,7 +4465,7 @@ gboolean idle_connection_inspect_handle (IdleConnection *obj, guint handle_type,
 		return FALSE;
 	}
 
-	tmp = idle_handle_inspect(priv->handles, handle_type, handle);
+	tmp = idle_handle_inspect(obj->handles[handle_type], handle);
 
 	if (tmp == NULL)
 	{
@@ -4494,7 +4491,7 @@ gboolean idle_connection_inspect_handles (IdleConnection *conn, guint handle_typ
 
 	ERROR_IF_NOT_CONNECTED_ASYNC(obj, priv, error, ctx);
 
-	if (!idle_handle_type_is_valid(handle_type))
+	if (!tp_handle_type_is_valid(handle_type, NULL))
 	{
 		g_debug("%s: invalid handle type %u", G_STRFUNC, handle_type);
 
@@ -4509,9 +4506,9 @@ gboolean idle_connection_inspect_handles (IdleConnection *conn, guint handle_typ
 
 	for (i=0; i<handles->len; i++)
 	{
-		IdleHandle handle = g_array_index(handles, guint, i);
+		TpHandle handle = g_array_index(handles, guint, i);
 		
-		tmp = idle_handle_inspect(priv->handles, handle_type, handle);
+		tmp = idle_handle_inspect(conn->handles[handle_type], handle);
 
 		if (tmp == NULL)
 		{
@@ -4658,7 +4655,7 @@ gboolean idle_connection_release_handles (IdleConnection *obj,
 
 	ERROR_IF_NOT_CONNECTED_ASYNC(obj, priv, error, context);
 
-	if (!idle_handle_type_is_valid(handle_type))
+	if (!tp_handle_type_is_valid(handle_type, NULL))
 	{
 		g_debug("%s: invalid handle type %u", G_STRFUNC, handle_type);
 
@@ -4675,11 +4672,11 @@ gboolean idle_connection_release_handles (IdleConnection *obj,
 	
 	for (i=0; i<handles->len; i++)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 		gboolean valid;
 
 		handle = g_array_index(handles, guint, i);
-		valid = idle_handle_is_valid(priv->handles, handle_type, handle);
+		valid = tp_handle_is_valid(obj->handles[handle_type], handle, NULL);
 
 		if (!valid)
 		{
@@ -4726,7 +4723,7 @@ gboolean idle_connection_remove_status (IdleConnection *obj, const gchar * statu
 
 	ERROR_IF_NOT_CONNECTED(obj, priv, *error);
 
-	cp = idle_handle_get_presence(priv->handles, priv->self_handle);
+	cp = idle_handle_get_presence(obj->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
 
 	if ((cp != NULL) && !strcmp(status, idle_statuses[cp->presence_state].name))
 	{
@@ -4769,7 +4766,7 @@ gboolean idle_connection_request_channel (IdleConnection *obj, const gchar * typ
 
 	ERROR_IF_NOT_CONNECTED_ASYNC(obj, priv, error, ctx);
 
-	if (!idle_handle_is_valid(priv->handles, handle_type, handle))
+	if (!tp_handle_is_valid(obj->handles[handle_type], handle, NULL))
 	{
 		goto INVALID_HANDLE;
 	}
@@ -4869,7 +4866,7 @@ NOT_IMPLEMENTED:
   return FALSE;
 }
 
-static IdleHandle _idle_connection_request_handle(IdleConnection *obj,
+static TpHandle _idle_connection_request_handle(IdleConnection *obj,
 												  guint handle_type,
 												  const gchar *name,
 												  GError **error);
@@ -4901,7 +4898,7 @@ gboolean idle_connection_request_handles (IdleConnection *obj,
 
 	ERROR_IF_NOT_CONNECTED_ASYNC(obj, priv, error, context);
 
-	if (!idle_handle_type_is_valid(handle_type))
+	if (!tp_handle_type_is_valid(handle_type, NULL))
 	{
 		g_debug("%s: invalid handle type %u", G_STRFUNC, handle_type);
 
@@ -4913,11 +4910,11 @@ gboolean idle_connection_request_handles (IdleConnection *obj,
 	}
 
 	sender = dbus_g_method_get_sender(context);
-	handles = g_array_new(FALSE, FALSE, sizeof(IdleHandle));
+	handles = g_array_new(FALSE, FALSE, sizeof(TpHandle));
 
 	for (name = names; *name != NULL; name++)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 
 		handle = _idle_connection_request_handle(obj, handle_type, *name, &error);
 
@@ -4943,20 +4940,19 @@ gboolean idle_connection_request_handles (IdleConnection *obj,
 	return TRUE;
 }
 
-static IdleHandle _idle_connection_request_handle(IdleConnection *obj,
+static TpHandle _idle_connection_request_handle(IdleConnection *obj,
 												  guint handle_type,
 												  const gchar *name,
 												  GError **error)
 {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(obj);
-	IdleHandle handle;
+	TpHandle handle;
 	gchar *final_name;
 	
 	switch (handle_type)
 	{
 		case TP_HANDLE_TYPE_CONTACT:
 		{
-			handle = idle_handle_for_contact(priv->handles, name);
+			handle = idle_handle_for_contact(obj->handles[TP_HANDLE_TYPE_CONTACT], name);
 		}
 		break;
 		case TP_HANDLE_TYPE_ROOM:
@@ -4979,7 +4975,7 @@ static IdleHandle _idle_connection_request_handle(IdleConnection *obj,
 				break;
 			}
 			
-			handle = idle_handle_for_room(priv->handles, final_name);
+			handle = idle_handle_for_room(obj->handles[TP_HANDLE_TYPE_ROOM], final_name);
 			
 			if (final_name != name)
 			{
@@ -5072,7 +5068,7 @@ gboolean idle_connection_request_presence (IdleConnection *obj, const GArray * c
 {
 	IdleConnectionPrivate *priv;
 	int i;
-	IdleHandle *handles = g_new0(IdleHandle, contacts->len+1);
+	TpHandle *handles = g_new0(TpHandle, contacts->len+1);
 
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_CONNECTION(obj));
@@ -5083,11 +5079,11 @@ gboolean idle_connection_request_presence (IdleConnection *obj, const GArray * c
 
 	for (i=0; i<contacts->len; i++)
 	{
-		IdleHandle handle;
+		TpHandle handle;
 
 		handle = g_array_index(contacts, guint, i);
 
-		if (!idle_handle_is_valid(priv->handles, TP_HANDLE_TYPE_CONTACT, handle))
+		if (!tp_handle_is_valid(obj->handles[TP_HANDLE_TYPE_CONTACT], handle, NULL))
 		{
 			g_debug("%s: invalid handle %u", G_STRFUNC, handle);
 
@@ -5187,12 +5183,12 @@ static void setstatuses_foreach(gpointer key, gpointer value, gpointer user_data
 			status = g_value_get_string(message);
 		}
 
-		cp = idle_handle_get_presence(priv->handles, priv->self_handle);
+		cp = idle_handle_get_presence(data->conn->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
 
 		if (!cp)
 		{
 			cp = idle_contact_presence_new();
-			g_assert(idle_handle_set_presence(priv->handles, priv->self_handle, cp));
+			g_assert(idle_handle_set_presence(data->conn->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle, cp));
 		}
 
 		cp->presence_state = i;
@@ -5266,14 +5262,14 @@ gboolean idle_connection_set_status (IdleConnection *obj, GHashTable * statuses,
 gboolean idle_connection_request_rename(IdleConnection *obj, const gchar *nick, GError **error)
 {
 	IdleConnectionPrivate *priv;
-	IdleHandle handle;
+	TpHandle handle;
 
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_CONNECTION(obj));
 
 	priv = IDLE_CONNECTION_GET_PRIVATE(obj);
 
-	handle = idle_handle_for_contact(priv->handles, nick);
+	handle = idle_handle_for_contact(obj->handles[TP_HANDLE_TYPE_CONTACT], nick);
 
 	if (handle == 0)
 	{
