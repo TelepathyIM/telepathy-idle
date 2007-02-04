@@ -214,10 +214,6 @@ struct _IdleConnectionPrivate
 	GHashTable *im_channels;
 	GHashTable *muc_channels;
 
-	/* client handle set lists */
-	GData *cl_contact_handle_sets;
-	GData *cl_room_handle_sets;
-
 	/* Set of handles whose presence status we should poll and associated polling timer */
 	TpIntSet *polled_presences;
 	guint presence_polling_timer_id;
@@ -286,9 +282,6 @@ idle_connection_init (IdleConnection *obj)
   priv->presence_reply_list = NULL;
 
   priv->status = TP_CONNECTION_STATUS_DISCONNECTED;
-
-  g_datalist_init(&(priv->cl_contact_handle_sets));
-  g_datalist_init(&(priv->cl_room_handle_sets));
 
   memset(priv->splitbuf, 0, IRC_MSG_MAXLEN+3);
   priv->msg_queue = g_queue_new();
@@ -668,9 +661,6 @@ idle_connection_finalize (GObject *object)
   g_free(priv->object_path);
 
   g_free(priv->ctcp_version_string);
-
-  g_datalist_clear(&(priv->cl_contact_handle_sets));
-  g_datalist_clear(&(priv->cl_room_handle_sets));
 
   g_hash_table_destroy(priv->chan_req_ctxs);
 
@@ -3074,101 +3064,6 @@ static void muc_channel_closed_cb(IdleMUCChannel *chan, gpointer user_data)
 	}
 }
 
-static void destroy_handle_sets(gpointer set)
-{
-	TpHandleSet *handle_set;
-
-	g_assert(set != NULL);
-	handle_set = (TpHandleSet *)(set);
-	
-	tp_handle_set_destroy(handle_set);
-}
-
-void _idle_connection_client_hold_handle(IdleConnection *conn, gchar *client_name,
-											TpHandle handle, TpHandleType type)
-{
-	IdleConnectionPrivate *priv;
-	TpHandleSet *handle_set;
-	GData **handle_set_list;
-	
-	g_assert(conn != NULL);
-	g_assert(IDLE_IS_CONNECTION(conn));
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-
-	switch (type)
-	{
-		case TP_HANDLE_TYPE_CONTACT:
-		{
-			handle_set_list = &(priv->cl_contact_handle_sets);
-		}
-		break;
-		case TP_HANDLE_TYPE_ROOM:
-		{
-			handle_set_list = &(priv->cl_room_handle_sets);
-		}
-		break;
-		default:
-		{
-			g_critical("%s: invalid handle type %u", G_STRFUNC, type);
-			return;
-		}
-	}
-	
-	handle_set = (TpHandleSet *)(g_datalist_get_data(handle_set_list, client_name));
-
-	if (handle_set == NULL)
-	{
-		handle_set = tp_handle_set_new(conn->handles[type]);
-		g_datalist_set_data_full(handle_set_list, client_name, handle_set, destroy_handle_sets);
-	}
-
-	tp_handle_set_add(handle_set, handle);
-}
-
-gboolean _idle_connection_client_release_handle(IdleConnection *conn, gchar *client_name,
-													TpHandle handle, TpHandleType type)
-{
-	IdleConnectionPrivate *priv;
-	TpHandleSet *handle_set;
-	GData **handle_set_list;
-
-	g_assert(conn != NULL);
-	g_assert(IDLE_IS_CONNECTION(conn));
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-
-	switch (type)
-	{
-		case TP_HANDLE_TYPE_CONTACT:
-		{
-			handle_set_list = &(priv->cl_contact_handle_sets);
-		}
-		break;
-		case TP_HANDLE_TYPE_ROOM:
-		{
-			handle_set_list = &(priv->cl_room_handle_sets);
-		}
-		break;
-		default:
-		{
-			g_critical("%s: invalid handle type %u", G_STRFUNC, type);
-			return FALSE;
-		}
-	}
-
-	handle_set = (TpHandleSet *)(g_datalist_get_data(handle_set_list, client_name));
-
-	if (handle_set)
-	{
-		return tp_handle_set_remove(handle_set, handle);
-	}
-	else
-	{
-		return FALSE;
-	}
-}
-
 static GHashTable *
 get_statuses_arguments()
 {
@@ -3509,26 +3404,13 @@ gboolean idle_connection_hold_handles (IdleConnection *obj,
 
 	for (i=0; i<handles->len; i++)
 	{
-		TpHandle handle;
-		gboolean valid;
-
-		handle = g_array_index(handles, guint, i);
-		valid = tp_handle_is_valid(obj->handles[handle_type], handle, NULL);
-
-		if (!valid)
-		{
-			g_debug("%s: invalid handle %u", G_STRFUNC, handle);
-
-			error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid handle %u", handle);
-
-			dbus_g_method_return_error(context, error);
-		
-			g_error_free(error);
-
-			return FALSE;
-		}
-
-		_idle_connection_client_hold_handle(obj, sender, handle, handle_type);
+		TpHandle handle = g_array_index(handles, guint, i);
+    if (!tp_handle_client_hold(obj->handles[handle_type], sender, handle, &error))
+    {
+      dbus_g_method_return_error(context, error);
+      g_error_free(error);
+      return FALSE;
+    }
 	}
 
 	dbus_g_method_return(context);
@@ -3730,9 +3612,9 @@ gboolean idle_connection_list_channels (IdleConnection *obj, GPtrArray ** ret, G
 
 
 /**
- * idle_connection_release_handle
+ * idle_connection_release_handles
  *
- * Implements DBus method ReleaseHandle
+ * Implements DBus method ReleaseHandles
  * on interface org.freedesktop.Telepathy.Connection
  *
  * @context: The DBUS invocation context to use to return values
@@ -3772,26 +3654,14 @@ gboolean idle_connection_release_handles (IdleConnection *obj,
 	
 	for (i=0; i<handles->len; i++)
 	{
-		TpHandle handle;
-		gboolean valid;
+		TpHandle handle = g_array_index(handles, guint, i);
 
-		handle = g_array_index(handles, guint, i);
-		valid = tp_handle_is_valid(obj->handles[handle_type], handle, NULL);
-
-		if (!valid)
+		if (!tp_handle_client_release(obj->handles[handle_type], sender, handle, &error))
 		{
-			g_debug("%s: invalid handle %u", G_STRFUNC, handle);
-
-			error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "unknown handle %u", handle);
-
 			dbus_g_method_return_error(context, error);
-
 			g_error_free(error);
-
 			return FALSE;
 		}
-
-		_idle_connection_client_release_handle(obj, sender, handle, handle_type);
 	}
 
 	dbus_g_method_return(context);
@@ -4029,7 +3899,12 @@ gboolean idle_connection_request_handles (IdleConnection *obj,
 			return FALSE;
 		}
 
-		_idle_connection_client_hold_handle(obj, sender, handle, handle_type);
+    if (!tp_handle_client_hold(obj->handles[handle_type], sender, handle, &error))
+    {
+      dbus_g_method_return_error(context, error);
+      g_error_free(error);
+      return FALSE;
+    }
 
 		g_array_append_val(handles, handle);
 	}
