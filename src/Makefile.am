@@ -26,7 +26,6 @@ CORE_SOURCES = \
     idle-im-channel.h \
 	idle-muc-channel.h \
     idle-handles.h \
-	idle-handles-private.h \
 	idle-server-connection-iface.h \
 	idle-server-connection.h \
 	idle-server-connection-util.h \
