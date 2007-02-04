@@ -1185,6 +1185,22 @@ gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
 			return FALSE;
 		}
 
+    if (!priv->realname || !priv->realname[0])
+    {
+      const gchar *g_realname = g_get_real_name();
+
+      g_free(priv->realname);
+
+      if (g_realname && g_realname[0] && strcmp(g_realname, "Unknown"))
+      {
+        priv->realname = g_strdup(g_realname);
+      }
+      else
+      {
+        priv->realname = g_strdup(priv->nickname);
+      }
+    }
+
 		valid = idle_handle_ref(priv->handles, TP_HANDLE_TYPE_CONTACT, priv->self_handle);
 
 		g_assert(valid == TRUE);
