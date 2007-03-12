@@ -22,6 +22,7 @@
 #define __IDLE_IM_CHANNEL_H__
 
 #include <glib-object.h>
+#include <telepathy-glib/text-mixin.h>
 
 G_BEGIN_DECLS
 
@@ -30,10 +31,12 @@ typedef struct _IdleIMChannelClass IdleIMChannelClass;
 
 struct _IdleIMChannelClass {
     GObjectClass parent_class;
+    TpTextMixinClass text_class;
 };
 
 struct _IdleIMChannel {
     GObject parent;
+    TpTextMixin text;
 };
 
 GType idle_im_channel_get_type(void);
@@ -54,16 +57,13 @@ GType idle_im_channel_get_type(void);
 
 gboolean _idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *msg); 
 void _idle_im_channel_rename(IdleIMChannel *chan, TpHandle new_handle);
-void _idle_im_channel_nosuchnick(IdleIMChannel *chan);
 
-gboolean idle_im_channel_acknowledge_pending_messages (IdleIMChannel *obj, const GArray *ids, GError **error);
 gboolean idle_im_channel_close (IdleIMChannel *obj, GError **error);
 gboolean idle_im_channel_get_channel_type (IdleIMChannel *obj, gchar ** ret, GError **error);
 gboolean idle_im_channel_get_handle (IdleIMChannel *obj, guint* ret, guint* ret1, GError **error);
 gboolean idle_im_channel_get_interfaces (IdleIMChannel *obj, gchar *** ret, GError **error);
-gboolean idle_im_channel_list_pending_messages (IdleIMChannel *obj, gboolean clear, GPtrArray ** ret, GError **error);
-gboolean idle_im_channel_send (IdleIMChannel *obj, guint type, const gchar * text, GError **error);
 
 G_END_DECLS
 
 #endif /* #ifndef __IDLE_IM_CHANNEL_H__*/
+

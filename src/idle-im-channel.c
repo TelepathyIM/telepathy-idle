@@ -26,7 +26,6 @@
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/dbus.h>
 
-#define _GNU_SOURCE
 #include <string.h>
 #include <time.h>
 
@@ -39,15 +38,15 @@
 
 #define IRC_MSG_MAXLEN 510
 
-G_DEFINE_TYPE(IdleIMChannel, idle_im_channel, G_TYPE_OBJECT)
+static void text_iface_init (gpointer, gpointer);
+
+G_DEFINE_TYPE_WITH_CODE(IdleIMChannel, idle_im_channel, G_TYPE_OBJECT,
+    G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, text_iface_init);)
 
 /* signal enum */
 enum
 {
     CLOSED,
-    RECEIVED,
-    SENT,
-	SEND_ERROR,
     LAST_SIGNAL
 };
 
@@ -64,20 +63,6 @@ enum
 	LAST_PROPERTY_ENUM
 };
 
-typedef struct _IdleIMPendingMessage IdleIMPendingMessage;
-
-struct _IdleIMPendingMessage
-{
-	guint id;
-
-	time_t timestamp;
-	TpHandle sender;
-	
-	TpChannelTextMessageType type;
-	
-	gchar *text;
-};
-
 /* private structure */
 typedef struct _IdleIMChannelPrivate IdleIMChannelPrivate;
 
@@ -87,41 +72,16 @@ struct _IdleIMChannelPrivate
 	gchar *object_path;
 	TpHandle handle;
 
-	guint recv_id;
-	GQueue *pending_messages;
-
-	IdleIMPendingMessage *last_msg;
-	
 	gboolean closed;
 
-  	gboolean dispose_has_run;
+	gboolean dispose_has_run;
 };
-
-#define _idle_im_pending_new() \
-	(g_slice_new(IdleIMPendingMessage))
-#define _idle_im_pending_new0() \
-	(g_slice_new0(IdleIMPendingMessage))
-
-static void _idle_im_pending_free(IdleIMPendingMessage *msg)
-{
-	if (msg->text)
-	{
-		g_free(msg->text);
-	}
-
-	g_slice_free(IdleIMPendingMessage, msg);
-}
 
 #define IDLE_IM_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), IDLE_TYPE_IM_CHANNEL, IdleIMChannelPrivate))
 
 static void
 idle_im_channel_init (IdleIMChannel *obj)
 {
-	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE (obj);
-
-	priv->pending_messages = g_queue_new();
-
-	priv->last_msg = _idle_im_pending_new0();
 }
 
 static void idle_im_channel_dispose (GObject *object);
@@ -144,6 +104,13 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 
 	bus = tp_get_bus();
 	dbus_g_connection_register_g_object(bus, priv->object_path, obj);
+
+  tp_text_mixin_init(obj, G_STRUCT_OFFSET(IdleIMChannel, text), handles, 0);
+  tp_text_mixin_set_message_types(obj,
+      TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
+      TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION,
+      TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE,
+      G_MAXUINT);
 
 	return obj;
 }
@@ -309,33 +276,6 @@ idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_class)
                   idle_im_channel_marshal_VOID__VOID,
                   G_TYPE_NONE, 0);
 
-  signals[RECEIVED] =
-    g_signal_new ("received",
-                  G_OBJECT_CLASS_TYPE (idle_im_channel_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  idle_im_channel_marshal_VOID__INT_INT_INT_INT_INT_STRING,
-                  G_TYPE_NONE, 6, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_STRING);
-
-  signals[SENT] =
-    g_signal_new ("sent",
-                  G_OBJECT_CLASS_TYPE (idle_im_channel_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  idle_im_channel_marshal_VOID__INT_INT_STRING,
-                  G_TYPE_NONE, 3, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_STRING);
-
-  signals[SEND_ERROR] =
-	  g_signal_new("send-error",
-			  		G_OBJECT_CLASS_TYPE(idle_im_channel_class),
-					G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-					0,
-					NULL, NULL,
-					idle_im_channel_marshal_VOID__INT_INT_INT_STRING,
-					G_TYPE_NONE, 4, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_STRING);
-
   dbus_g_object_type_install_info (G_TYPE_FROM_CLASS (idle_im_channel_class), &dbus_glib_idle_im_channel_object_info);
 }
 
@@ -368,7 +308,6 @@ idle_im_channel_finalize (GObject *object)
   IdleIMChannel *self = IDLE_IM_CHANNEL (object);
   IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE (self);
   TpHandleRepoIface *handles;
-  IdleIMPendingMessage *msg;
 
   handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
   tp_handle_unref(handles, priv->handle);
@@ -378,49 +317,17 @@ idle_im_channel_finalize (GObject *object)
   	g_free(priv->object_path);
   }
 
-  while ((msg = g_queue_pop_head(priv->pending_messages)) != NULL)
-  {
-  	  _idle_im_pending_free(msg);
-  }
-	
-  g_queue_free(priv->pending_messages);
-
-  _idle_im_pending_free(priv->last_msg);
-
   G_OBJECT_CLASS (idle_im_channel_parent_class)->finalize (object);
 }
 
 gboolean _idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *text)
 {
-	IdleIMChannelPrivate *priv;
-	IdleIMPendingMessage *msg;
+  time_t stamp = time(NULL);
 
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_IM_CHANNEL(chan));
 
-	priv = IDLE_IM_CHANNEL_GET_PRIVATE(chan);
-
-	msg = _idle_im_pending_new();
-
-	msg->id = priv->recv_id++;
-	msg->timestamp = time(NULL);
-	msg->sender = sender;
-	msg->type = type;
-	msg->text = g_strdup(text);
-
-	g_queue_push_tail(priv->pending_messages, msg);
-	
-	g_signal_emit(chan, signals[RECEIVED], 0,
-					msg->id,
-					msg->timestamp,
-					msg->sender,
-					msg->type,
-					0,
-					msg->text);
-
-	g_debug("%s: queued message %u", G_STRFUNC, msg->id);
-
-	return FALSE;
+  return tp_text_mixin_receive(G_OBJECT(chan), type, sender, stamp, text);
 }
 
 void _idle_im_channel_rename(IdleIMChannel *chan, TpHandle new)
@@ -444,85 +351,6 @@ void _idle_im_channel_rename(IdleIMChannel *chan, TpHandle new)
 
 	g_debug("%s: changed to handle %u", G_STRFUNC, new);
 }
-
-void _idle_im_channel_nosuchnick(IdleIMChannel *chan)
-{
-	IdleIMChannelPrivate *priv;
-	IdleIMPendingMessage *last_msg;
-	
-	g_assert(chan != NULL);
-	g_assert(IDLE_IS_IM_CHANNEL(chan));
-
-	priv = IDLE_IM_CHANNEL_GET_PRIVATE(chan);
-
-	g_assert(priv->last_msg != NULL);
-	last_msg = priv->last_msg;
-	
-	/* TODO this is so incorrect, we are assuming it was always the most recent message etc... */
-
-	g_signal_emit(chan, signals[SEND_ERROR], 0, TP_CHANNEL_TEXT_SEND_ERROR_OFFLINE, last_msg->timestamp, last_msg->type, last_msg->text);
-}
-
-static gint idle_pending_message_compare(gconstpointer msg, gconstpointer id)
-{
-	IdleIMPendingMessage *message = (IdleIMPendingMessage *)(msg);
-
-	return (message->id != GPOINTER_TO_INT(id));
-}
-
-/**
- * idle_im_channel_acknowledge_pending_messages
- *
- * Implements DBus method AcknowledgePendingMessages
- * on interface org.freedesktop.Telepathy.Channel.Type.Text
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-gboolean idle_im_channel_acknowledge_pending_messages (IdleIMChannel *obj, const GArray *ids, GError **error)
-{
-	IdleIMChannelPrivate *priv;
-	int i;
-
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_IM_CHANNEL(obj));
-
-	priv = IDLE_IM_CHANNEL_GET_PRIVATE(obj);
-
-	for (i=0; i < ids->len; i++)
-	{
-		GList *node;
-		IdleIMPendingMessage *msg;
-		guint id = g_array_index(ids, guint, i);
-
-		node = g_queue_find_custom(priv->pending_messages,
-								   GINT_TO_POINTER(id),
-								   idle_pending_message_compare);
-
-		if (!node)
-		{
-			g_debug("%s: message id %u not found", G_STRFUNC, id);
-
-			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "message id %u not found", id);
-
-			return FALSE;
-		}
-
-		msg = (IdleIMPendingMessage *)(node->data);
-
-		g_debug("%s: acknowledging message id %u", G_STRFUNC, id);
-
-		g_queue_delete_link(priv->pending_messages, node);
-
-		_idle_im_pending_free(msg);
-	}
-	
-	return TRUE;
-}
-
 
 /**
  * idle_im_channel_close
@@ -622,88 +450,6 @@ gboolean idle_im_channel_get_interfaces (IdleIMChannel *obj, gchar *** ret, GErr
 	return TRUE;
 }
 
-
-/**
- * idle_im_channel_list_pending_messages
- *
- * Implements DBus method ListPendingMessages
- * on interface org.freedesktop.Telepathy.Channel.Type.Text
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-gboolean idle_im_channel_list_pending_messages (IdleIMChannel *obj,
-                                                gboolean clear,
-                                                GPtrArray ** ret,
-                                                GError **error)
-{
-	IdleIMChannelPrivate *priv;
-	guint count;
-	GPtrArray *messages;
-	GList *cur;
-
-	g_assert (IDLE_IS_IM_CHANNEL (obj));
-
-	priv = IDLE_IM_CHANNEL_GET_PRIVATE (obj);
-
-	count = g_queue_get_length (priv->pending_messages);
-	messages = g_ptr_array_sized_new (count);
-
-	for (cur = g_queue_peek_head_link(priv->pending_messages);
-		 cur != NULL;
-		 cur = cur->next)
-	{
-		IdleIMPendingMessage *msg = (IdleIMPendingMessage *)(cur->data);
-		GValueArray *vals;
-
-		vals = g_value_array_new (6);
-
-		g_value_array_append (vals, NULL);
-		g_value_init (g_value_array_get_nth (vals, 0), G_TYPE_UINT);
-		g_value_set_uint (g_value_array_get_nth (vals, 0), msg->id);
-
-		g_value_array_append (vals, NULL);
-		g_value_init (g_value_array_get_nth (vals, 1), G_TYPE_UINT);
-		g_value_set_uint (g_value_array_get_nth (vals, 1), msg->timestamp);
-
-		g_value_array_append (vals, NULL);
-		g_value_init (g_value_array_get_nth (vals, 2), G_TYPE_UINT);
-		g_value_set_uint (g_value_array_get_nth (vals, 2), msg->sender);
-
-		g_value_array_append (vals, NULL);
-		g_value_init (g_value_array_get_nth (vals, 3), G_TYPE_UINT);
-		g_value_set_uint (g_value_array_get_nth (vals, 3), msg->type);
-
-		g_value_array_append (vals, NULL);
-		g_value_init (g_value_array_get_nth (vals, 4), G_TYPE_UINT);
-		g_value_set_uint (g_value_array_get_nth (vals, 4), 0);
-
-		g_value_array_append (vals, NULL);
-		g_value_init (g_value_array_get_nth (vals, 5), G_TYPE_STRING);
-		g_value_set_string (g_value_array_get_nth (vals, 5), msg->text);
-
-		g_ptr_array_add (messages, vals);
-	}
-
-	if (clear)
-	{
-		IdleIMPendingMessage *msg;
-
-		while ((msg = g_queue_pop_head(priv->pending_messages)) != NULL)
-		{
-			_idle_im_pending_free(msg);
-		}
-	}
-
-	*ret = messages;
-
-	return TRUE;
-}
-
-
 /**
  * idle_im_channel_send
  *
@@ -716,8 +462,9 @@ gboolean idle_im_channel_list_pending_messages (IdleIMChannel *obj,
  *
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
-gboolean idle_im_channel_send (IdleIMChannel *obj, guint type, const gchar * text, GError **error)
+static void idle_im_channel_send (TpSvcChannelTypeText *iface, guint type, const gchar * text, DBusGMethodInvocation *context)
 {
+	IdleIMChannel *obj = (IdleIMChannel *)(iface);
 	IdleIMChannelPrivate *priv;
 	gchar msg[IRC_MSG_MAXLEN+1];
 	const char *recipient;
@@ -726,6 +473,7 @@ gboolean idle_im_channel_send (IdleIMChannel *obj, guint type, const gchar * tex
 	gsize len;
 	gchar *part;
 	gsize headerlen;
+	GError *error;
 
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_IM_CHANNEL(obj));
@@ -738,9 +486,11 @@ gboolean idle_im_channel_send (IdleIMChannel *obj, guint type, const gchar * tex
 	{
 		g_debug("%s: invalid recipient", G_STRFUNC);
 
-		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "invalid recipient");
+		error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "invalid recipient");
+		dbus_g_method_return_error(context, error);
+		g_error_free(error);
 
-		return FALSE;
+		return;
 	}
 
 	len = strlen(final_text);
@@ -762,9 +512,11 @@ gboolean idle_im_channel_send (IdleIMChannel *obj, guint type, const gchar * tex
 	{
 		g_debug("%s: invalid message type %u", G_STRFUNC, type);
 
-		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid message type %u", type);
+		error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid message type %u", type);
+		dbus_g_method_return_error(context, error);
+		g_error_free(error);
 
-		return FALSE;
+		return;
 	}
 
 	headerlen = strlen(msg);
@@ -797,18 +549,18 @@ gboolean idle_im_channel_send (IdleIMChannel *obj, guint type, const gchar * tex
 	}
 
 	timestamp = time(NULL);
+  tp_svc_channel_type_text_emit_sent((TpSvcChannelTypeText *)(obj), timestamp, type, text);
+}
 
-	g_signal_emit(obj, signals[SENT], 0, timestamp, type, text);
-	
-	if (priv->last_msg->text)
-	{
-		g_free(priv->last_msg->text);
-	}
+static void
+text_iface_init(gpointer g_iface, gpointer iface_data)
+{
+  TpSvcChannelTypeTextClass *klass = (TpSvcChannelTypeTextClass *)(g_iface);
 
-	priv->last_msg->timestamp = timestamp;
-	priv->last_msg->type = type;
-	priv->last_msg->text = g_strdup(text);
-	
-	return TRUE;
+  tp_text_mixin_iface_init(g_iface, iface_data);
+#define IMPLEMENT(x) tp_svc_channel_type_text_implement_##x (\
+    klass, idle_im_channel_##x)
+  IMPLEMENT(send);
+#undef IMPLEMENT
 }
 

@@ -2172,7 +2172,6 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 	else if (numeric == IRC_ERR_NOSUCHNICK)
 	{
 		TpHandle handle;
-		IdleIMChannel *chan;
 		GList *link;
 
 		if (tokenc < 4)
@@ -2198,17 +2197,7 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 
 		update_presence(conn, handle, IDLE_PRESENCE_OFFLINE, NULL);
 
-		chan = g_hash_table_lookup(priv->im_channels, GINT_TO_POINTER(handle));
-
-		if (chan == NULL)
-		{
-			g_debug("%s: could not get IMChannel for (%s) (handle %u) in ERR_NOSUCHNICK", G_STRFUNC, tokens[3], handle);
-			goto cleanupl;
-		}
-
 		g_debug("%s: got ERR_NOSUCHNICK for (%s) (handle %u)", G_STRFUNC, tokens[3], handle);
-
-		_idle_im_channel_nosuchnick(chan);
 	}
 	else if (numeric == IRC_ERR_BANNEDFROMCHAN 
 			|| numeric == IRC_ERR_CHANNELISFULL
