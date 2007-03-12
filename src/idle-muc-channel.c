@@ -40,8 +40,6 @@
 #include "idle-connection.h"
 #include "idle-handles.h"
 
-#define IRC_MSG_MAXLEN 510
-
 G_DEFINE_TYPE(IdleMUCChannel, idle_muc_channel, G_TYPE_OBJECT)
 
 /* signal enum */

@@ -26,17 +26,15 @@
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/dbus.h>
 
-#include <string.h>
 #include <time.h>
 
 #include "idle-connection.h"
 #include "idle-handles.h"
+#include "text.h"
 
 #include "idle-im-channel.h"
 #include "idle-im-channel-glue.h"
 #include "idle-im-channel-signals-marshal.h"
-
-#define IRC_MSG_MAXLEN 510
 
 static void text_iface_init (gpointer, gpointer);
 
@@ -465,24 +463,11 @@ gboolean idle_im_channel_get_interfaces (IdleIMChannel *obj, gchar *** ret, GErr
 static void idle_im_channel_send (TpSvcChannelTypeText *iface, guint type, const gchar * text, DBusGMethodInvocation *context)
 {
 	IdleIMChannel *obj = (IdleIMChannel *)(iface);
-	IdleIMChannelPrivate *priv;
-	gchar msg[IRC_MSG_MAXLEN+1];
-	const char *recipient;
-	time_t timestamp;
-	const gchar *final_text = text;
-	gsize len;
-	gchar *part;
-	gsize headerlen;
+	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE(obj);
+	const gchar *recipient = idle_handle_inspect(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], priv->handle);
 	GError *error;
 
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_IM_CHANNEL(obj));
-
-	priv = IDLE_IM_CHANNEL_GET_PRIVATE(obj);
-	
-	recipient = idle_handle_inspect(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], priv->handle);
-	
-	if ((recipient == NULL) || (strlen(recipient) == 0))
+	if ((recipient == NULL) || (recipient[0] == '\0'))
 	{
 		g_debug("%s: invalid recipient", G_STRFUNC);
 
@@ -493,63 +478,7 @@ static void idle_im_channel_send (TpSvcChannelTypeText *iface, guint type, const
 		return;
 	}
 
-	len = strlen(final_text);
-	part = (gchar*)final_text;
-	
-	if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL)
-	{
-		g_snprintf(msg, IRC_MSG_MAXLEN+1, "PRIVMSG %s :", recipient);
-	}
-	else if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION)
-	{
-		g_snprintf(msg, IRC_MSG_MAXLEN+1, "PRIVMSG %s :\001ACTION ", recipient);
-	}
-	else if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE)
-	{
-		g_snprintf(msg, IRC_MSG_MAXLEN+1, "NOTICE %s :", recipient);
-	}
-	else
-	{
-		g_debug("%s: invalid message type %u", G_STRFUNC, type);
-
-		error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid message type %u", type);
-		dbus_g_method_return_error(context, error);
-		g_error_free(error);
-
-		return;
-	}
-
-	headerlen = strlen(msg);
-
-	while (part < final_text+len)
-	{
-		char *br = strchr (part, '\n');
-		size_t len = IRC_MSG_MAXLEN-headerlen;
-		if (br)
-		{
-			len = (len < br - part) ? len : br - part;
-		}
-
-		if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION)
-		{
-			g_snprintf(msg+headerlen, len + 1, "%s\001", part);
-			len -= 1;
-		}
-		else
-		{
-			g_strlcpy(msg+headerlen, part, len + 1);
-		}
-		part += len;
-		if (br)
-		{
-			part++;
-		}
-
-		_idle_connection_send(priv->connection, msg);
-	}
-
-	timestamp = time(NULL);
-  tp_svc_channel_type_text_emit_sent((TpSvcChannelTypeText *)(obj), timestamp, type, text);
+	idle_text_send((GObject *)(obj), type, recipient, text, priv->connection, context);
 }
 
 static void

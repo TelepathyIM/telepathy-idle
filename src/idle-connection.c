@@ -74,9 +74,6 @@ G_DEFINE_TYPE(IdleConnection, idle_connection, G_TYPE_OBJECT);
 #define IRC_PRESENCE_SHOW_AWAY		"away"
 #define IRC_PRESENCE_SHOW_OFFLINE	"offline"
 
-/* maximum IRC message payload */
-#define IRC_MSG_MAXLEN 510
-
 #define ERROR_IF_NOT_CONNECTED(CONN, PRIV, ERROR) \
   if ((PRIV)->status != TP_CONNECTION_STATUS_CONNECTED) \
     { \

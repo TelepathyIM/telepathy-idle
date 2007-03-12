@@ -35,6 +35,8 @@ typedef struct _IdleContactPresence IdleContactPresence;
 
 #include "idle-handles.h"
 
+#define IRC_MSG_MAXLEN 510
+
 G_BEGIN_DECLS
 
 typedef enum

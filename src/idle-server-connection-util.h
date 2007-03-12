@@ -21,6 +21,8 @@
 #ifndef __IDLE_SERVER_CONNECTION_UTIL_H__
 #define __IDLE_SERVER_CONNECTION_UTIL_H__
 
+#include "idle-connection.h"
+
 typedef void (*message_cb)(const gchar *msg, gpointer user_data);
 
 void msg_split(gchar *msg, gchar *splitbuf, gsize max_len, message_cb cb, gpointer user_data);
@@ -45,8 +47,6 @@ void idle_output_pending_msg_free(IdleOutputPendingMsg *msg);
 #define SERVER_CMD_MAX_PRIORITY G_MAXUINT
 
 gint pending_msg_compare(gconstpointer a, gconstpointer b, gpointer unused);
-
-#define IRC_MSG_MAXLEN 510
 
 /* From RFC 2813 :
  * This in essence means that the client may send one (1) message every

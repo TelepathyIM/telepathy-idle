@@ -42,6 +42,8 @@ CORE_SOURCES = \
 	idle-dns-resolver.c \
 	idle-ssl-server-connection.c \
 	idle-version.h \
+	text.h \
+	text.c \
     $(BUILT_SOURCES)
 
 libidle_convenience_la_SOURCES = \
