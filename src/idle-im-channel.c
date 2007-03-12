@@ -315,6 +315,8 @@ idle_im_channel_finalize (GObject *object)
   	g_free(priv->object_path);
   }
 
+	tp_text_mixin_finalize(object);
+
   G_OBJECT_CLASS (idle_im_channel_parent_class)->finalize (object);
 }
 
