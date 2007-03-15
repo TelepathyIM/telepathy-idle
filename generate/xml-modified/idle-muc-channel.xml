@@ -77,43 +77,6 @@
       <arg direction="out" type="b" />
     </method>
   </interface>
-  <interface name="org.freedesktop.Telepathy.Channel.Type.Text">
-    <method name="AcknowledgePendingMessages">
-      <arg direction="in" name="id" type="au" />
-    </method>
-    <method name="GetMessageTypes">
-      <arg direction="out" type="au" />
-    </method>
-    <method name="ListPendingMessages">
-      <arg direction="in" name="clear" type="b" />
-      <arg direction="out" type="a(uuuuus)" />
-    </method>
-    <signal name="LostMessage">
-    </signal>
-    <signal name="Received">
-      <arg name="id" type="u" />
-      <arg name="timestamp" type="u" />
-      <arg name="sender" type="u" />
-      <arg name="type" type="u" />
-      <arg name="flags" type="u" />
-      <arg name="text" type="s" />
-    </signal>
-    <method name="Send">
-      <arg direction="in" name="type" type="u" />
-      <arg direction="in" name="text" type="s" />
-    </method>
-    <signal name="SendError">
-      <arg name="error" type="u" />
-      <arg name="timestamp" type="u" />
-      <arg name="type" type="u" />
-      <arg name="text" type="s" />
-    </signal>
-    <signal name="Sent">
-      <arg name="timestamp" type="u" />
-      <arg name="type" type="u" />
-      <arg name="text" type="s" />
-    </signal>
-  </interface>
 <interface name="org.freedesktop.Telepathy.Properties">
     <method name="GetProperties">
       <arg direction="in" name="properties" type="au" />

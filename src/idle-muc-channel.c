@@ -39,22 +39,23 @@
 
 #include "idle-connection.h"
 #include "idle-handles.h"
+#include "text.h"
 
-G_DEFINE_TYPE(IdleMUCChannel, idle_muc_channel, G_TYPE_OBJECT)
+static void text_iface_init (gpointer, gpointer);
+
+G_DEFINE_TYPE_WITH_CODE(IdleMUCChannel, idle_muc_channel, G_TYPE_OBJECT,
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, text_iface_init);)
 
 /* signal enum */
 enum
 {
     CLOSED,
     GROUP_FLAGS_CHANGED,
-    LOST_MESSAGE,
     MEMBERS_CHANGED,
     PASSWORD_FLAGS_CHANGED,
     PROPERTIES_CHANGED,
     PROPERTY_FLAGS_CHANGED,
     RECEIVED,
-    SEND_ERROR,
-    SENT,
 	JOIN_READY,
     LAST_SIGNAL
 };
@@ -210,9 +211,6 @@ struct _IdleMUCChannelPrivate
 	
 	TpHandle own_handle;
 
-	guint recv_id;
-	GQueue *pending_messages;
-
 	TpHandleSet *local_pending;
 	TpHandleSet *remote_pending;
 	TpHandleSet *current_members;
@@ -226,44 +224,15 @@ struct _IdleMUCChannelPrivate
 	TPProperty *properties;
 
 	DBusGMethodInvocation *passwd_ctx;
-	
+
 	gboolean join_ready;
 	gboolean closed;
-	
+
 	gboolean dispose_has_run;
-};
-
-typedef struct _IdleMUCPendingMessage IdleMUCPendingMessage;
-
-struct _IdleMUCPendingMessage
-{
-	guint id;
-
-	time_t timestamp;
-	TpHandle sender;
-
-	TpChannelTextMessageType type;
-
-	gchar *text;
 };
 
 static void change_group_flags(IdleMUCChannel *chan, guint add, guint delete);
 static void change_password_flags(IdleMUCChannel *chan, guint flag, gboolean state);
-
-#define _idle_muc_pending_new() \
-	(g_slice_new(IdleMUCPendingMessage))
-#define _idle_muc_pending_new0() \
-	(g_slice_new0(IdleMUCPendingMessage))
-
-static void _idle_muc_pending_free(IdleMUCPendingMessage *msg)
-{
-	if (msg->text)
-	{
-		g_free(msg->text);
-	}
-
-	g_slice_free(IdleMUCPendingMessage, msg);
-}
 
 #define IDLE_MUC_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelPrivate))
 
@@ -271,8 +240,6 @@ static void
 idle_muc_channel_init (IdleMUCChannel *obj)
 {
   IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (obj);
-
-  priv->pending_messages = g_queue_new();
 
   priv->group_flags =  0; /* |
 	  					TP_CHANNEL_GROUP_FLAG_CAN_REMOVE |
@@ -323,7 +290,13 @@ static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectC
 
 	bus = tp_get_bus();
 	dbus_g_connection_register_g_object(bus, priv->object_path, obj);
-	g_assert(valid);
+
+	tp_text_mixin_init(obj, G_STRUCT_OFFSET(IdleMUCChannel, text), handles, 0);
+  tp_text_mixin_set_message_types(obj,
+      TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
+      TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION,
+      TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE,
+      G_MAXUINT);
 
 	return obj;
 }
@@ -376,8 +349,7 @@ static void idle_muc_channel_get_property(GObject *object, guint property_id,
 	}
 }
 
-static void idle_muc_channel_set_property(GObject *object, guint property_id, const GValue *value,
-											GParamSpec *pspec)
+static void idle_muc_channel_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
 	IdleMUCChannel *chan = IDLE_MUC_CHANNEL(object);
 	IdleMUCChannelPrivate *priv;
@@ -499,15 +471,6 @@ idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class)
                   idle_muc_channel_marshal_VOID__INT_INT,
                   G_TYPE_NONE, 2, G_TYPE_UINT, G_TYPE_UINT);
 
-  signals[LOST_MESSAGE] =
-    g_signal_new ("lost-message",
-                  G_OBJECT_CLASS_TYPE (idle_muc_channel_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  idle_muc_channel_marshal_VOID__VOID,
-                  G_TYPE_NONE, 0);
-
   signals[MEMBERS_CHANGED] =
     g_signal_new ("members-changed",
                   G_OBJECT_CLASS_TYPE (idle_muc_channel_class),
@@ -544,33 +507,6 @@ idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class)
                   idle_muc_channel_marshal_VOID__BOXED,
                   G_TYPE_NONE, 1, (dbus_g_type_get_collection ("GPtrArray", (dbus_g_type_get_struct ("GValueArray", G_TYPE_UINT, G_TYPE_UINT, G_TYPE_INVALID)))));
 
-  signals[RECEIVED] =
-    g_signal_new ("received",
-                  G_OBJECT_CLASS_TYPE (idle_muc_channel_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  idle_muc_channel_marshal_VOID__INT_INT_INT_INT_INT_STRING,
-                  G_TYPE_NONE, 6, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_STRING);
-
-  signals[SEND_ERROR] =
-    g_signal_new ("send-error",
-                  G_OBJECT_CLASS_TYPE (idle_muc_channel_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  idle_muc_channel_marshal_VOID__INT_INT_INT_STRING,
-                  G_TYPE_NONE, 4, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_STRING);
-
-  signals[SENT] =
-    g_signal_new ("sent",
-                  G_OBJECT_CLASS_TYPE (idle_muc_channel_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  idle_muc_channel_marshal_VOID__INT_INT_STRING,
-                  G_TYPE_NONE, 3, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_STRING);
-
   signals[JOIN_READY] =
 	  g_signal_new("join-ready",
 			  		G_OBJECT_CLASS_TYPE(idle_muc_channel_class),
@@ -581,6 +517,8 @@ idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class)
 					G_TYPE_NONE, 1, G_TYPE_UINT);
 
   dbus_g_object_type_install_info (G_TYPE_FROM_CLASS (idle_muc_channel_class), &dbus_glib_idle_muc_channel_object_info);
+
+	tp_text_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleMUCChannelClass, text_class));
 }
 
 void
@@ -610,7 +548,6 @@ idle_muc_channel_finalize (GObject *object)
   IdleMUCChannel *self = IDLE_MUC_CHANNEL (object);
   IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (self);
   TpHandleRepoIface *handles;
-  IdleMUCPendingMessage *msg;
 
   handles = priv->connection->handles[TP_HANDLE_TYPE_ROOM];
   tp_handle_unref(handles, priv->handle);
@@ -633,19 +570,14 @@ idle_muc_channel_finalize (GObject *object)
 	  g_free(priv->mode_state.key);
   }
 
-  while ((msg = g_queue_pop_head(priv->pending_messages)) != NULL)
-  {
-	  _idle_muc_pending_free(msg);
-  }
-
-  g_queue_free(priv->pending_messages);
-  
   muc_channel_tp_properties_destroy(self);
   g_free(priv->properties);
 
   tp_handle_set_destroy(priv->current_members);
   tp_handle_set_destroy(priv->local_pending);
   tp_handle_set_destroy(priv->remote_pending);
+
+	tp_text_mixin_finalize(object);
 
   G_OBJECT_CLASS (idle_muc_channel_parent_class)->finalize (object);
 }
@@ -1317,35 +1249,12 @@ static void change_sets(IdleMUCChannel *obj,
 
 gboolean _idle_muc_channel_receive(IdleMUCChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *text)
 {
-	IdleMUCChannelPrivate *priv;
-	IdleMUCPendingMessage *msg;
+	time_t stamp = time(NULL);
 
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
-
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 	
-	msg = _idle_muc_pending_new();
-
-	msg->id = priv->recv_id++;
-	msg->timestamp = time(NULL);
-	msg->sender = sender;
-	msg->type = type;
-	msg->text = g_strdup(text);
-
-	g_queue_push_tail(priv->pending_messages, msg);
-
-	g_signal_emit(chan, signals[RECEIVED], 0,
-						msg->id,
-						msg->timestamp,
-						msg->sender,
-						msg->type,
-						0,
-						msg->text);
-
-	g_debug("%s: queued message %u", G_STRFUNC, msg->id);
-	
-	return FALSE;
+	return tp_text_mixin_receive(G_OBJECT(chan), type, sender, stamp, text);
 }
 
 static void send_mode_query_request(IdleMUCChannel *chan)
@@ -2167,68 +2076,6 @@ static gboolean add_member(IdleMUCChannel *obj, TpHandle handle, GError **error)
 	return TRUE;
 }
 
-static gint idle_pending_message_compare(gconstpointer msg, gconstpointer id)
-{
-	IdleMUCPendingMessage *message = (IdleMUCPendingMessage *)(msg);
-
-	return (message->id != GPOINTER_TO_INT(id));
-}
-
-/**
- * idle_muc_channel_acknowledge_pending_messages
- *
- * Implements DBus method AcknowledgePendingMessages
- * on interface org.freedesktop.Telepathy.Channel.Type.Text
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-gboolean idle_muc_channel_acknowledge_pending_messages (IdleMUCChannel *obj,
-														const GArray *ids,
-														GError **error)
-{
-	IdleMUCChannelPrivate *priv;
-	int i;
-
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(obj));
-
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
-
-	for (i=0; i<ids->len; i++)
-	{
-		GList *node;
-		IdleMUCPendingMessage *msg;
-		guint id = g_array_index(ids, guint, i);
-
-		node = g_queue_find_custom(priv->pending_messages,
-								   GINT_TO_POINTER(id),
-								   idle_pending_message_compare);
-
-		if (node == NULL)
-		{
-			g_debug("%s: message %u not found", G_STRFUNC, id);
-
-			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "message id %u not found", id);
-
-			return FALSE;
-		}
-
-		msg = (IdleMUCPendingMessage *)(node->data);
-
-		g_debug("%s: acknowledging pending message with id %u", G_STRFUNC, id);
-
-		g_queue_delete_link(priv->pending_messages, node);
-
-		_idle_muc_pending_free(msg);
-	}
-
-	return TRUE;
-}
-
 /**
  * idle_muc_channel_add_members
  *
@@ -2706,88 +2553,6 @@ gboolean idle_muc_channel_get_self_handle (IdleMUCChannel *obj, guint* ret, GErr
 	return TRUE;
 }
 
-
-/**
- * idle_muc_channel_list_pending_messages
- *
- * Implements DBus method ListPendingMessages
- * on interface org.freedesktop.Telepathy.Channel.Type.Text
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-gboolean idle_muc_channel_list_pending_messages (IdleMUCChannel *obj,
-												 gboolean clear,
-												 GPtrArray ** ret,
-												 GError **error)
-{
-	IdleMUCChannelPrivate *priv;
-	guint count;
-	GPtrArray *messages;
-	GList *cur;
-
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(obj));
-
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
-
-	count = g_queue_get_length(priv->pending_messages);
-
-	messages = g_ptr_array_sized_new(count);
-
-	for (cur = g_queue_peek_head_link(priv->pending_messages); cur != NULL; cur = cur->next)
-	{
-		IdleMUCPendingMessage *msg = (IdleMUCPendingMessage *)(cur->data);
-		GValueArray *vals;
-
-		vals = g_value_array_new(6);
-
-		g_value_array_append(vals, NULL);
-		g_value_init(g_value_array_get_nth(vals, 0), G_TYPE_UINT);
-		g_value_set_uint(g_value_array_get_nth(vals, 0), msg->id);
-
-		g_value_array_append(vals, NULL);
-		g_value_init(g_value_array_get_nth(vals, 1), G_TYPE_UINT);
-		g_value_set_uint(g_value_array_get_nth(vals, 1), msg->timestamp);
-
-		g_value_array_append(vals, NULL);
-		g_value_init(g_value_array_get_nth(vals, 2), G_TYPE_UINT);
-		g_value_set_uint(g_value_array_get_nth(vals, 2), msg->sender);
-
-		g_value_array_append(vals, NULL);
-		g_value_init(g_value_array_get_nth(vals, 3), G_TYPE_UINT);
-		g_value_set_uint(g_value_array_get_nth(vals, 3), msg->type);
-
-		g_value_array_append(vals, NULL);
-		g_value_init(g_value_array_get_nth(vals, 4), G_TYPE_UINT);
-		g_value_set_uint(g_value_array_get_nth(vals, 4), 0);
-
-		g_value_array_append(vals, NULL);
-		g_value_init(g_value_array_get_nth(vals, 5), G_TYPE_STRING);
-		g_value_set_string(g_value_array_get_nth(vals, 5), msg->text);
-
-		g_ptr_array_add(messages, vals);
-	}
-
-	*ret = messages;
-
-	if (clear)
-	{
-		IdleMUCPendingMessage *msg;
-
-		while ((msg = g_queue_pop_head(priv->pending_messages)) != NULL)
-		{
-			_idle_muc_pending_free(msg);
-		}
-	}
-	
-	return TRUE;
-}
-
-
 /**
  * idle_muc_channel_list_properties
  *
@@ -2980,107 +2745,20 @@ gboolean idle_muc_channel_remove_members (IdleMUCChannel *obj, const GArray * co
  *
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
-gboolean idle_muc_channel_send (IdleMUCChannel *obj, guint type, const gchar * text, GError **error)
+static void idle_muc_channel_send (TpSvcChannelTypeText *iface, guint type, const gchar * text, DBusGMethodInvocation *context)
 {
-	IdleMUCChannelPrivate *priv;
-	gchar msg[IRC_MSG_MAXLEN+2];
-	const char *recipient;
-	time_t timestamp;
-	const gchar *final_text = text;
-	gsize len;
-	gchar *part;
-	gsize headerlen;
-
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(obj));
-
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
-
-	recipient = idle_handle_inspect(priv->connection->handles[TP_HANDLE_TYPE_ROOM], priv->handle);
-
-	if ((recipient == NULL) || (recipient[0] == '\0'))
-	{
-		g_debug("%s: invalid recipient (handle %u)", G_STRFUNC, priv->handle);
-
-		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "invalid recipient");
-
-		return FALSE;
-	}
-
-	len = strlen(final_text);
-	part = (gchar*)final_text;
-
-	switch (type)
-	{
-		case TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL:
-		{
-			g_snprintf(msg, IRC_MSG_MAXLEN, "PRIVMSG %s :", recipient);
-		}
-		break;
-		case TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION:
-		{
-			g_snprintf(msg, IRC_MSG_MAXLEN, "PRIVMSG %s :\001ACTION ", recipient);
-		}
-		break;
-		case TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE:
-		{
-			g_snprintf(msg, IRC_MSG_MAXLEN, "NOTICE %s :", recipient);
-		}
-		break;
-		default:
-		{
-			g_debug("%s: invalid message type %u", G_STRFUNC, type);
-
-			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid message type %u", type);
-
-			return FALSE;
-		}
-		break;
-	}
-
-	headerlen = strlen(msg);
-
-	while (part < final_text+len)
-	{
-		char *br = strchr (part, '\n');
-		size_t len = IRC_MSG_MAXLEN-headerlen;
-		if (br)
-		{
-			len = (len < br - part) ? len : br - part;
-		}
-
-		if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION)
-		{
-			g_snprintf(msg+headerlen, len + 1, "%s\001", part);
-			len -= 1;
-		}
-		else
-		{
-			g_strlcpy(msg+headerlen, part, len + 1);
-		}
-		part += len;
-		if (br)
-		{
-			part++;
-		}
-
-		_idle_connection_send(priv->connection, msg);
-	}
-
-	timestamp = time(NULL);
+	IdleMUCChannel *obj = (IdleMUCChannel *)(iface);
+	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	time_t timestamp = time(NULL);
 
 	if ((priv->mode_state.flags & MODE_FLAG_MODERATED) && !(priv->mode_state.flags & (MODE_FLAG_OPERATOR_PRIVILEGE|MODE_FLAG_HALFOP_PRIVILEGE|MODE_FLAG_VOICE_PRIVILEGE)))
 	{
 		g_debug("%s: emitting SEND_ERROR with (%u, %llu, %u, %s)", G_STRFUNC, TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED, (guint64)(timestamp), type, text);
-		g_signal_emit(obj, signals[SEND_ERROR], 0, TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED, timestamp, type, text);
+		tp_svc_channel_type_text_emit_send_error(iface, TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED, timestamp, type, text);
+		return;
 	}
-	else
-	{
-		g_debug("%s: emitting SENT with (%llu, %u, %s)", G_STRFUNC, (guint64)(timestamp), type, text);
-		g_signal_emit(obj, signals[SENT], 0, timestamp, type, text);
-	}
-	
-	return TRUE;
+
+	idle_text_send((GObject *)(obj), type, priv->channel_name, text, priv->connection, context);
 }
 
 static char to_irc_mode(IdleMUCChannelTPProperty prop_id)
@@ -3440,5 +3118,17 @@ gboolean idle_muc_channel_set_properties (IdleMUCChannel *obj, const GPtrArray *
 	g_ptr_array_free(to_change, TRUE);
 	
 	return TRUE;
+}
+
+static void
+text_iface_init(gpointer g_iface, gpointer iface_data)
+{
+	TpSvcChannelTypeTextClass *klass = (TpSvcChannelTypeTextClass *)(g_iface);
+
+  tp_text_mixin_iface_init(g_iface, iface_data);
+#define IMPLEMENT(x) tp_svc_channel_type_text_implement_##x (\
+    klass, idle_muc_channel_##x)
+  IMPLEMENT(send);
+#undef IMPLEMENT
 }
 
