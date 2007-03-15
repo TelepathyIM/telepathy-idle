@@ -275,6 +275,8 @@ idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_class)
                   G_TYPE_NONE, 0);
 
   dbus_g_object_type_install_info (G_TYPE_FROM_CLASS (idle_im_channel_class), &dbus_glib_idle_im_channel_object_info);
+
+	tp_text_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleIMChannelClass, text_class));
 }
 
 void
