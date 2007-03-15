@@ -1716,15 +1716,9 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 
 		if (chan != NULL)
 		{
-			GError *error;
-
 			g_debug("%s: contact QUIT, closing IMChannel...", G_STRFUNC);
 			
-			if (!idle_im_channel_close(chan, &error))
-			{
-				g_debug("%s: idle_im_channel_close failed: %s", G_STRFUNC, error->message);
-				g_error_free(error);
-			}
+			g_hash_table_remove(priv->im_channels, GINT_TO_POINTER(handle));
 		}
 
 		g_hash_table_foreach(priv->muc_channels, muc_channel_handle_quit_foreach, GINT_TO_POINTER(handle));
@@ -2553,30 +2547,6 @@ static void connection_status_change(IdleConnection *conn, TpConnectionStatus st
 
 static void im_channel_closed_cb(IdleIMChannel *chan, gpointer user_data);
 static void muc_channel_closed_cb(IdleMUCChannel *chan, gpointer user_data);
-
-gboolean hash_foreach_close_im_channel(gpointer key, gpointer value, gpointer user_data)
-{
-	IdleIMChannel *chan = IDLE_IM_CHANNEL(value);
-	GError *error = NULL;
-
-	g_signal_handlers_disconnect_by_func(chan, (GCallback)(im_channel_closed_cb), user_data);
-	g_debug("%s: calling idle_im_channel_close on %p", G_STRFUNC, chan);
-	idle_im_channel_close(chan, &error);
-	g_debug("%s: removing channel %p", G_STRFUNC, chan);
-	return TRUE;
-}
-
-gboolean hash_foreach_close_muc_channel(gpointer key, gpointer value, gpointer user_data)
-{
-	IdleMUCChannel *chan = IDLE_MUC_CHANNEL(value);
-	GError *error = NULL;
-
-	g_signal_handlers_disconnect_by_func(chan, (GCallback)(muc_channel_closed_cb), user_data);
-	g_debug("%s: calling idle_muc_channel_close on %p", G_STRFUNC, chan);
-	idle_muc_channel_close(chan, &error);
-	g_debug("%s: removing channel %p", G_STRFUNC, chan);
-	return TRUE;
-}
 
 static void close_all_channels(IdleConnection *conn)
 {
