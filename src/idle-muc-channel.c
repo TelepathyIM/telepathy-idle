@@ -27,6 +27,7 @@
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/channel-iface.h>
 #include <telepathy-glib/svc-channel.h>
+#include <telepathy-glib/svc-properties-interface.h>
 
 #define _GNU_SOURCE
 #include <stdlib.h>
@@ -45,12 +46,14 @@
 
 static void channel_iface_init (gpointer, gpointer);
 static void password_iface_init (gpointer, gpointer);
+static void properties_iface_init (gpointer, gpointer);
 static void text_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE(IdleMUCChannel, idle_muc_channel, G_TYPE_OBJECT,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL, channel_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_PASSWORD, password_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, text_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_PROPERTIES_INTERFACE, properties_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_IFACE, NULL);)
 
 /* signal enum */
@@ -58,8 +61,6 @@ enum
 {
     GROUP_FLAGS_CHANGED,
     MEMBERS_CHANGED,
-    PROPERTIES_CHANGED,
-    PROPERTY_FLAGS_CHANGED,
     JOIN_READY,
     LAST_SIGNAL
 };
@@ -447,24 +448,6 @@ idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class)
                   idle_muc_channel_marshal_VOID__STRING_BOXED_BOXED_BOXED_BOXED_INT_INT,
                   G_TYPE_NONE, 7, G_TYPE_STRING, DBUS_TYPE_G_UINT_ARRAY, DBUS_TYPE_G_UINT_ARRAY, DBUS_TYPE_G_UINT_ARRAY, DBUS_TYPE_G_UINT_ARRAY, G_TYPE_UINT, G_TYPE_UINT);
 
-  signals[PROPERTIES_CHANGED] =
-    g_signal_new ("properties-changed",
-                  G_OBJECT_CLASS_TYPE (idle_muc_channel_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  idle_muc_channel_marshal_VOID__BOXED,
-                  G_TYPE_NONE, 1, (dbus_g_type_get_collection ("GPtrArray", (dbus_g_type_get_struct ("GValueArray", G_TYPE_UINT, G_TYPE_VALUE, G_TYPE_INVALID)))));
-
-  signals[PROPERTY_FLAGS_CHANGED] =
-    g_signal_new ("property-flags-changed",
-                  G_OBJECT_CLASS_TYPE (idle_muc_channel_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  idle_muc_channel_marshal_VOID__BOXED,
-                  G_TYPE_NONE, 1, (dbus_g_type_get_collection ("GPtrArray", (dbus_g_type_get_struct ("GValueArray", G_TYPE_UINT, G_TYPE_UINT, G_TYPE_INVALID)))));
-
   signals[JOIN_READY] =
 	  g_signal_new("join-ready",
 			  		G_OBJECT_CLASS_TYPE(idle_muc_channel_class),
@@ -683,7 +666,7 @@ static void change_tp_properties(IdleMUCChannel *chan, const GPtrArray *props)
 	if (changed_props->len > 0)
 	{
 		g_debug("%s: emitting PROPERTIES_CHANGED with %u properties", G_STRFUNC, changed_props->len);
-		g_signal_emit(chan, signals[PROPERTIES_CHANGED], 0, changed_props);
+		tp_svc_properties_interface_emit_properties_changed((TpSvcPropertiesInterface *)(chan), changed_props);
 	}
 
 	if (flags->len > 0)
@@ -766,7 +749,7 @@ static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpP
 	if (changed_props->len > 0)
 	{
 		g_debug("%s: emitting PROPERTY_FLAGS_CHANGED with %u properties", G_STRFUNC, changed_props->len);
-		g_signal_emit(chan, signals[PROPERTY_FLAGS_CHANGED], 0, changed_props);
+		tp_svc_properties_interface_emit_property_flags_changed((TpSvcPropertiesInterface *)(chan), changed_props);
 	}
 
 	g_ptr_array_free(changed_props, TRUE);
@@ -2389,9 +2372,12 @@ static void idle_muc_channel_get_password_flags (TpSvcChannelInterfacePassword *
  *
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
-gboolean idle_muc_channel_get_properties (IdleMUCChannel *obj, const GArray * properties, GPtrArray ** ret, GError **error)
+static void idle_muc_channel_get_properties (TpSvcPropertiesInterface *iface, const GArray * properties, DBusGMethodInvocation *context)
 {
+	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
 	IdleMUCChannelPrivate *priv;
+	GError *error;
+	GPtrArray *ret;
 	int i;
 
 	g_assert(obj != NULL);
@@ -2407,22 +2393,26 @@ gboolean idle_muc_channel_get_properties (IdleMUCChannel *obj, const GArray * pr
 		{
 			g_debug("%s: invalid property id %u", G_STRFUNC, prop);
 
-			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid property id %u", prop);
+			error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid property id %u", prop);
+			dbus_g_method_return_error(context, error);
+			g_error_free(error);
 
-			return FALSE;
+			return;
 		}
 		
 		if (!(priv->properties[prop].flags & TP_PROPERTY_FLAG_READ))
 		{
 			g_debug("%s: not allowed to read property %u", G_STRFUNC, prop);
 
-			*error = g_error_new(TP_ERRORS, TP_ERROR_PERMISSION_DENIED, "not allowed to read property %u", prop);
+			error = g_error_new(TP_ERRORS, TP_ERROR_PERMISSION_DENIED, "not allowed to read property %u", prop);
+			dbus_g_method_return_error(context, error);
+			g_error_free(error);
 
-			return FALSE;;
+			return;;
 		}
 	}
 
-	*ret = g_ptr_array_sized_new(properties->len);
+	ret = g_ptr_array_sized_new(properties->len);
 
 	for (i=0; i<properties->len; i++)
 	{
@@ -2438,10 +2428,12 @@ gboolean idle_muc_channel_get_properties (IdleMUCChannel *obj, const GArray * pr
 								1, priv->properties[prop].value,
 								G_MAXUINT);
 
-		g_ptr_array_add(*ret, g_value_get_boxed(&prop_val));
+		g_ptr_array_add(ret, g_value_get_boxed(&prop_val));
 	}
 	
-	return TRUE;
+	tp_svc_properties_interface_return_from_get_properties(context, ret);
+
+	g_ptr_array_free(ret, TRUE);
 }
 
 
@@ -2507,9 +2499,12 @@ gboolean idle_muc_channel_get_self_handle (IdleMUCChannel *obj, guint* ret, GErr
  *
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
-gboolean idle_muc_channel_list_properties (IdleMUCChannel *obj, GPtrArray ** ret, GError **error)
+static void idle_muc_channel_list_properties (TpSvcPropertiesInterface *iface, DBusGMethodInvocation *context)
 {
+	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
 	IdleMUCChannelPrivate *priv;
+	GError *error;
+	GPtrArray *ret;
 	guint i;
 
 	g_assert(obj != NULL);
@@ -2517,7 +2512,7 @@ gboolean idle_muc_channel_list_properties (IdleMUCChannel *obj, GPtrArray ** ret
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	*ret = g_ptr_array_sized_new(LAST_TP_PROPERTY_ENUM);
+	ret = g_ptr_array_sized_new(LAST_TP_PROPERTY_ENUM);
 	
 	for (i=0; i<LAST_TP_PROPERTY_ENUM; i++)
 	{
@@ -2546,9 +2541,12 @@ gboolean idle_muc_channel_list_properties (IdleMUCChannel *obj, GPtrArray ** ret
 			default:
 			{
 				g_debug("%s: encountered unknown type %s", G_STRFUNC, g_type_name(property_signatures[i].type));
-				*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "internal error in %s", G_STRFUNC);
+				error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "internal error in %s", G_STRFUNC);
+				dbus_g_method_return_error(context, error);
+				g_error_free(error);
+				g_ptr_array_free(ret, TRUE);
 
-				return FALSE;
+				return;
 			}
 			break;
 		}
@@ -2567,10 +2565,12 @@ gboolean idle_muc_channel_list_properties (IdleMUCChannel *obj, GPtrArray ** ret
 								3, priv->properties[i].flags,
 								G_MAXUINT);
 
-		g_ptr_array_add(*ret, g_value_get_boxed(&prop));
+		g_ptr_array_add(ret, g_value_get_boxed(&prop));
 	}
 	
-	return TRUE;
+	tp_svc_properties_interface_return_from_list_properties(context, ret);
+
+	g_ptr_array_free(ret, TRUE);
 }
 
 
@@ -2994,10 +2994,12 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
  *
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
-gboolean idle_muc_channel_set_properties (IdleMUCChannel *obj, const GPtrArray * properties, GError **error)
+static void idle_muc_channel_set_properties (TpSvcPropertiesInterface *iface, const GPtrArray * properties, DBusGMethodInvocation *context)
 {
+	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
 	IdleMUCChannelPrivate *priv;
 	GPtrArray *to_change;
+	GError *error;
 	int i;
 
 	g_assert(obj != NULL);
@@ -3025,27 +3027,36 @@ gboolean idle_muc_channel_set_properties (IdleMUCChannel *obj, const GPtrArray *
 		{
 			g_debug("%s: invalid property id %u", G_STRFUNC, prop_id);
 
-			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid property id %u", prop_id);
+			error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid property id %u", prop_id);
+			dbus_g_method_return_error(context, error);
+			g_error_free(error);
+			g_ptr_array_free(to_change, TRUE);
 
-			return FALSE;
+			return;
 		}
 
 		if ((priv->properties[prop_id].flags & TP_PROPERTY_FLAG_WRITE) == 0)
 		{
 			g_debug("%s: not allowed to set property with id %u", G_STRFUNC, prop_id);
 
-			*error = g_error_new(TP_ERRORS, TP_ERROR_PERMISSION_DENIED, "not allowed to set property with id %u", prop_id);
+			error = g_error_new(TP_ERRORS, TP_ERROR_PERMISSION_DENIED, "not allowed to set property with id %u", prop_id);
+			dbus_g_method_return_error(context, error);
+			g_error_free(error);
+			g_ptr_array_free(to_change, TRUE);
 
-			return FALSE;
+			return;
 		}
 
 		if (!g_value_type_compatible(G_VALUE_TYPE(prop_val), property_signatures[prop_id].type))
 		{
 			g_debug("%s: incompatible value type %s for prop_id %u", G_STRFUNC, g_type_name(G_VALUE_TYPE(prop_val)), prop_id);
 
-			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "incompatible value type %s for prop_id %u", g_type_name(G_VALUE_TYPE(prop_val)), prop_id);
+			error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "incompatible value type %s for prop_id %u", g_type_name(G_VALUE_TYPE(prop_val)), prop_id);
+			dbus_g_method_return_error(context, error);
+			g_error_free(error);
+			g_ptr_array_free(to_change, TRUE);
 
-			return FALSE;
+			return;
 		}
 
 		if (!g_value_compare(prop_val, priv->properties[prop_id].value))
@@ -3058,7 +3069,7 @@ gboolean idle_muc_channel_set_properties (IdleMUCChannel *obj, const GPtrArray *
 
 	g_ptr_array_free(to_change, TRUE);
 	
-	return TRUE;
+	tp_svc_properties_interface_return_from_set_properties(context);
 }
 
 static void
@@ -3084,6 +3095,19 @@ password_iface_init(gpointer g_iface, gpointer iface_data)
 		klass, idle_muc_channel_##x)
 	IMPLEMENT(get_password_flags);
 	IMPLEMENT(provide_password);
+#undef IMPLEMENT
+}
+
+static void
+properties_iface_init(gpointer g_iface, gpointer iface_data)
+{
+	TpSvcPropertiesInterfaceClass *klass = (TpSvcPropertiesInterfaceClass *)(g_iface);
+
+#define IMPLEMENT(x) tp_svc_properties_interface_implement_##x (\
+		klass, idle_muc_channel_##x)
+	IMPLEMENT(get_properties);
+	IMPLEMENT(list_properties);
+	IMPLEMENT(set_properties);
 #undef IMPLEMENT
 }
 
