@@ -5,7 +5,6 @@ BUILT_SOURCES = \
 		idle-connection-glue.h \
 		idle-connection-signals-marshal.h \
 		idle-connection-signals-marshal.c \
-		idle-muc-channel-glue.h \
 		idle-muc-channel-signals-marshal.h \
 		idle-muc-channel-signals-marshal.c \
 		idle-server-connection-iface-signals-marshal.h \

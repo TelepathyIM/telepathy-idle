@@ -23,6 +23,7 @@
 
 #include <glib-object.h>
 #include <telepathy-glib/enums.h>
+#include <telepathy-glib/group-mixin.h>
 #include <telepathy-glib/text-mixin.h>
 
 #include "idle-handles.h"
@@ -33,13 +34,15 @@ typedef struct _IdleMUCChannel IdleMUCChannel;
 typedef struct _IdleMUCChannelClass IdleMUCChannelClass;
 
 struct _IdleMUCChannelClass {
-    GObjectClass parent_class;
-		TpTextMixinClass text_class;
+	GObjectClass parent_class;
+	TpGroupMixinClass group_class;
+	TpTextMixinClass text_class;
 };
 
 struct _IdleMUCChannel {
-    GObject parent;
-		TpTextMixin text;
+	GObject parent;
+	TpGroupMixin group;
+	TpTextMixin text;
 };
 
 typedef enum
@@ -65,16 +68,6 @@ GType idle_muc_channel_get_type(void);
   (G_TYPE_CHECK_CLASS_TYPE((klass), IDLE_TYPE_MUC_CHANNEL))
 #define IDLE_MUC_CHANNEL_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelClass))
-
-gboolean idle_muc_channel_add_members (IdleMUCChannel *obj, const GArray * contacts, const gchar * message, GError **error);
-gboolean idle_muc_channel_get_all_members (IdleMUCChannel *obj, GArray ** ret, GArray ** ret1, GArray ** ret2, GError **error);
-gboolean idle_muc_channel_get_group_flags (IdleMUCChannel *obj, guint* ret, GError **error);
-gboolean idle_muc_channel_get_handle_owners (IdleMUCChannel *obj, const GArray * handles, GArray ** ret, GError **error);
-gboolean idle_muc_channel_get_local_pending_members (IdleMUCChannel *obj, GArray ** ret, GError **error);
-gboolean idle_muc_channel_get_members (IdleMUCChannel *obj, GArray ** ret, GError **error);
-gboolean idle_muc_channel_get_remote_pending_members (IdleMUCChannel *obj, GArray ** ret, GError **error);
-gboolean idle_muc_channel_get_self_handle (IdleMUCChannel *obj, guint* ret, GError **error);
-gboolean idle_muc_channel_remove_members (IdleMUCChannel *obj, const GArray * contacts, const gchar * message, GError **error);
 
 void _idle_muc_channel_join_attempt(IdleMUCChannel *chan);
 
