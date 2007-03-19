@@ -44,10 +44,12 @@
 #include "text.h"
 
 static void channel_iface_init (gpointer, gpointer);
+static void password_iface_init (gpointer, gpointer);
 static void text_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE(IdleMUCChannel, idle_muc_channel, G_TYPE_OBJECT,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL, channel_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_PASSWORD, password_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, text_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_IFACE, NULL);)
 
@@ -56,7 +58,6 @@ enum
 {
     GROUP_FLAGS_CHANGED,
     MEMBERS_CHANGED,
-    PASSWORD_FLAGS_CHANGED,
     PROPERTIES_CHANGED,
     PROPERTY_FLAGS_CHANGED,
     JOIN_READY,
@@ -446,15 +447,6 @@ idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class)
                   idle_muc_channel_marshal_VOID__STRING_BOXED_BOXED_BOXED_BOXED_INT_INT,
                   G_TYPE_NONE, 7, G_TYPE_STRING, DBUS_TYPE_G_UINT_ARRAY, DBUS_TYPE_G_UINT_ARRAY, DBUS_TYPE_G_UINT_ARRAY, DBUS_TYPE_G_UINT_ARRAY, G_TYPE_UINT, G_TYPE_UINT);
 
-  signals[PASSWORD_FLAGS_CHANGED] =
-    g_signal_new ("password-flags-changed",
-                  G_OBJECT_CLASS_TYPE (idle_muc_channel_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  idle_muc_channel_marshal_VOID__INT_INT,
-                  G_TYPE_NONE, 2, G_TYPE_UINT, G_TYPE_UINT);
-
   signals[PROPERTIES_CHANGED] =
     g_signal_new ("properties-changed",
                   G_OBJECT_CLASS_TYPE (idle_muc_channel_class),
@@ -795,7 +787,7 @@ static void provide_password_reply(IdleMUCChannel *chan, gboolean success)
 
 	if (priv->passwd_ctx != NULL)
 	{
-		dbus_g_method_return(priv->passwd_ctx, success);
+		tp_svc_channel_interface_password_return_from_provide_password(priv->passwd_ctx, success);
 		priv->passwd_ctx = NULL;
 	}
 	else
@@ -1082,7 +1074,7 @@ static void change_password_flags(IdleMUCChannel *obj, guint flag, gboolean stat
 	if (add | remove)
 	{
 		g_debug("%s: emitting PASSWORD_FLAGS_CHANGED with %u %u", G_STRFUNC, add, remove);
-		g_signal_emit(obj, signals[PASSWORD_FLAGS_CHANGED], 0, add, remove);
+		tp_svc_channel_interface_password_emit_password_flags_changed((TpSvcChannelInterfacePassword *)(obj), add, remove);
 	}
 }
 
@@ -2369,8 +2361,9 @@ gboolean idle_muc_channel_get_message_types (IdleMUCChannel *obj, GArray ** ret,
  *
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
-gboolean idle_muc_channel_get_password_flags (IdleMUCChannel *obj, guint* ret, GError **error)
+static void idle_muc_channel_get_password_flags (TpSvcChannelInterfacePassword *iface, DBusGMethodInvocation *context)
 {
+	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
 	IdleMUCChannelPrivate *priv;
 
 	g_assert(obj != NULL);
@@ -2378,9 +2371,7 @@ gboolean idle_muc_channel_get_password_flags (IdleMUCChannel *obj, guint* ret, G
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	*ret = priv->password_flags;
-	
-  	return TRUE;
+	tp_svc_channel_interface_password_return_from_get_password_flags(context, priv->password_flags);
 }
 
 
@@ -2593,8 +2584,9 @@ gboolean idle_muc_channel_list_properties (IdleMUCChannel *obj, GPtrArray ** ret
  *
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
-gboolean idle_muc_channel_provide_password (IdleMUCChannel *obj, const gchar * password, DBusGMethodInvocation *context)
+static void idle_muc_channel_provide_password (TpSvcChannelInterfacePassword *iface, const gchar * password, DBusGMethodInvocation *context)
 {
+	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
 	IdleMUCChannelPrivate *priv;
 	GError *error;
 	
@@ -2612,14 +2604,12 @@ gboolean idle_muc_channel_provide_password (IdleMUCChannel *obj, const gchar * p
 		dbus_g_method_return_error(context, error);
 		g_error_free(error);
 
-		return FALSE;
+		return;
 	}
 	
 	priv->passwd_ctx = context;
 
 	send_join_request(obj, password);
-	
-	return TRUE;
 }
 
 
@@ -3080,6 +3070,18 @@ channel_iface_init(gpointer g_iface, gpointer iface_data)
   IMPLEMENT(get_channel_type);
   IMPLEMENT(get_handle);
   IMPLEMENT(get_interfaces);
+#undef IMPLEMENT
+}
+
+static void
+password_iface_init(gpointer g_iface, gpointer iface_data)
+{
+	TpSvcChannelInterfacePasswordClass *klass = (TpSvcChannelInterfacePasswordClass *)(g_iface);
+
+#define IMPLEMENT(x) tp_svc_channel_interface_password_implement_##x (\
+		klass, idle_muc_channel_##x)
+	IMPLEMENT(get_password_flags);
+	IMPLEMENT(provide_password);
 #undef IMPLEMENT
 }
 

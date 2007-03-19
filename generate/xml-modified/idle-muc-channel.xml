@@ -46,22 +46,8 @@
       <arg direction="in" name="contacts" type="au" />
       <arg direction="in" name="message" type="s" />
     </method>
-    </interface>
-  <interface name="org.freedesktop.Telepathy.Channel.Interface.Password">
-    <method name="GetPasswordFlags">
-      <arg direction="out" type="u" />
-    </method>
-    <signal name="PasswordFlagsChanged">
-      <arg name="added" type="u" />
-      <arg name="removed" type="u" />
-    </signal>
-    <method name="ProvidePassword">
-      <annotation name="org.freedesktop.DBus.GLib.Async" value=""/>
-      <arg direction="in" name="password" type="s" />
-      <arg direction="out" type="b" />
-    </method>
   </interface>
-	<interface name="org.freedesktop.Telepathy.Properties">
+  <interface name="org.freedesktop.Telepathy.Properties">
     <method name="GetProperties">
       <arg direction="in" name="properties" type="au" />
       <arg direction="out" type="a(uv)" />
@@ -78,5 +64,5 @@
     <method name="SetProperties">
       <arg direction="in" name="properties" type="a(uv)" />
     </method>
-    </interface>
+  </interface>
 </node>
