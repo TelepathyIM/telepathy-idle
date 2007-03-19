@@ -66,7 +66,6 @@ GType idle_muc_channel_get_type(void);
 #define IDLE_MUC_CHANNEL_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelClass))
 
-gboolean idle_muc_channel_acknowledge_pending_messages (IdleMUCChannel *obj, const GArray *ids, GError **error);
 gboolean idle_muc_channel_add_members (IdleMUCChannel *obj, const GArray * contacts, const gchar * message, GError **error);
 gboolean idle_muc_channel_close (IdleMUCChannel *obj, GError **error);
 gboolean idle_muc_channel_get_all_members (IdleMUCChannel *obj, GArray ** ret, GArray ** ret1, GArray ** ret2, GError **error);
@@ -77,12 +76,10 @@ gboolean idle_muc_channel_get_handle_owners (IdleMUCChannel *obj, const GArray *
 gboolean idle_muc_channel_get_interfaces (IdleMUCChannel *obj, gchar *** ret, GError **error);
 gboolean idle_muc_channel_get_local_pending_members (IdleMUCChannel *obj, GArray ** ret, GError **error);
 gboolean idle_muc_channel_get_members (IdleMUCChannel *obj, GArray ** ret, GError **error);
-gboolean idle_muc_channel_get_message_types (IdleMUCChannel *obj, GArray ** ret, GError **error);
 gboolean idle_muc_channel_get_password_flags (IdleMUCChannel *obj, guint* ret, GError **error);
 gboolean idle_muc_channel_get_properties (IdleMUCChannel *obj, const GArray * properties, GPtrArray ** ret, GError **error);
 gboolean idle_muc_channel_get_remote_pending_members (IdleMUCChannel *obj, GArray ** ret, GError **error);
 gboolean idle_muc_channel_get_self_handle (IdleMUCChannel *obj, guint* ret, GError **error);
-gboolean idle_muc_channel_list_pending_messages (IdleMUCChannel *obj, gboolean clear, GPtrArray ** ret, GError **error);
 gboolean idle_muc_channel_list_properties (IdleMUCChannel *obj, GPtrArray ** ret, GError **error);
 gboolean idle_muc_channel_provide_password (IdleMUCChannel *obj, const gchar * password, DBusGMethodInvocation *ctx);
 gboolean idle_muc_channel_remove_members (IdleMUCChannel *obj, const GArray * contacts, const gchar * message, GError **error);
