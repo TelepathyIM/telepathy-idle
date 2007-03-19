@@ -2129,6 +2129,8 @@ static void idle_muc_channel_close (TpSvcChannel *obj, DBusGMethodInvocation *co
 	}
 	
 	g_debug("%s: called on %p", G_STRFUNC, obj);
+
+	tp_svc_channel_return_from_close(context);
 }
 
 /**
