@@ -67,13 +67,9 @@ GType idle_muc_channel_get_type(void);
   (G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelClass))
 
 gboolean idle_muc_channel_add_members (IdleMUCChannel *obj, const GArray * contacts, const gchar * message, GError **error);
-gboolean idle_muc_channel_close (IdleMUCChannel *obj, GError **error);
 gboolean idle_muc_channel_get_all_members (IdleMUCChannel *obj, GArray ** ret, GArray ** ret1, GArray ** ret2, GError **error);
-gboolean idle_muc_channel_get_channel_type (IdleMUCChannel *obj, gchar ** ret, GError **error);
 gboolean idle_muc_channel_get_group_flags (IdleMUCChannel *obj, guint* ret, GError **error);
-gboolean idle_muc_channel_get_handle (IdleMUCChannel *obj, guint* ret, guint* ret1, GError **error);
 gboolean idle_muc_channel_get_handle_owners (IdleMUCChannel *obj, const GArray * handles, GArray ** ret, GError **error);
-gboolean idle_muc_channel_get_interfaces (IdleMUCChannel *obj, gchar *** ret, GError **error);
 gboolean idle_muc_channel_get_local_pending_members (IdleMUCChannel *obj, GArray ** ret, GError **error);
 gboolean idle_muc_channel_get_members (IdleMUCChannel *obj, GArray ** ret, GError **error);
 gboolean idle_muc_channel_get_password_flags (IdleMUCChannel *obj, guint* ret, GError **error);

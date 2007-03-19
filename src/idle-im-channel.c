@@ -153,8 +153,7 @@ static void idle_im_channel_get_property(GObject *object, guint property_id,
 	}
 }
 
-static void idle_im_channel_set_property(GObject *object, guint property_id, const GValue *value,
-											GParamSpec *pspec)
+static void idle_im_channel_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
 	IdleIMChannel *chan = IDLE_IM_CHANNEL(object);
 	IdleIMChannelPrivate *priv;

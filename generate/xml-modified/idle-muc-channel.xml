@@ -1,21 +1,5 @@
 <?xml version="1.0" ?>
 <node name="/IdleMUCChannel">
-  <interface name="org.freedesktop.Telepathy.Channel">
-    <method name="Close">
-    </method>
-  <signal name="Closed">
-    </signal>
-    <method name="GetChannelType">
-      <arg direction="out" type="s" />
-    </method>
-    <method name="GetHandle">
-      <arg direction="out" type="u" />
-      <arg direction="out" type="u" />
-    </method>
-    <method name="GetInterfaces">
-      <arg direction="out" type="as" />
-    </method>
-    </interface>
   <interface name="org.freedesktop.Telepathy.Channel.Interface.Group">
     <method name="AddMembers">
       <arg direction="in" name="contacts" type="au" />
@@ -77,7 +61,7 @@
       <arg direction="out" type="b" />
     </method>
   </interface>
-<interface name="org.freedesktop.Telepathy.Properties">
+	<interface name="org.freedesktop.Telepathy.Properties">
     <method name="GetProperties">
       <arg direction="in" name="properties" type="au" />
       <arg direction="out" type="a(uv)" />

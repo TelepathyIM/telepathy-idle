@@ -25,6 +25,7 @@
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/dbus.h>
+#include <telepathy-glib/channel-iface.h>
 
 #define _GNU_SOURCE
 #include <stdlib.h>
@@ -41,22 +42,23 @@
 #include "idle-handles.h"
 #include "text.h"
 
+static void channel_iface_init (gpointer, gpointer);
 static void text_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE(IdleMUCChannel, idle_muc_channel, G_TYPE_OBJECT,
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, text_iface_init);)
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL, channel_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, text_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_IFACE, NULL);)
 
 /* signal enum */
 enum
 {
-    CLOSED,
     GROUP_FLAGS_CHANGED,
     MEMBERS_CHANGED,
     PASSWORD_FLAGS_CHANGED,
     PROPERTIES_CHANGED,
     PROPERTY_FLAGS_CHANGED,
-    RECEIVED,
-	JOIN_READY,
+    JOIN_READY,
     LAST_SIGNAL
 };
 
@@ -382,6 +384,10 @@ static void idle_muc_channel_set_property(GObject *object, guint property_id, co
 			g_debug("%s: setting handle to %u", G_STRFUNC, priv->handle);
 		}
 		break;
+		case PROP_HANDLE_TYPE:
+		{
+		}
+		break;
 		default:
 		{
 			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -402,6 +408,11 @@ idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class)
 
   object_class->get_property = idle_muc_channel_get_property;
   object_class->set_property = idle_muc_channel_set_property;
+
+  g_object_class_override_property (object_class, PROP_OBJECT_PATH, "object-path");
+  g_object_class_override_property (object_class, PROP_CHANNEL_TYPE, "channel-type");
+  g_object_class_override_property (object_class, PROP_HANDLE_TYPE, "handle-type");
+  g_object_class_override_property (object_class, PROP_HANDLE, "handle");
   
   object_class->dispose = idle_muc_channel_dispose;
   object_class->finalize = idle_muc_channel_finalize;
@@ -415,52 +426,6 @@ idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class)
                                     G_PARAM_STATIC_NICK |
                                     G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
-
-  param_spec = g_param_spec_string ("object-path", "D-Bus object path",
-                                    "The D-Bus object path used for this "
-                                    "object on the bus.",
-                                    NULL,
-                                    G_PARAM_CONSTRUCT_ONLY |
-                                    G_PARAM_READWRITE |
-                                    G_PARAM_STATIC_NAME |
-                                    G_PARAM_STATIC_BLURB);
-  g_object_class_install_property (object_class, PROP_OBJECT_PATH, param_spec);
-
-  param_spec = g_param_spec_string ("channel-type", "Telepathy channel type",
-                                    "The D-Bus interface representing the "
-                                    "type of this channel.",
-                                    NULL,
-                                    G_PARAM_READABLE |
-                                    G_PARAM_STATIC_NAME |
-                                    G_PARAM_STATIC_BLURB);
-  g_object_class_install_property (object_class, PROP_CHANNEL_TYPE, param_spec);
-
-  param_spec = g_param_spec_uint ("handle-type", "Contact handle type",
-                                  "The TpHandleType representing a "
-                                  "room handle.",
-                                  0, G_MAXUINT32, 0,
-                                  G_PARAM_READABLE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
-  g_object_class_install_property (object_class, PROP_HANDLE_TYPE, param_spec);
-
-  param_spec = g_param_spec_uint ("handle", "Contact handle",
-                                  "The TpHandle representing this room.",
-                                  0, G_MAXUINT32, 0,
-                                  G_PARAM_CONSTRUCT_ONLY |
-                                  G_PARAM_READWRITE |
-                                  G_PARAM_STATIC_NAME |
-                                  G_PARAM_STATIC_BLURB);
-  g_object_class_install_property (object_class, PROP_HANDLE, param_spec);
-
-  signals[CLOSED] =
-    g_signal_new ("closed",
-                  G_OBJECT_CLASS_TYPE (idle_muc_channel_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  idle_muc_channel_marshal_VOID__VOID,
-                  G_TYPE_NONE, 0);
 
   signals[GROUP_FLAGS_CHANGED] =
     g_signal_new ("group-flags-changed",
@@ -533,10 +498,7 @@ idle_muc_channel_dispose (GObject *object)
   priv->dispose_has_run = TRUE;
 
   if (!priv->closed)
-  {
-	  g_signal_emit(self, signals[CLOSED], 0);
-	  priv->closed = TRUE;
-  }
+	  tp_svc_channel_emit_closed((TpSvcChannel *)(self));
 
   if (G_OBJECT_CLASS (idle_muc_channel_parent_class)->dispose)
     G_OBJECT_CLASS (idle_muc_channel_parent_class)->dispose (object);
@@ -1391,8 +1353,7 @@ void _idle_muc_channel_handle_quit(IdleMUCChannel *chan,
 		if (!suppress)
 		{
 			priv->closed = TRUE;
-
-			g_signal_emit(chan, signals[CLOSED], 0);
+			tp_svc_channel_emit_closed((TpSvcChannel*)(chan));
 		}
 	}
 
@@ -2151,7 +2112,7 @@ static void part_from_channel(IdleMUCChannel *obj, const gchar *msg)
  *
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
-gboolean idle_muc_channel_close (IdleMUCChannel *obj, GError **error)
+static void idle_muc_channel_close (TpSvcChannel *obj, DBusGMethodInvocation *context)
 {
 	IdleMUCChannelPrivate *priv;
 
@@ -2162,21 +2123,19 @@ gboolean idle_muc_channel_close (IdleMUCChannel *obj, GError **error)
 	
 	if (priv->state == MUC_STATE_JOINED)
 	{
-		part_from_channel(obj, NULL);
+		part_from_channel((IdleMUCChannel*)(obj), NULL);
 	}
 
 	if (priv->state < MUC_STATE_JOINED)
 	{
 		if (!priv->closed)
 		{
-			g_signal_emit(obj, signals[CLOSED], 0);
+			tp_svc_channel_emit_closed(obj);
 			priv->closed = TRUE;
 		}
 	}
 	
 	g_debug("%s: called on %p", G_STRFUNC, obj);
-
-	return TRUE;
 }
 
 /**
@@ -2220,14 +2179,9 @@ gboolean idle_muc_channel_get_all_members (IdleMUCChannel *obj, GArray ** ret, G
  *
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
-gboolean idle_muc_channel_get_channel_type (IdleMUCChannel *obj, gchar ** ret, GError **error)
+static void idle_muc_channel_get_channel_type (TpSvcChannel *iface, DBusGMethodInvocation *context)
 {
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(obj));
-
-	*ret = g_strdup(TP_IFACE_CHANNEL_TYPE_TEXT);
-	
-	return TRUE;
+	tp_svc_channel_return_from_get_channel_type(context, TP_IFACE_CHANNEL_TYPE_TEXT);
 }
 
 
@@ -2270,8 +2224,9 @@ gboolean idle_muc_channel_get_group_flags (IdleMUCChannel *obj, guint* ret, GErr
  *
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
-gboolean idle_muc_channel_get_handle (IdleMUCChannel *obj, guint* ret, guint* ret1, GError **error)
+static void idle_muc_channel_get_handle (TpSvcChannel *iface, DBusGMethodInvocation *context)
 {
+	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
 	IdleMUCChannelPrivate *priv;
 	
 	g_assert(obj != NULL);
@@ -2279,12 +2234,7 @@ gboolean idle_muc_channel_get_handle (IdleMUCChannel *obj, guint* ret, guint* re
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	*ret = TP_HANDLE_TYPE_ROOM;
-	*ret1 = priv->handle;
-
-	g_debug("%s: returning handle %u", G_STRFUNC, *ret1);
-	
-	return TRUE;
+	tp_svc_channel_return_from_get_handle(context, TP_HANDLE_TYPE_ROOM, priv->handle);
 }
 
 
@@ -2327,13 +2277,11 @@ gboolean idle_muc_channel_get_handle_owners (IdleMUCChannel *obj, const GArray *
  *
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
-gboolean idle_muc_channel_get_interfaces (IdleMUCChannel *obj, gchar *** ret, GError **error)
+static void idle_muc_channel_get_interfaces (TpSvcChannel *obj, DBusGMethodInvocation *context)
 {
 	const gchar *interfaces[] = {TP_IFACE_CHANNEL_INTERFACE_PASSWORD, TP_IFACE_CHANNEL_INTERFACE_GROUP, TP_IFACE_PROPERTIES_INTERFACE, NULL};
 	
-	*ret = g_strdupv((gchar **)(interfaces));
-
-	return TRUE;
+	tp_svc_channel_return_from_get_interfaces(context, interfaces);
 }
 
 
@@ -3118,6 +3066,20 @@ gboolean idle_muc_channel_set_properties (IdleMUCChannel *obj, const GPtrArray *
 	g_ptr_array_free(to_change, TRUE);
 	
 	return TRUE;
+}
+
+static void
+channel_iface_init(gpointer g_iface, gpointer iface_data)
+{
+  TpSvcChannelClass *klass = (TpSvcChannelClass *)g_iface;
+
+#define IMPLEMENT(x) tp_svc_channel_implement_##x (\
+    klass, idle_muc_channel_##x)
+  IMPLEMENT(close);
+  IMPLEMENT(get_channel_type);
+  IMPLEMENT(get_handle);
+  IMPLEMENT(get_interfaces);
+#undef IMPLEMENT
 }
 
 static void
