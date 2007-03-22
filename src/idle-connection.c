@@ -2022,11 +2022,11 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 
 			if (priv->self_handle)
 			{
-				idle_handle_unref(priv->handles, TP_HANDLE_TYPE_CONTACT, priv->self_handle);
+				tp_handle_unref(conn->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
 			}
 
-			priv->self_handle = idle_handle_for_contact(priv->handles, nick);
-			idle_handle_ref(priv->handles, TP_HANDLE_TYPE_CONTACT, priv->self_handle);
+			priv->self_handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], nick);
+			tp_handle_ref(conn->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
 		}
 
 		connection_connect_cb(conn, TRUE);
