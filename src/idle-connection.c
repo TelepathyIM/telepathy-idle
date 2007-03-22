@@ -1653,9 +1653,8 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 
 		if (chan == NULL)
 		{
-			g_debug("%s: got JOIN message for channel we don't have in muc_channels? (%s)", G_STRFUNC, channel);
-			g_free(channel);
-			goto cleanupl;
+			g_debug("%s: got JOIN message for channel we don't have in muc_channels? (%s) - creating new", G_STRFUNC, channel);
+			chan = new_muc_channel(conn, handle, FALSE);
 		}
 
 		g_debug("%s: got JOIN for IRC channel %s (handle %u)", G_STRFUNC, channel, handle);
