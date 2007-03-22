@@ -99,7 +99,6 @@ gboolean idle_connection_request_handles (IdleConnection *obj, guint handle_type
 gboolean idle_connection_request_presence (IdleConnection *obj, const GArray *contacts, GError **error);
 gboolean idle_connection_set_last_activity_time (IdleConnection *obj, guint time, GError **error);
 gboolean idle_connection_set_status (IdleConnection *obj, GHashTable *statuses, GError **error);
-gboolean idle_connection_request_rename (IdleConnection *obj, const char *name, GError **error);
 
 gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **error);
 gboolean idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **output, GError **error);

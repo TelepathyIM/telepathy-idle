@@ -29,6 +29,7 @@
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/handle-repo-dynamic.h>
+#include <telepathy-glib/svc-connection.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -68,7 +69,10 @@
 #define BUS_NAME 	"org.freedesktop.Telepathy.Connection.idle"
 #define OBJECT_PATH "/org/freedesktop/Telepathy/Connection/idle"
 
-G_DEFINE_TYPE(IdleConnection, idle_connection, G_TYPE_OBJECT);
+static void renaming_iface_init(gpointer, gpointer);
+
+G_DEFINE_TYPE_WITH_CODE(IdleConnection, idle_connection, G_TYPE_OBJECT,
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_RENAMING, renaming_iface_init));
 
 #define IRC_PRESENCE_SHOW_AVAILABLE "available"
 #define IRC_PRESENCE_SHOW_AWAY		"away"
@@ -139,7 +143,6 @@ enum
     PRESENCE_UPDATE,
     STATUS_CHANGED,
     DISCONNECTED,
-	RENAMED,
     LAST_SIGNAL_ENUM
 };
 
@@ -548,15 +551,6 @@ idle_connection_class_init (IdleConnectionClass *idle_connection_class)
   	  		  NULL, NULL,
   	  		  g_cclosure_marshal_VOID__VOID,
   	  		  G_TYPE_NONE, 0);
-
-  signals[RENAMED] =
-	  g_signal_new("renamed",
-			  G_OBJECT_CLASS_TYPE(idle_connection_class),
-			  G_SIGNAL_RUN_LAST|G_SIGNAL_DETAILED,
-			  0,
-			  NULL, NULL,
-			  idle_connection_marshal_VOID__INT_INT,
-			  G_TYPE_NONE, 2, G_TYPE_UINT, G_TYPE_UINT);
 
   dbus_g_object_type_install_info (G_TYPE_FROM_CLASS (idle_connection_class), &dbus_glib_idle_connection_object_info);
 }
@@ -976,8 +970,8 @@ static void priv_rename(IdleConnection *conn, guint old, guint new)
 	}
 
 	g_hash_table_foreach(priv->muc_channels, muc_channel_rename_foreach, &data);
-	
-	g_signal_emit(conn, signals[RENAMED], 0, old, new);
+
+	tp_svc_connection_interface_renaming_emit_renamed((TpSvcConnectionInterfaceRenaming *)(conn), old, new);
 }
 
 gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
@@ -3438,6 +3432,7 @@ gboolean idle_connection_inspect_handles (IdleConnection *conn, guint handle_typ
 		error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid handle type %u", handle_type);
 
 		dbus_g_method_return_error(ctx, error);
+		g_error_free(error);
 
 		return FALSE;
 	}
@@ -3459,6 +3454,7 @@ gboolean idle_connection_inspect_handles (IdleConnection *conn, guint handle_typ
 			g_free(ret);
 
 			dbus_g_method_return_error(ctx, error);
+			g_error_free(error);
 			
 			return FALSE;
 		}
@@ -3771,7 +3767,7 @@ NOT_AVAILABLE:
                         "requested channel is not available with "
                         "handle type %u", handle_type);
   dbus_g_method_return_error(ctx, error);
-  g_free(error);
+  g_error_free(error);
 
   return FALSE;
 
@@ -3781,7 +3777,7 @@ INVALID_HANDLE:
   error = g_error_new (TP_ERRORS, TP_ERROR_INVALID_HANDLE,
                         "handle %u (type %u) not valid", handle, handle_type);
   dbus_g_method_return_error(ctx, error);
-  g_free(error);
+  g_error_free(error);
 
   return FALSE;
 
@@ -3791,7 +3787,7 @@ NOT_IMPLEMENTED:
   error = g_error_new (TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
                         "unsupported channel type %s", type);
   dbus_g_method_return_error(ctx, error);
-  g_free(error);
+  g_error_free(error);
 
   return FALSE;
 }
@@ -4194,10 +4190,12 @@ gboolean idle_connection_set_status (IdleConnection *obj, GHashTable * statuses,
 	return data.retval;
 }
 
-gboolean idle_connection_request_rename(IdleConnection *obj, const gchar *nick, GError **error)
+static void idle_connection_request_rename(TpSvcConnectionInterfaceRenaming *iface, const gchar *nick, DBusGMethodInvocation *context)
 {
+	IdleConnection *obj = IDLE_CONNECTION(iface);
 	IdleConnectionPrivate *priv;
 	TpHandle handle;
+	GError *error;
 
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_CONNECTION(obj));
@@ -4210,9 +4208,11 @@ gboolean idle_connection_request_rename(IdleConnection *obj, const gchar *nick, 
 	{
 		g_debug("%s: failed to get handle for (%s)", G_STRFUNC, nick);
 
-		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "Failed to get handle for (%s)", nick);
+		error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "Failed to get handle for (%s)", nick);
+		dbus_g_method_return_error(context, error);
+		g_error_free(error);
 
-		return FALSE;
+		return;
 	}
 
 	g_free(priv->nickname);
@@ -4221,7 +4221,7 @@ gboolean idle_connection_request_rename(IdleConnection *obj, const gchar *nick, 
 
 	priv_rename(obj, priv->self_handle, handle);
 
-	return TRUE;
+	tp_svc_connection_interface_renaming_return_from_request_rename(context);
 }
 
 gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **_error)
@@ -4290,5 +4290,16 @@ gboolean idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **o
 	
 	*output = ret;
 	return TRUE;
+}
+
+static void
+renaming_iface_init(gpointer g_iface, gpointer iface_data)
+{
+  TpSvcConnectionInterfaceRenamingClass *klass = (TpSvcConnectionInterfaceRenamingClass *)g_iface;
+
+#define IMPLEMENT(x) tp_svc_connection_interface_renaming_implement_##x (\
+    klass, idle_connection_##x)
+  IMPLEMENT(request_rename);
+#undef IMPLEMENT
 }
 

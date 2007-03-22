@@ -88,13 +88,4 @@
       <arg direction="in"  type="a{sa{sv}}" name="statuses" />
     </method>
   </interface>
-  <interface name="org.freedesktop.Telepathy.Connection.Interface.Renaming">
-    <signal name="Renamed">
-      <arg name="original" type="u" />
-      <arg name="new" type="u" />
-    </signal>
-    <method name="RequestRename">
-      <arg direction="in" name="name" type="s" />
-    </method>
-  </interface>
 </node>
