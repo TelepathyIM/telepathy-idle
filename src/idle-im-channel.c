@@ -97,7 +97,7 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 	bus = tp_get_bus();
 	dbus_g_connection_register_g_object(bus, priv->object_path, obj);
 
-  tp_text_mixin_init(obj, G_STRUCT_OFFSET(IdleIMChannel, text), handles, 0);
+  tp_text_mixin_init(obj, G_STRUCT_OFFSET(IdleIMChannel, text), handles);
   tp_text_mixin_set_message_types(obj,
       TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
       TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION,

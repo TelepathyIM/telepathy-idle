@@ -285,7 +285,7 @@ static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectC
 
 	tp_group_mixin_init((TpSvcChannelInterfaceGroup *)(obj), G_STRUCT_OFFSET(IdleMUCChannel, group), contact_handles, priv->own_handle);
 
-	tp_text_mixin_init(obj, G_STRUCT_OFFSET(IdleMUCChannel, text), contact_handles, 0);
+	tp_text_mixin_init(obj, G_STRUCT_OFFSET(IdleMUCChannel, text), contact_handles);
   tp_text_mixin_set_message_types(obj,
       TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
       TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION,
