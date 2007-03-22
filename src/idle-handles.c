@@ -259,7 +259,7 @@ gboolean idle_handle_set_presence(TpHandleRepoIface *storage, TpHandle handle, I
 {
   g_assert(storage != NULL);
 
-  return tp_handle_set_qdata(storage, handle, idle_handle_presence_quark(), cp, (GDestroyNotify)(idle_contact_presence_free));
+  return tp_handle_set_qdata(storage, handle, idle_handle_presence_quark(), cp, cp ? (GDestroyNotify)(idle_contact_presence_free) : NULL);
 }
 
 IdleContactPresence *idle_handle_get_presence(TpHandleRepoIface *storage, TpHandle handle)
