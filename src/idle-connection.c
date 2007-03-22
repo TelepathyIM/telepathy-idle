@@ -373,13 +373,6 @@ static void idle_connection_set_property(GObject *obj, guint prop_id, const GVal
 		{
 			g_free(priv->nickname);
 			priv->nickname = g_value_dup_string(value);
-
-			if (strlen(priv->nickname) > 9)
-			{
-				char *p = g_utf8_offset_to_pointer (priv->nickname, 9);
-				*p = '\0';
-				g_debug("%s: nickname was longer than 9 characters; clipped to %s", G_STRFUNC, priv->nickname);
-			}
 		}
 		break;
 		case PROP_SERVER:
@@ -1169,9 +1162,9 @@ gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
 			
 	if (priv->conn == NULL)
 	{
-		gboolean valid;
 		GError *conn_error = NULL;
 		IdleServerConnectionIface *sconn;
+		gboolean valid;
 		GType connection_type = (priv->use_ssl) 
 										? IDLE_TYPE_SSL_SERVER_CONNECTION 
 										: IDLE_TYPE_SERVER_CONNECTION;
@@ -1228,8 +1221,6 @@ gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
 		g_signal_connect(sconn, "received", (GCallback)(sconn_received_cb), conn);
 		
 		irc_handshakes(conn);
-
-		update_presence(conn, priv->self_handle, IDLE_PRESENCE_AVAILABLE, NULL);
 	}
 	else
 	{
@@ -2196,9 +2187,27 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 	}
 	else if (numeric == IRC_RPL_WELCOME)
 	{
-		g_debug("%s: got RPL_WELCOME", G_STRFUNC);
+		char *nick = recipient;
+		g_debug("%s: got RPL_WELCOME with nick %s", G_STRFUNC, nick);
+
+		if (strcmp(priv->nickname, nick))
+		{
+			g_debug("%s: nick different from original (%s -> %s), renaming", G_STRFUNC, priv->nickname, nick);
+			g_free(priv->nickname);
+			priv->nickname = g_strdup(nick);
+
+			if (priv->self_handle)
+			{
+				idle_handle_unref(priv->handles, TP_HANDLE_TYPE_CONTACT, priv->self_handle);
+			}
+
+			priv->self_handle = idle_handle_for_contact(priv->handles, nick);
+			idle_handle_ref(priv->handles, TP_HANDLE_TYPE_CONTACT, priv->self_handle);
+		}
 
 		connection_connect_cb(conn, TRUE);
+
+		update_presence(conn, priv->self_handle, IDLE_PRESENCE_AVAILABLE, NULL);
 	}
 	else if (numeric == IRC_RPL_TOPIC)
 	{
