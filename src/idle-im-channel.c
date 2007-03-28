@@ -85,14 +85,13 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 	IdleIMChannelPrivate *priv;
 	DBusGConnection *bus;
 	TpHandleRepoIface *handles;
-	gboolean valid;
 
 	obj = G_OBJECT_CLASS(idle_im_channel_parent_class)->constructor(type, n_props, props);
 	priv = IDLE_IM_CHANNEL_GET_PRIVATE(IDLE_IM_CHANNEL(obj));
 
 	handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
-	valid = tp_handle_ref(handles, priv->handle);
-	g_assert(valid);
+	tp_handle_ref(handles, priv->handle);
+	g_assert(tp_handle_is_valid(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], priv->handle, NULL));
 
 	bus = tp_get_bus();
 	dbus_g_connection_register_g_object(bus, priv->object_path, obj);
@@ -286,7 +285,6 @@ void _idle_im_channel_rename(IdleIMChannel *chan, TpHandle new)
 {
 	IdleIMChannelPrivate *priv;
 	TpHandleRepoIface *handles;
-	gboolean valid;
 
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_IM_CHANNEL(chan));
@@ -298,8 +296,8 @@ void _idle_im_channel_rename(IdleIMChannel *chan, TpHandle new)
 
 	tp_handle_unref(handles, priv->handle);
 	priv->handle = new;
-	valid = tp_handle_ref(handles, priv->handle);
-	g_assert(valid);
+	tp_handle_ref(handles, priv->handle);
+	g_assert(tp_handle_is_valid(handles, priv->handle, NULL));
 
 	g_debug("%s: changed to handle %u", G_STRFUNC, new);
 }

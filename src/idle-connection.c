@@ -28,7 +28,6 @@
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/dbus.h>
-#include <telepathy-glib/handle-repo-dynamic.h>
 #include <telepathy-glib/svc-connection.h>
 
 #include <stdio.h>
@@ -271,8 +270,7 @@ idle_connection_init (IdleConnection *obj)
     obj->handles[i] = NULL;
   }
 
-  obj->handles[TP_HANDLE_TYPE_CONTACT] = (TpHandleRepoIface *)(g_object_new(TP_TYPE_DYNAMIC_HANDLE_REPO, "handle-type", TP_HANDLE_TYPE_CONTACT, NULL));
-  obj->handles[TP_HANDLE_TYPE_ROOM] = (TpHandleRepoIface *)(g_object_new(TP_TYPE_DYNAMIC_HANDLE_REPO, "handle-type", TP_HANDLE_TYPE_ROOM, NULL));
+	idle_handle_repos_init(obj->handles);
 
   priv->polled_presences = tp_intset_new();
   priv->presence_polling_timer_id = 0;
@@ -993,7 +991,6 @@ gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
 	{
 		GError *conn_error = NULL;
 		IdleServerConnectionIface *sconn;
-		gboolean valid;
 		GType connection_type = (priv->use_ssl) 
 										? IDLE_TYPE_SSL_SERVER_CONNECTION 
 										: IDLE_TYPE_SERVER_CONNECTION;
@@ -1023,9 +1020,8 @@ gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
       }
     }
 
-		valid = tp_handle_ref(conn->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
-
-		g_assert(valid == TRUE);
+		tp_handle_ref(conn->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
+		g_assert(tp_handle_is_valid(conn->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle, NULL));
 		
 		sconn = IDLE_SERVER_CONNECTION_IFACE(g_object_new(connection_type, 
 														  "host", priv->server, 

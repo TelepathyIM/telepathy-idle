@@ -21,7 +21,9 @@
 #include <glib.h>
 #include <string.h>
 #include <ctype.h>
-#include <telepathy-glib/heap.h>
+
+#include <telepathy-glib/errors.h>
+#include <telepathy-glib/handle-repo-dynamic.h>
 
 #include "idle-handles.h"
 
@@ -178,6 +180,47 @@ idle_handle_presence_quark()
   return quark;
 }
 
+static gchar *
+_nick_normalize_func(TpHandleRepoIface *storage, const gchar *id, gpointer ctx, GError **error)
+{
+	gchar *normalized;
+
+	if (!idle_nickname_is_valid(id))
+	{
+		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid nickname");
+		return NULL;
+	}
+
+	normalized = g_utf8_strdown(id, -1);
+
+	return normalized;
+}
+
+static gchar *
+_channel_normalize_func(TpHandleRepoIface *storage, const gchar *id, gpointer ctx, GError **error)
+{
+	gchar *normalized;
+
+	if (!idle_channelname_is_valid(id))
+	{
+		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid channel ID");
+		return NULL;
+	}
+
+	normalized = g_utf8_strdown(id, -1);
+
+	return normalized;
+}
+
+void
+idle_handle_repos_init(TpHandleRepoIface **handles)
+{
+	g_assert(handles != NULL);
+
+	handles[TP_HANDLE_TYPE_CONTACT] = (TpHandleRepoIface *)(g_object_new(TP_TYPE_DYNAMIC_HANDLE_REPO, "handle-type", TP_HANDLE_TYPE_CONTACT, "normalize-function", _nick_normalize_func, "default-normalize-context", NULL, NULL));
+	handles[TP_HANDLE_TYPE_ROOM] = (TpHandleRepoIface *)(g_object_new(TP_TYPE_DYNAMIC_HANDLE_REPO, "handle-type", TP_HANDLE_TYPE_ROOM, "normalize-function", _channel_normalize_func, "default-normalize-context", NULL, NULL));
+}
+
 const gchar *
 idle_handle_inspect(TpHandleRepoIface *storage, TpHandle handle)
 {
@@ -190,33 +233,16 @@ idle_handle_inspect(TpHandleRepoIface *storage, TpHandle handle)
 TpHandle idle_handle_for_contact(TpHandleRepoIface *storage, const char *nickname)
 {
 	TpHandle handle;
-  gchar *nickname_down;
-	
+
 	g_assert(storage != NULL);
 
-	if ((!nickname) || (nickname[0] == '\0'))
-	{
-		g_debug("%s: handle for invalid nickname requested", G_STRFUNC);
-		return 0;
-	}	
-
-	if (!idle_nickname_is_valid(nickname))
-	{
-		g_debug("%s: nickname (%s) isn't valid!", G_STRFUNC, nickname);
-		return 0;
-	}
-
-  nickname_down = g_utf8_strdown(nickname, -1);
-
-  handle = tp_handle_request(storage, nickname_down, FALSE);
+  handle = tp_handle_lookup(storage, nickname, NULL, NULL);
 
   if (!handle)
   {
-    handle = tp_handle_request(storage, nickname_down, TRUE);
-    g_assert(tp_handle_set_qdata(storage, handle, idle_handle_real_quark(), g_strdup(nickname), (GDestroyNotify)(g_free)));
+    handle = tp_handle_ensure(storage, nickname, NULL, NULL);
+    tp_handle_set_qdata(storage, handle, idle_handle_real_quark(), g_strdup(nickname), (GDestroyNotify)(g_free));
   }
-
-  g_free(nickname_down);
 
 	return handle;
 }
@@ -224,33 +250,16 @@ TpHandle idle_handle_for_contact(TpHandleRepoIface *storage, const char *nicknam
 TpHandle idle_handle_for_room(TpHandleRepoIface *storage, const char *channel)
 {
 	TpHandle handle;
-  gchar *channel_down;
 
 	g_assert(storage != NULL);
 
-	if ((channel == NULL) || (channel[0] == '\0'))
-	{
-		g_debug("%s: handle for a invalid channel requested", G_STRFUNC);
-		return 0;
-	}
-
-	if (!idle_channelname_is_valid(channel))
-	{
-		g_debug("%s: channel name (%s) not valid!", G_STRFUNC, channel);
-		return 0;
-	}
-
-  channel_down = g_utf8_strdown(channel, -1);
-	
-  handle = tp_handle_request(storage, channel_down, FALSE);
+  handle = tp_handle_lookup(storage, channel, NULL, NULL);
 
   if (!handle)
   {
-    handle = tp_handle_request(storage, channel_down, TRUE);
-    g_assert(tp_handle_set_qdata(storage, handle, idle_handle_real_quark(), g_strdup(channel), (GDestroyNotify)(g_free)));
+    handle = tp_handle_ensure(storage, channel, NULL, NULL);
+    tp_handle_set_qdata(storage, handle, idle_handle_real_quark(), g_strdup(channel), (GDestroyNotify)(g_free));
   }
-
-  g_free(channel_down);
 
 	return handle;
 }
@@ -259,13 +268,15 @@ gboolean idle_handle_set_presence(TpHandleRepoIface *storage, TpHandle handle, I
 {
   g_assert(storage != NULL);
 
-  return tp_handle_set_qdata(storage, handle, idle_handle_presence_quark(), cp, cp ? (GDestroyNotify)(idle_contact_presence_free) : NULL);
+  tp_handle_set_qdata(storage, handle, idle_handle_presence_quark(), cp, cp ? (GDestroyNotify)(idle_contact_presence_free) : NULL);
+
+	return TRUE;
 }
 
 IdleContactPresence *idle_handle_get_presence(TpHandleRepoIface *storage, TpHandle handle)
 {
 	g_assert(storage != NULL);
 
-  return tp_handle_get_qdata(storage, handle, idle_handle_presence_quark());
+	return tp_handle_get_qdata(storage, handle, idle_handle_presence_quark());
 }
 

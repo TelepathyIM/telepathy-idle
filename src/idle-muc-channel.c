@@ -264,7 +264,6 @@ static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectC
 	IdleMUCChannelPrivate *priv;
 	DBusGConnection *bus;
   TpHandleRepoIface *room_handles, *contact_handles;
-	gboolean valid;
 
 	obj = G_OBJECT_CLASS(idle_muc_channel_parent_class)->constructor(type, n_props, props);
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(IDLE_MUC_CHANNEL(obj));
@@ -272,13 +271,13 @@ static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectC
 	room_handles = priv->connection->handles[TP_HANDLE_TYPE_ROOM];
 	contact_handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
 
-	valid = tp_handle_ref(room_handles, priv->handle);
-	g_assert(valid);
+	tp_handle_ref(room_handles, priv->handle);
+	g_assert(tp_handle_is_valid(priv->connection->handles[TP_HANDLE_TYPE_ROOM], priv->handle, NULL));
 	priv->channel_name = idle_handle_inspect(room_handles, priv->handle);
 
 	idle_connection_get_self_handle(priv->connection, &(priv->own_handle), NULL);
-	valid = tp_handle_ref(contact_handles, priv->own_handle);
-	g_assert(valid);
+	tp_handle_ref(contact_handles, priv->own_handle);
+	g_assert(tp_handle_is_valid(contact_handles, priv->own_handle, NULL));
 
 	bus = tp_get_bus();
 	dbus_g_connection_register_g_object(bus, priv->object_path, obj);
@@ -1617,18 +1616,17 @@ void _idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old, TpHandle new)
 
 	if (priv->own_handle == old)
 	{
-		gboolean valid;
 		TpHandleRepoIface *handles;
 
 		handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
 
-		valid = tp_handle_unref(handles, old);
-		g_assert(valid);
+		tp_handle_unref(handles, old);
+		g_assert(tp_handle_is_valid(handles, old, NULL));
 
 		priv->own_handle = new;
 
-		valid = tp_handle_ref(handles, new);
-		g_assert(valid);
+		tp_handle_ref(handles, new);
+		g_assert(tp_handle_is_valid(handles, old, NULL));
 
 		g_debug("%s: changed own_handle to %u", G_STRFUNC, new);
 	}
