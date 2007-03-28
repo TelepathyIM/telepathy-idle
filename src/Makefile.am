@@ -49,7 +49,7 @@ telepathy_idle_SOURCES = \
     idle.c \
 	idle.h
 
-telepathy_idle_LDADD = libidle-convenience.la
+telepathy_idle_LDADD = libidle-convenience.la @TELEPATHY_LIBS@
 
 noinst_LTLIBRARIES = libidle-convenience.la
 
