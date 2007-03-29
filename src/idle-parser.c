@@ -40,17 +40,31 @@ enum {
 
 static guint signals[LAST_SIGNAL_ENUM] = {0};
 
-typedef struct _IdleParserPrivate IdleParserPrivate;
+typedef struct _MessageHandlerClosure MessageHandlerClosure;
+struct _MessageHandlerClosure {
+	IdleParserMessageHandler handler;
+	gpointer user_data;
+};
 
+static MessageHandlerClosure *_message_handler_closure_new(IdleParserMessageHandler handler, gpointer user_data) {
+	MessageHandlerClosure *closure = g_slice_new(MessageHandlerClosure);
+
+	closure->handler = handler;
+	closure->user_data = user_data;
+
+	return closure;
+}
+
+typedef struct _IdleParserPrivate IdleParserPrivate;
 struct _IdleParserPrivate {
 	/* continuation line buffer */
 	gchar split_buf[IRC_MSG_MAXLEN+3];
+
+	/* message handlers */
+	GSList *handlers[IDLE_PARSER_LAST_MESSAGE_CODE];
 };
 
 static void idle_parser_init(IdleParser *obj) {
-	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(obj);
-
-	memset(priv->split_buf, 0, IRC_MSG_MAXLEN+3);
 }
 
 static void idle_parser_class_init(IdleParserClass *klass) {
@@ -101,5 +115,32 @@ void idle_parser_receive(IdleParser *parser, const gchar *msg) {
 		g_strlcpy(priv->split_buf, msg + lasti, (IRC_MSG_MAXLEN + 3) - lasti);
 	else
 		memset(priv->split_buf, '\0', IRC_MSG_MAXLEN + 3);
+}
+
+void idle_parser_add_handler(IdleParser *parser, IdleParserMessageCode code, IdleParserMessageHandler handler, gpointer user_data) {
+	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
+
+	if (code >= IDLE_PARSER_LAST_MESSAGE_CODE)
+		return;
+
+	priv->handlers[code] = g_slist_append(priv->handlers[code], _message_handler_closure_new(handler, user_data));
+}
+
+static gint _data_compare_func(gconstpointer a, gconstpointer b) {
+	const MessageHandlerClosure *_a = a, *_b = b;
+
+	return (_a->user_data == _b->user_data) ? 0 : 1;
+}
+
+void idle_parser_remove_handlers_by_data(IdleParser *parser, gpointer user_data) {
+	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
+	int i;
+
+	for (i = 0; i < IDLE_PARSER_LAST_MESSAGE_CODE; i++) {
+		GSList *link;
+
+		while ((link = g_slist_find_custom(priv->handlers[i], user_data, _data_compare_func)))
+			priv->handlers[i] = g_slist_remove_link(priv->handlers[i], link);
+	}
 }
 
