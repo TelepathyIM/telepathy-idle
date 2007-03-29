@@ -17,36 +17,36 @@ CLEANFILES = $(BUILT_SOURCES)
 bin_PROGRAMS=telepathy-idle
 
 CORE_SOURCES = \
-    idle-connection-manager.h \
-    idle-connection.h \
-    idle-im-channel.h \
+	idle-connection-manager.h \
+	idle-connection.h \
+	idle-im-channel.h \
 	idle-muc-channel.h \
-    idle-handles.h \
+	idle-handles.h \
 	idle-server-connection-iface.h \
 	idle-server-connection.h \
-	idle-server-connection-util.h \
 	idle-dns-resolver.h \
 	idle-ssl-server-connection.h \
-    idle-connection-manager.c \
-    idle-connection.c \
-    idle-im-channel.c \
+	idle-parser.h \
+	idle-connection-manager.c \
+	idle-connection.c \
+	idle-im-channel.c \
 	idle-muc-channel.c \
-    idle-handles.c \
+	idle-handles.c \
 	idle-server-connection-iface.c \
 	idle-server-connection.c \
-	idle-server-connection-util.c \
 	idle-dns-resolver.c \
 	idle-ssl-server-connection.c \
+	idle-parser.c \
 	idle-version.h \
 	text.h \
 	text.c \
-    $(BUILT_SOURCES)
+	$(BUILT_SOURCES)
 
 libidle_convenience_la_SOURCES = \
     $(CORE_SOURCES)
 
 telepathy_idle_SOURCES = \
-    idle.c \
+	idle.c \
 	idle.h
 
 telepathy_idle_LDADD = libidle-convenience.la @TELEPATHY_LIBS@

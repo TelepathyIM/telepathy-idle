@@ -40,8 +40,7 @@
 
 #include "idle-ssl-server-connection.h"
 #include "idle-server-connection-iface.h"
-
-#include "idle-server-connection-util.h"
+#include "idle-connection.h"
 
 #include "idle-dns-resolver.h"
 

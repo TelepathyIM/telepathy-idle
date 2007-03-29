@@ -54,16 +54,31 @@
 #include "idle-im-channel.h"
 #include "idle-muc-channel.h"
 
+#include "idle-parser.h"
 #include "idle-server-connection.h"
 #include "idle-ssl-server-connection.h"
 #include "idle-server-connection-iface.h"
-#include "idle-server-connection-util.h"
 
 #include "idle-connection.h"
 #include "idle-connection-glue.h"
 #include "idle-connection-signals-marshal.h"
 
 #include "idle-version.h"
+
+/* From RFC 2813 :
+ * This in essence means that the client may send one (1) message every
+ * two (2) seconds without being adversely affected.  Services MAY also
+ * be subject to this mechanism.
+ */
+
+#define MSG_QUEUE_UNLOAD_AT_A_TIME 1
+#define MSG_QUEUE_TIMEOUT 2
+
+#define CONNECTION_TIMEOUT 15000
+
+#define SERVER_CMD_MIN_PRIORITY 0
+#define SERVER_CMD_NORMAL_PRIORITY G_MAXUINT/2
+#define SERVER_CMD_MAX_PRIORITY G_MAXUINT
 
 #define BUS_NAME 	"org.freedesktop.Telepathy.Connection.idle"
 #define OBJECT_PATH "/org/freedesktop/Telepathy/Connection/idle"
@@ -107,6 +122,44 @@ struct _IdleContactPresence
 #define idle_contact_presence_new() (g_slice_new(IdleContactPresence))
 #define idle_contact_presence_new0() (g_slice_new0(IdleContactPresence))
 
+void idle_contact_presence_free(IdleContactPresence *cp)
+{
+	if (!cp)
+		return;
+
+	g_free(cp->status_message);
+	g_slice_free(IdleContactPresence, cp);
+}
+
+typedef struct _IdleOutputPendingMsg IdleOutputPendingMsg;
+
+struct _IdleOutputPendingMsg
+{
+	gchar *message;
+	guint priority;
+};
+
+#define idle_output_pending_msg_new() \
+	(g_slice_new(IdleOutputPendingMsg))
+#define idle_output_pending_msg_new0() \
+	(g_slice_new0(IdleOutputPendingMsg))
+
+static void idle_output_pending_msg_free(IdleOutputPendingMsg *msg)
+{
+	if (!msg)
+		return;
+
+	g_free(msg->message);
+	g_slice_free(IdleOutputPendingMsg, msg);
+}
+
+static gint pending_msg_compare(gconstpointer a, gconstpointer b, gpointer unused)
+{
+	const IdleOutputPendingMsg *msg1 = a, *msg2 = b;
+
+	return (msg1->priority == msg2->priority) ? 0 : (msg1->priority < msg2->priority) ? 1 : -1;
+}
+
 typedef struct _IdleStatusInfo IdleStatusInfo;
 
 struct _IdleStatusInfo
@@ -122,12 +175,6 @@ static const IdleStatusInfo idle_statuses[LAST_IDLE_PRESENCE_ENUM] =
 	{IRC_PRESENCE_SHOW_AWAY,		TP_CONNECTION_PRESENCE_TYPE_AWAY, TRUE, TRUE},
 	{IRC_PRESENCE_SHOW_OFFLINE,		TP_CONNECTION_PRESENCE_TYPE_OFFLINE, FALSE, TRUE}
 };
-
-void idle_contact_presence_free(IdleContactPresence *cp)
-{
-	g_free(cp->status_message);
-	g_slice_free(IdleContactPresence, cp);
-}
 
 typedef struct
 {
@@ -173,6 +220,12 @@ struct _IdleConnectionPrivate
 	IdleServerConnectionIface *conn;
 	guint sconn_status;
 	guint sconn_timeout;
+
+	/*
+	 * parser
+	 */
+
+	IdleParser *parser;
 
 	/*
 	 * disconnect reason
@@ -225,9 +278,6 @@ struct _IdleConnectionPrivate
 	/* if Disconnected has been emitted */
 	gboolean disconnected;
 
-	/* continuation line buffer */
-	gchar splitbuf[IRC_MSG_MAXLEN+3];
-	
 	/* output message queue */
 	GQueue *msg_queue;
 
@@ -236,7 +286,7 @@ struct _IdleConnectionPrivate
 
 	/* GSource id for message queue unloading timeout */
 	guint msg_queue_timeout;
-	
+
 	/* if idle_connection_dispose has already run once */
  	gboolean dispose_has_run;
 };
@@ -258,6 +308,8 @@ idle_connection_init (IdleConnection *obj)
 
   priv->conn = NULL;
   priv->sconn_status = SERVER_CONNECTION_STATE_NOT_CONNECTED;
+
+	priv->parser = g_object_new(IDLE_TYPE_PARSER, NULL);
   
   priv->ctcp_version_string = g_strdup_printf("telepathy-idle %s Telepathy IM/VoIP framework http://telepathy.freedesktop.org", TELEPATHY_IDLE_VERSION);
   
@@ -281,7 +333,6 @@ idle_connection_init (IdleConnection *obj)
 
   priv->status = TP_CONNECTION_STATUS_DISCONNECTED;
 
-  memset(priv->splitbuf, 0, IRC_MSG_MAXLEN+3);
   priv->msg_queue = g_queue_new();
   priv->last_msg_sent = 0;
   priv->msg_queue_timeout = 0;
@@ -619,6 +670,12 @@ idle_connection_dispose (GObject *object)
 	  priv->conn = NULL;
   }
 
+	if (priv->parser)
+	{
+		g_object_unref(priv->parser);
+		priv->parser = NULL;
+	}
+
   dbus_g_proxy_call_no_reply(dbus_proxy, "ReleaseName", G_TYPE_STRING, priv->bus_name, G_TYPE_INVALID);
 
   if (G_OBJECT_CLASS (idle_connection_parent_class)->dispose)
@@ -893,7 +950,7 @@ static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServer
 	priv->sconn_status = state;
 }
 
-static void split_message_cb(const gchar *msg, gpointer user_data)
+static void split_message_cb(IdleParser *parser, const gchar *msg, gpointer user_data)
 {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	gchar *converted;
@@ -918,7 +975,7 @@ static void sconn_received_cb(IdleServerConnectionIface *sconn, gchar *raw_msg, 
 {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 
-	msg_split(raw_msg, priv->splitbuf, IRC_MSG_MAXLEN+3, split_message_cb, conn);
+	idle_parser_receive(priv->parser, raw_msg);
 }
 
 static void priv_rename(IdleConnection *conn, guint old, guint new)
@@ -1044,7 +1101,8 @@ gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
 		priv->conn = sconn;
 		
 		g_signal_connect(sconn, "received", (GCallback)(sconn_received_cb), conn);
-		
+		g_signal_connect(priv->parser, "msg-split", (GCallback)(split_message_cb), conn);
+
 		irc_handshakes(conn);
 	}
 	else
@@ -1800,7 +1858,7 @@ cleanupl:
 
 static gint strcasecmp_helper(gconstpointer a, gconstpointer b)
 {
-	return strcasecmp(a, b);
+	return g_ascii_strcasecmp(a, b);
 }
 
 static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
