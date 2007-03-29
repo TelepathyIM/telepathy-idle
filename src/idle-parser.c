@@ -40,6 +40,42 @@ enum {
 
 static guint signals[LAST_SIGNAL_ENUM] = {0};
 
+static const gchar *message_formats[IDLE_PARSER_LAST_MESSAGE_CODE] = {
+	"s", /* CMD_PING */
+
+	"cIcr", /* PREFIXCMD_INVITE */
+	"cIr", /* PREFIXCMD_JOIN */
+	"cIrc[:S]", /* PREFIXCMD_KICK */
+	"cIrvs", /* PREFIXCMD_MODE_CHANNEL */
+	"cIcvs", /* PREFIXCMD_MODE_USER */
+	"cIcr", /* PREFIXCMD_NICK */
+	"cIr:S", /* PREFIXCMD_NOTICE_CHANNEL */
+	"cIc:S", /* PREFIXCMD_PART */
+	"cIr:S", /* PREFIXCMD_PRIVMSG_CHANNEL */
+	"cIc:S", /* PREFIXCMD_PRIVMSG_USER */
+	"cI:S", /* PREFIXCMD_QUIT */
+	"cIr:S", /* PREFIXCMD_TOPIC */
+
+	"IIIc:S", /* NUMERIC_AWAY */
+	"IIIr", /* NUMERIC_BADCHANNELKEY */
+	"IIIr", /* NUMERIC_BANNEDFROMCHAN */
+	"IIIr", /* NUMERIC_CANNOTSENDTOCHAN */
+	"IIIr", /* NUMERIC_CHANNELISFULL */
+	"IIIc", /* NUMERIC_ENDOFWHOIS */
+	"", /* NUMERIC_ERRONEOUSNICKNAME */
+	"IIIr", /* NUMERIC_INVITEONLYCHAN */
+	"IIIrvs", /* NUMERIC_MODEREPLY */
+	"IIIRvC", /* NUMERIC_NAMEREPLY */
+	"", /* NUMERIC_NICKNAMEINUSE */
+	"IIIc", /* NUMERIC_NOSUCHNICK */
+	"", /* NUMERIC_NOWAWAY */
+	"IIIr:S", /* NUMERIC_TOPIC */
+	"IIIrcd", /* NUMERIC_TOPIC_STAMP */
+	"", /* NUMERIC_UNAWAY */
+	"IIc", /* NUMERIC_WELCOME */
+	"IIIcd", /* NUMERIC_WHOISIDLE */
+};
+
 typedef struct _MessageHandlerClosure MessageHandlerClosure;
 struct _MessageHandlerClosure {
 	IdleParserMessageHandler handler;
