@@ -187,7 +187,8 @@ _nick_normalize_func(TpHandleRepoIface *storage, const gchar *id, gpointer ctx, 
 
 	if (!idle_nickname_is_valid(id))
 	{
-		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid nickname");
+		if (error)
+			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid nickname");
 		return NULL;
 	}
 
@@ -203,7 +204,8 @@ _channel_normalize_func(TpHandleRepoIface *storage, const gchar *id, gpointer ct
 
 	if (!idle_channelname_is_valid(id))
 	{
-		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid channel ID");
+		if (error)
+			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid channel ID");
 		return NULL;
 	}
 
