@@ -49,87 +49,50 @@ enum {
 
 static guint signals[LAST_SIGNAL_ENUM] = {0};
 
-static const gchar *message_formats[IDLE_PARSER_LAST_MESSAGE_CODE] = {
-	"Is", /* CMD_PING */
-
-	"cIcr", /* PREFIXCMD_INVITE */
-	"cIr", /* PREFIXCMD_JOIN */
-	"cIrc.", /* PREFIXCMD_KICK */
-	"cIrvs", /* PREFIXCMD_MODE_CHANNEL */
-	"cIcvs", /* PREFIXCMD_MODE_USER */
-	"cIcr", /* PREFIXCMD_NICK */
-	"cIr:", /* PREFIXCMD_NOTICE_CHANNEL */
-	"cIc:", /* PREFIXCMD_NOTICE_USER */
-	"cIr.", /* PREFIXCMD_PART */
-	"cIr:", /* PREFIXCMD_PRIVMSG_CHANNEL */
-	"cIc:", /* PREFIXCMD_PRIVMSG_USER */
-	"cI.", /* PREFIXCMD_QUIT */
-	"cIr:", /* PREFIXCMD_TOPIC */
-
-	"IIIc:", /* NUMERIC_AWAY */
-	"IIIr", /* NUMERIC_BADCHANNELKEY */
-	"IIIr", /* NUMERIC_BANNEDFROMCHAN */
-	"IIIr", /* NUMERIC_CANNOTSENDTOCHAN */
-	"IIIr", /* NUMERIC_CHANNELISFULL */
-	"IIIc", /* NUMERIC_ENDOFWHOIS */
-	"III", /* NUMERIC_ERRONEOUSNICKNAME */
-	"IIIr", /* NUMERIC_INVITEONLYCHAN */
-	"IIIrvs", /* NUMERIC_MODEREPLY */
-	"IIIIrvC", /* NUMERIC_NAMEREPLY */
-	"III", /* NUMERIC_NICKNAMEINUSE */
-	"IIIc", /* NUMERIC_NOSUCHNICK */
-	"III", /* NUMERIC_NOWAWAY */
-	"IIIr:", /* NUMERIC_TOPIC */
-	"IIIrcd", /* NUMERIC_TOPIC_STAMP */
-	"III", /* NUMERIC_UNAWAY */
-	"IIc", /* NUMERIC_WELCOME */
-	"IIIcd", /* NUMERIC_WHOISIDLE */
-};
-
 typedef struct _MessageSpec MessageSpec;
 struct _MessageSpec {
 	const gchar *str;
+	const gchar *format;
 	IdleParserMessageCode code;
 };
 
 const static MessageSpec message_specs[] = {
-	{"PING", IDLE_PARSER_CMD_PING},
+	{"PING", "Is", IDLE_PARSER_CMD_PING},
 
-	{"INVITE", IDLE_PARSER_PREFIXCMD_INVITE},
-	{"JOIN", IDLE_PARSER_PREFIXCMD_JOIN},
-	{"KICK", IDLE_PARSER_PREFIXCMD_KICK},
-	{"MODE", IDLE_PARSER_PREFIXCMD_MODE_CHANNEL},
-	{"MODE", IDLE_PARSER_PREFIXCMD_MODE_USER},
+	{"INVITE", "cIcr", IDLE_PARSER_PREFIXCMD_INVITE},
+	{"JOIN", "cIr", IDLE_PARSER_PREFIXCMD_JOIN},
+	{"KICK", "cIrc.", IDLE_PARSER_PREFIXCMD_KICK},
+	{"MODE", "cIrvs", IDLE_PARSER_PREFIXCMD_MODE_CHANNEL},
+	{"MODE", "cIcvs", IDLE_PARSER_PREFIXCMD_MODE_USER},
+	{"NICK", "cIcr", IDLE_PARSER_PREFIXCMD_NICK},
+	{"NOTICE", "cIr:", IDLE_PARSER_PREFIXCMD_NOTICE_CHANNEL},
+	{"NOTICE", "cIc:", IDLE_PARSER_PREFIXCMD_NOTICE_USER},
+	{"PART", "cIr.", IDLE_PARSER_PREFIXCMD_PART},
+	{"PRIVMSG", "cIr:", IDLE_PARSER_PREFIXCMD_PRIVMSG_CHANNEL},
+	{"PRIVMSG", "cIc:", IDLE_PARSER_PREFIXCMD_PRIVMSG_USER},
+	{"QUIT", "cI.", IDLE_PARSER_PREFIXCMD_QUIT},
+	{"TOPIC", "cIr:", IDLE_PARSER_PREFIXCMD_TOPIC},
 
-	{"NICK", IDLE_PARSER_PREFIXCMD_NICK},
-	{"NOTICE", IDLE_PARSER_PREFIXCMD_NOTICE_CHANNEL},
-	{"NOTICE", IDLE_PARSER_PREFIXCMD_NOTICE_USER},
-	{"PART", IDLE_PARSER_PREFIXCMD_PART},
-	{"PRIVMSG", IDLE_PARSER_PREFIXCMD_PRIVMSG_CHANNEL},
-	{"PRIVMSG", IDLE_PARSER_PREFIXCMD_PRIVMSG_USER},
-	{"QUIT", IDLE_PARSER_PREFIXCMD_QUIT},
-	{"TOPIC", IDLE_PARSER_PREFIXCMD_TOPIC},
+	{"301", "IIIc:", IDLE_PARSER_NUMERIC_AWAY},
+	{"475", "IIIr", IDLE_PARSER_NUMERIC_BADCHANNELKEY},
+	{"474", "IIIr", IDLE_PARSER_NUMERIC_BANNEDFROMCHAN},
+	{"404", "IIIr", IDLE_PARSER_NUMERIC_CANNOTSENDTOCHAN},
+	{"471", "IIIr", IDLE_PARSER_NUMERIC_CHANNELISFULL},
+	{"318", "IIIc", IDLE_PARSER_NUMERIC_ENDOFWHOIS},
+	{"432", "III", IDLE_PARSER_NUMERIC_ERRONEOUSNICKNAME},
+	{"473", "IIIr", IDLE_PARSER_NUMERIC_INVITEONLYCHAN},
+	{"324", "IIIrvs", IDLE_PARSER_NUMERIC_MODEREPLY},
+	{"353", "IIIIrvC", IDLE_PARSER_NUMERIC_NAMEREPLY},
+	{"433", "III", IDLE_PARSER_NUMERIC_NICKNAMEINUSE},
+	{"401", "IIIc", IDLE_PARSER_NUMERIC_NOSUCHNICK},
+	{"306", "III", IDLE_PARSER_NUMERIC_NOWAWAY},
+	{"332", "IIIr:", IDLE_PARSER_NUMERIC_TOPIC},
+	{"333", "IIIrcd", IDLE_PARSER_NUMERIC_TOPIC_STAMP},
+	{"305", "III", IDLE_PARSER_NUMERIC_UNAWAY},
+	{"001", "IIc", IDLE_PARSER_NUMERIC_WELCOME},
+	{"317", "IIIcd", IDLE_PARSER_NUMERIC_WHOISIDLE},
 
-	{"301", IDLE_PARSER_NUMERIC_AWAY},
-	{"475", IDLE_PARSER_NUMERIC_BADCHANNELKEY},
-	{"474", IDLE_PARSER_NUMERIC_BANNEDFROMCHAN},
-	{"404", IDLE_PARSER_NUMERIC_CANNOTSENDTOCHAN},
-	{"471", IDLE_PARSER_NUMERIC_CHANNELISFULL},
-	{"318", IDLE_PARSER_NUMERIC_ENDOFWHOIS},
-	{"432", IDLE_PARSER_NUMERIC_ERRONEOUSNICKNAME},
-	{"473", IDLE_PARSER_NUMERIC_INVITEONLYCHAN},
-	{"324", IDLE_PARSER_NUMERIC_MODEREPLY},
-	{"353", IDLE_PARSER_NUMERIC_NAMEREPLY},
-	{"433", IDLE_PARSER_NUMERIC_NICKNAMEINUSE},
-	{"401", IDLE_PARSER_NUMERIC_NOSUCHNICK},
-	{"306", IDLE_PARSER_NUMERIC_NOWAWAY},
-	{"332", IDLE_PARSER_NUMERIC_TOPIC},
-	{"333", IDLE_PARSER_NUMERIC_TOPIC_STAMP},
-	{"305", IDLE_PARSER_NUMERIC_UNAWAY},
-	{"001", IDLE_PARSER_NUMERIC_WELCOME},
-	{"317", IDLE_PARSER_NUMERIC_WHOISIDLE},
-
-	{NULL, IDLE_PARSER_LAST_MESSAGE_CODE}
+	{NULL, NULL, IDLE_PARSER_LAST_MESSAGE_CODE}
 };
 
 typedef struct _MessageHandlerClosure MessageHandlerClosure;
@@ -212,7 +175,7 @@ static void idle_parser_class_init(IdleParserClass *klass) {
 }
 
 static void _parse_message(IdleParser *parser, const gchar *split_msg);
-static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParserMessageCode code, TpIntSet *contact_handles, TpIntSet *room_handles);
+static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParserMessageCode code, const gchar *format, TpIntSet *contact_handles, TpIntSet *room_handles);
 static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, const gchar *token, TpIntSet *contact_handles, TpIntSet *room_handles);
 
 void idle_parser_receive(IdleParser *parser, const gchar *msg) {
@@ -345,10 +308,10 @@ static void _parse_message(IdleParser *parser, const gchar *split_msg) {
 
 		if (split_msg[0] != ':') {
 			if (!g_ascii_strcasecmp(tokens[0], spec->str))
-				_parse_and_forward_one(parser, tokens, spec->code, contact_handles, room_handles);
+				_parse_and_forward_one(parser, tokens, spec->code, spec->format, contact_handles, room_handles);
 		} else {
 			if (!g_ascii_strcasecmp(tokens[2], spec->str))
-				_parse_and_forward_one(parser, tokens, spec->code, contact_handles, room_handles);
+				_parse_and_forward_one(parser, tokens, spec->code, spec->format, contact_handles, room_handles);
 		}
 
 		tp_intset_foreach(contact_handles, _unref_one, priv->conn->handles[TP_HANDLE_TYPE_CONTACT]);
@@ -361,12 +324,11 @@ static void _parse_message(IdleParser *parser, const gchar *split_msg) {
 	_free_tokens(tokens);
 }
 
-static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParserMessageCode code, TpIntSet *contact_handles, TpIntSet *room_handles) {
+static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParserMessageCode code, const gchar *format, TpIntSet *contact_handles, TpIntSet *room_handles) {
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
 	GValueArray *args = g_value_array_new(3);
 	GSList *link = priv->handlers[code];
 	IdleParserHandlerResult result = IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
-	const gchar *format = message_formats[code];
 	gboolean success = TRUE;
 	gchar **iter = tokens;
 
