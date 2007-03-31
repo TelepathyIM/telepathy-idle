@@ -240,12 +240,13 @@ TpHandle idle_handle_for_contact(TpHandleRepoIface *storage, const char *nicknam
 
   handle = tp_handle_lookup(storage, nickname, NULL, NULL);
 
-  if (!handle)
-  {
+  if (!handle) {
 		handle = tp_handle_ensure(storage, nickname, NULL, NULL);
 		if (handle)
 			tp_handle_set_qdata(storage, handle, idle_handle_real_quark(), g_strdup(nickname), (GDestroyNotify)(g_free));
-  }
+  } else {
+		tp_handle_ref(storage, handle);
+	}
 
 	return handle;
 }
@@ -258,12 +259,13 @@ TpHandle idle_handle_for_room(TpHandleRepoIface *storage, const char *channel)
 
   handle = tp_handle_lookup(storage, channel, NULL, NULL);
 
-  if (!handle)
-  {
+  if (!handle) {
     handle = tp_handle_ensure(storage, channel, NULL, NULL);
 		if (handle)
 			tp_handle_set_qdata(storage, handle, idle_handle_real_quark(), g_strdup(channel), (GDestroyNotify)(g_free));
-  }
+  } else {
+		tp_handle_ref(storage, handle);
+	}
 
 	return handle;
 }

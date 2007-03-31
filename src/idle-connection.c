@@ -309,7 +309,7 @@ idle_connection_init (IdleConnection *obj)
   priv->conn = NULL;
   priv->sconn_status = SERVER_CONNECTION_STATE_NOT_CONNECTED;
 
-	priv->parser = g_object_new(IDLE_TYPE_PARSER, NULL);
+	priv->parser = g_object_new(IDLE_TYPE_PARSER, "connection", obj, NULL);
   
   priv->ctcp_version_string = g_strdup_printf("telepathy-idle %s Telepathy IM/VoIP framework http://telepathy.freedesktop.org", TELEPATHY_IDLE_VERSION);
   

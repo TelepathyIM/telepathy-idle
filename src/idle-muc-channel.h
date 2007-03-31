@@ -92,6 +92,8 @@ void _idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError 
 
 gboolean _idle_muc_channel_has_current_member(IdleMUCChannel *chan, TpHandle handle);
 
+gboolean idle_muc_channel_is_modechar(char c);
+
 G_END_DECLS
 
 #endif /* #ifndef __IDLE_MUC_CHANNEL_H__*/

@@ -2631,6 +2631,18 @@ static void idle_muc_channel_set_properties (TpSvcPropertiesInterface *iface, co
 	tp_svc_properties_interface_return_from_set_properties(context);
 }
 
+gboolean idle_muc_channel_is_modechar(char c) {
+	switch (c) {
+		case '@':
+		case '&':
+		case '+':
+		case '~':
+			return TRUE;
+		default:
+			return FALSE;
+	}
+}
+
 static void
 channel_iface_init(gpointer g_iface, gpointer iface_data)
 {
