@@ -825,6 +825,8 @@ gboolean _idle_connection_register(IdleConnection *conn, gchar **bus_name, gchar
 	return TRUE;
 }
 
+static IdleParserHandlerResult _ping_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
+
 static void irc_handshakes(IdleConnection *conn);
 static IdleIMChannel *new_im_channel(IdleConnection *conn, TpHandle handle, gboolean suppress_handler);
 static IdleMUCChannel *new_muc_channel(IdleConnection *conn, TpHandle handle, gboolean suppress_handler);
@@ -1103,6 +1105,8 @@ gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
 		g_signal_connect(sconn, "received", (GCallback)(sconn_received_cb), conn);
 		g_signal_connect(priv->parser, "msg-split", (GCallback)(split_message_cb), conn);
 
+		idle_parser_add_handler(priv->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
+
 		irc_handshakes(conn);
 	}
 	else
@@ -1261,7 +1265,6 @@ static void send_irc_cmd(IdleConnection *conn, const gchar *msg)
 	return send_irc_cmd_full(conn, msg, SERVER_CMD_NORMAL_PRIORITY);	
 }
 
-static void cmd_parse(IdleConnection *conn, const gchar *msg);
 static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg);
 static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg);
 
@@ -1270,7 +1273,7 @@ static void connection_message_cb(IdleConnection *conn, const gchar *msg)
 	gchar scanf_fool[IRC_MSG_MAXLEN+2];
 	int scanf_numeric;
 	int cmdcount, numericcount;
-    gchar *reply = NULL;
+	gchar *reply = NULL;
 
 	IdleConnectionPrivate *priv;
 	
@@ -1281,11 +1284,7 @@ static void connection_message_cb(IdleConnection *conn, const gchar *msg)
 
 	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 
-	if (msg[0] != ':')
-	{
-		cmd_parse(conn, msg);
-	}
-	else if ((numericcount = sscanf(msg, ":%s %i %s", scanf_fool, &scanf_numeric, scanf_fool)) == 3)
+	if ((numericcount = sscanf(msg, ":%s %i %s", scanf_fool, &scanf_numeric, scanf_fool)) == 3)
 	{
 		reply = prefix_numeric_parse(conn, msg+1);
 	}
@@ -1306,19 +1305,14 @@ static void connection_message_cb(IdleConnection *conn, const gchar *msg)
 	}
 }
 
-static void cmd_parse(IdleConnection *conn, const gchar *msg)
-{	
-	if ((g_strncasecmp(msg, "PING ", 5) == 0) && (msg[5] != '\0'))
-	{
-		/* PING command, reply ... */
-		gchar *reply = g_strdup_printf("PONG %s", msg+5);
-		send_irc_cmd_full (conn, reply, SERVER_CMD_MAX_PRIORITY);
-		g_free (reply);
-	}
-	else
-	{
-		g_debug("%s: ignored unparsed message from server (%s)", G_STRFUNC, msg);
-	}
+static IdleParserHandlerResult _ping_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
+
+	gchar *reply = g_strdup_printf("PONG %s", g_value_get_string(g_value_array_get_nth(args, 0)));
+	send_irc_cmd_full (conn, reply, SERVER_CMD_MAX_PRIORITY);
+	g_free(reply);
+
+	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
 
 static void muc_channel_handle_quit_foreach(gpointer key, gpointer value, gpointer user_data)
