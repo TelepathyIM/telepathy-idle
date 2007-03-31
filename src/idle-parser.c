@@ -190,7 +190,7 @@ static void idle_parser_finalize(GObject *obj) {
 		GSList *link;
 
 		for (link = priv->handlers[i]; link != NULL; link = link->next)
-			g_free(link->data);
+			g_slice_free(MessageHandlerClosure, link->data);
 
 		g_slist_free(priv->handlers[i]);
 	}
