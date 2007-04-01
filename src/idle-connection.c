@@ -2559,11 +2559,11 @@ static void irc_handshakes(IdleConnection *conn)
 
 	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 
-	if (priv->password != NULL)
+	if ((priv->password != NULL) && (priv->password[0] != '\0'))
 	{
 		g_snprintf(msg, IRC_MSG_MAXLEN+1, "PASS %s", priv->password);
 
-		send_irc_cmd(conn, msg);
+		send_irc_cmd_full(conn, msg, SERVER_CMD_NORMAL_PRIORITY + 1);
 	}
 
 	g_snprintf(msg, IRC_MSG_MAXLEN+1, "NICK %s", priv->nickname);
