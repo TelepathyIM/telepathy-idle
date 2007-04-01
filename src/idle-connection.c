@@ -828,6 +828,7 @@ gboolean _idle_connection_register(IdleConnection *conn, gchar **bus_name, gchar
 static IdleParserHandlerResult _ping_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _erroneous_nickname_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _nickname_in_use_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
+static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 
 static void irc_handshakes(IdleConnection *conn);
 static IdleIMChannel *new_im_channel(IdleConnection *conn, TpHandle handle, gboolean suppress_handler);
@@ -1098,6 +1099,7 @@ gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
 		idle_parser_add_handler(priv->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
 		idle_parser_add_handler(priv->parser, IDLE_PARSER_NUMERIC_ERRONEOUSNICKNAME, _erroneous_nickname_handler, conn);
 		idle_parser_add_handler(priv->parser, IDLE_PARSER_NUMERIC_NICKNAMEINUSE, _nickname_in_use_handler, conn);
+		idle_parser_add_handler(priv->parser, IDLE_PARSER_NUMERIC_WELCOME, _welcome_handler, conn);
 
 		irc_handshakes(conn);
 	}
@@ -1319,6 +1321,23 @@ static IdleParserHandlerResult _nickname_in_use_handler(IdleParser *parser, Idle
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 
 	connection_disconnect_cb(conn, TP_CONNECTION_STATUS_REASON_NAME_IN_USE);
+
+	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
+}
+
+static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+
+	if (handle != priv->self_handle) {
+		tp_handle_unref(conn->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
+		priv->self_handle = handle;
+		tp_handle_ref(conn->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
+	}
+
+	connection_connect_cb(conn, TRUE);
+	update_presence(conn, priv->self_handle, IDLE_PRESENCE_AVAILABLE, NULL);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
@@ -2046,30 +2065,6 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 		_idle_muc_channel_badchannelkey(chan);
 
 		g_debug("%s: got ERR_BADCHANNELKEY for channel %s (handle %u)", G_STRFUNC, channel, handle);
-	}
-	else if (numeric == IRC_RPL_WELCOME)
-	{
-		char *nick = recipient;
-		g_debug("%s: got RPL_WELCOME with nick %s", G_STRFUNC, nick);
-
-		if (strcmp(priv->nickname, nick))
-		{
-			g_debug("%s: nick different from original (%s -> %s), renaming", G_STRFUNC, priv->nickname, nick);
-			g_free(priv->nickname);
-			priv->nickname = g_strdup(nick);
-
-			if (priv->self_handle)
-			{
-				tp_handle_unref(conn->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
-			}
-
-			priv->self_handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], nick);
-			tp_handle_ref(conn->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
-		}
-
-		connection_connect_cb(conn, TRUE);
-
-		update_presence(conn, priv->self_handle, IDLE_PRESENCE_AVAILABLE, NULL);
 	}
 	else if (numeric == IRC_RPL_TOPIC)
 	{
