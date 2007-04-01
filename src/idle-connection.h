@@ -33,6 +33,7 @@ typedef struct _IdleConnectionClass IdleConnectionClass;
 typedef struct _IdleContactPresence IdleContactPresence;
 
 #include "idle-handles.h"
+#include "idle-parser.h"
 
 #define IRC_MSG_MAXLEN 510
 
@@ -55,6 +56,7 @@ struct _IdleConnection
 {
     GObject parent;
     TpHandleRepoIface *handles[LAST_TP_HANDLE_TYPE + 1];
+		IdleParser *parser;
 };
 
 void idle_contact_presence_free(IdleContactPresence *cp);

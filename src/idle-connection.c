@@ -222,12 +222,6 @@ struct _IdleConnectionPrivate
 	guint sconn_timeout;
 
 	/*
-	 * parser
-	 */
-
-	IdleParser *parser;
-
-	/*
 	 * disconnect reason
 	 */
 	
@@ -309,7 +303,7 @@ idle_connection_init (IdleConnection *obj)
   priv->conn = NULL;
   priv->sconn_status = SERVER_CONNECTION_STATE_NOT_CONNECTED;
 
-	priv->parser = g_object_new(IDLE_TYPE_PARSER, "connection", obj, NULL);
+	obj->parser = g_object_new(IDLE_TYPE_PARSER, "connection", obj, NULL);
   
   priv->ctcp_version_string = g_strdup_printf("telepathy-idle %s Telepathy IM/VoIP framework http://telepathy.freedesktop.org", TELEPATHY_IDLE_VERSION);
   
@@ -670,10 +664,10 @@ idle_connection_dispose (GObject *object)
 	  priv->conn = NULL;
   }
 
-	if (priv->parser)
+	if (self->parser)
 	{
-		g_object_unref(priv->parser);
-		priv->parser = NULL;
+		g_object_unref(self->parser);
+		self->parser = NULL;
 	}
 
   dbus_g_proxy_call_no_reply(dbus_proxy, "ReleaseName", G_TYPE_STRING, priv->bus_name, G_TYPE_INVALID);
@@ -966,9 +960,7 @@ static void split_message_cb(IdleParser *parser, const gchar *msg, gpointer user
 
 static void sconn_received_cb(IdleServerConnectionIface *sconn, gchar *raw_msg, IdleConnection *conn)
 {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-
-	idle_parser_receive(priv->parser, raw_msg);
+	idle_parser_receive(conn->parser, raw_msg);
 }
 
 static void priv_rename(IdleConnection *conn, guint old, guint new)
@@ -1094,12 +1086,12 @@ gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
 		priv->conn = sconn;
 		
 		g_signal_connect(sconn, "received", (GCallback)(sconn_received_cb), conn);
-		g_signal_connect(priv->parser, "msg-split", (GCallback)(split_message_cb), conn);
+		g_signal_connect(conn->parser, "msg-split", (GCallback)(split_message_cb), conn);
 
-		idle_parser_add_handler(priv->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
-		idle_parser_add_handler(priv->parser, IDLE_PARSER_NUMERIC_ERRONEOUSNICKNAME, _erroneous_nickname_handler, conn);
-		idle_parser_add_handler(priv->parser, IDLE_PARSER_NUMERIC_NICKNAMEINUSE, _nickname_in_use_handler, conn);
-		idle_parser_add_handler(priv->parser, IDLE_PARSER_NUMERIC_WELCOME, _welcome_handler, conn);
+		idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
+		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_ERRONEOUSNICKNAME, _erroneous_nickname_handler, conn);
+		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_NICKNAMEINUSE, _nickname_in_use_handler, conn);
+		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WELCOME, _welcome_handler, conn);
 
 		irc_handshakes(conn);
 	}
