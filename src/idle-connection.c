@@ -157,7 +157,7 @@ static gint pending_msg_compare(gconstpointer a, gconstpointer b, gpointer unuse
 {
 	const IdleOutputPendingMsg *msg1 = a, *msg2 = b;
 
-	return (msg1->priority == msg2->priority) ? 0 : (msg1->priority < msg2->priority) ? 1 : -1;
+	return (msg1->priority > msg2->priority) ? -1 : 1;
 }
 
 typedef struct _IdleStatusInfo IdleStatusInfo;
