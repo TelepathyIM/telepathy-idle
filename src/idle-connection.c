@@ -242,7 +242,6 @@ struct _IdleConnectionPrivate
 
 	/* dbus object location */
 	char *bus_name;
-	char *object_path;
 
 	/* info about us in CTCP VERSION format */
 	char *ctcp_version_string;
@@ -698,7 +697,7 @@ idle_connection_finalize (GObject *object)
   g_free(priv->quit_message);
   
   g_free(priv->bus_name);
-  g_free(priv->object_path);
+  g_free(self->object_path);
 
   g_free(priv->ctcp_version_string);
 
@@ -754,7 +753,7 @@ gboolean _idle_connection_register(IdleConnection *conn, gchar **bus_name, gchar
 	g_strcanon(unique_name, allowed_chars, '_');
 
 	priv->bus_name = g_strdup_printf(BUS_NAME ".%s.%s", safe_proto, unique_name);
-	priv->object_path = g_strdup_printf(OBJECT_PATH "/%s/%s", safe_proto, unique_name);
+	conn->object_path = g_strdup_printf(OBJECT_PATH "/%s/%s", safe_proto, unique_name);
 
 	g_free(safe_proto);
 	g_free(unique_name);
@@ -806,15 +805,15 @@ gboolean _idle_connection_register(IdleConnection *conn, gchar **bus_name, gchar
 
 	g_debug("%s: bus_name %s", G_STRFUNC, priv->bus_name);
 
-	dbus_g_connection_register_g_object(bus, priv->object_path, G_OBJECT(conn));
+	dbus_g_connection_register_g_object(bus, conn->object_path, G_OBJECT(conn));
 
-	g_debug("%s: object path %s", G_STRFUNC, priv->object_path);
+	g_debug("%s: object path %s", G_STRFUNC, conn->object_path);
 
 	g_assert(bus_name != NULL);
 	g_assert(object_path != NULL);
 	
 	*bus_name = g_strdup(priv->bus_name);
-	*object_path = g_strdup(priv->object_path);
+	*object_path = g_strdup(conn->object_path);
 
 	return TRUE;
 }
@@ -2853,7 +2852,7 @@ static IdleIMChannel *new_im_channel(IdleConnection *conn, TpHandle handle, gboo
 
 	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 
-	object_path = g_strdup_printf("%s/ImChannel%u", priv->object_path, handle);
+	object_path = g_strdup_printf("%s/ImChannel%u", conn->object_path, handle);
 
 	chan = g_object_new(IDLE_TYPE_IM_CHANNEL, "connection", conn,
 												"object-path", object_path,
@@ -2885,7 +2884,7 @@ static IdleMUCChannel *new_muc_channel(IdleConnection *conn, TpHandle handle, gb
 
 	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 
-	object_path = g_strdup_printf("%s/MucChannel%u", priv->object_path, handle);
+	object_path = g_strdup_printf("%s/MucChannel%u", conn->object_path, handle);
 
 	chan = g_object_new(IDLE_TYPE_MUC_CHANNEL, "connection", conn,
 												"object-path", object_path,
@@ -2980,7 +2979,7 @@ static IdleMUCChannel *new_muc_channel_async_req(IdleConnection *conn, TpHandle 
 
 	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 
-	object_path = g_strdup_printf("%s/MucChannel%u", priv->object_path, handle);
+	object_path = g_strdup_printf("%s/MucChannel%u", conn->object_path, handle);
 
 	chan = g_object_new(IDLE_TYPE_MUC_CHANNEL, "connection", conn,
 												"object-path", object_path,

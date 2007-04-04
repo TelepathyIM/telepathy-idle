@@ -57,6 +57,7 @@ struct _IdleConnection
     GObject parent;
     TpHandleRepoIface *handles[LAST_TP_HANDLE_TYPE + 1];
 		IdleParser *parser;
+		gchar *object_path;
 };
 
 void idle_contact_presence_free(IdleContactPresence *cp);
