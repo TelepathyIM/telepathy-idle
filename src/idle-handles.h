@@ -40,9 +40,6 @@ const char *idle_handle_inspect(TpHandleRepoIface *storage, TpHandle handle);
 TpHandle idle_handle_for_contact(TpHandleRepoIface *storage, const char *nickname);
 TpHandle idle_handle_for_room(TpHandleRepoIface *storage, const char *channel);
 
-gboolean idle_handle_set_presence(TpHandleRepoIface *storage, TpHandle contact_handle, IdleContactPresence *presence);
-IdleContactPresence *idle_handle_get_presence(TpHandleRepoIface *storage, TpHandle contact_handle);
-
 G_END_DECLS
 
 #endif /* __IDLE_HANDLES_H__ */

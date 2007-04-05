@@ -89,10 +89,6 @@ static void renaming_iface_init(gpointer, gpointer);
 G_DEFINE_TYPE_WITH_CODE(IdleConnection, idle_connection, G_TYPE_OBJECT,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_RENAMING, renaming_iface_init));
 
-#define IRC_PRESENCE_SHOW_AVAILABLE "available"
-#define IRC_PRESENCE_SHOW_AWAY		"away"
-#define IRC_PRESENCE_SHOW_OFFLINE	"offline"
-
 #define ERROR_IF_NOT_CONNECTED(CONN, PRIV, ERROR) \
   if ((PRIV)->status != TP_CONNECTION_STATUS_CONNECTED) \
     { \
@@ -112,25 +108,6 @@ G_DEFINE_TYPE_WITH_CODE(IdleConnection, idle_connection, G_TYPE_OBJECT,
       g_error_free ((ERROR)); \
       return FALSE; \
     }
-
-struct _IdleContactPresence
-{
-	IdlePresenceState presence_state;
-	gchar *status_message;
-	guint last_activity;
-};
-
-#define idle_contact_presence_new() (g_slice_new(IdleContactPresence))
-#define idle_contact_presence_new0() (g_slice_new0(IdleContactPresence))
-
-void idle_contact_presence_free(IdleContactPresence *cp)
-{
-	if (!cp)
-		return;
-
-	g_free(cp->status_message);
-	g_slice_free(IdleContactPresence, cp);
-}
 
 typedef struct _IdleOutputPendingMsg IdleOutputPendingMsg;
 
@@ -161,22 +138,6 @@ static gint pending_msg_compare(gconstpointer a, gconstpointer b, gpointer unuse
 	return (msg1->priority > msg2->priority) ? -1 : 1;
 }
 
-typedef struct _IdleStatusInfo IdleStatusInfo;
-
-struct _IdleStatusInfo
-{
-	const gchar *name;
-	TpConnectionPresenceType presence_type;
-	const gboolean self, exclusive;
-};
-
-static const IdleStatusInfo idle_statuses[LAST_IDLE_PRESENCE_ENUM] =
-{
-	{IRC_PRESENCE_SHOW_AVAILABLE,	TP_CONNECTION_PRESENCE_TYPE_AVAILABLE, TRUE, TRUE},
-	{IRC_PRESENCE_SHOW_AWAY,		TP_CONNECTION_PRESENCE_TYPE_AWAY, TRUE, TRUE},
-	{IRC_PRESENCE_SHOW_OFFLINE,		TP_CONNECTION_PRESENCE_TYPE_OFFLINE, FALSE, TRUE}
-};
-
 typedef struct
 {
 	DBusGMethodInvocation *ctx;
@@ -187,7 +148,6 @@ typedef struct
 enum
 {
     NEW_CHANNEL,
-    PRESENCE_UPDATE,
     STATUS_CHANGED,
     DISCONNECTED,
     LAST_SIGNAL_ENUM
@@ -260,15 +220,6 @@ struct _IdleConnectionPrivate
 	GPtrArray *factories;
 	GHashTable *muc_channels;
 
-	/* Set of handles whose presence status we should poll and associated polling timer */
-	TpIntSet *polled_presences;
-	guint presence_polling_timer_id;
-
-	/* presence query queue, unload timer and pending reply list */
-	GQueue *presence_queue;
-	guint presence_unload_timer_id;
-	GList *presence_reply_list;
-
 	/* if Disconnected has been emitted */
 	gboolean disconnected;
 
@@ -319,13 +270,6 @@ idle_connection_init (IdleConnection *obj)
   }
 
 	idle_handle_repos_init(obj->handles);
-
-  priv->polled_presences = tp_intset_new();
-  priv->presence_polling_timer_id = 0;
-
-  priv->presence_queue = g_queue_new();
-  priv->presence_unload_timer_id = 0;
-  priv->presence_reply_list = NULL;
 
   priv->status = TP_CONNECTION_STATUS_DISCONNECTED;
 
@@ -570,15 +514,6 @@ idle_connection_class_init (IdleConnectionClass *idle_connection_class)
                   idle_connection_marshal_VOID__STRING_STRING_INT_INT_BOOLEAN,
                   G_TYPE_NONE, 5, DBUS_TYPE_G_OBJECT_PATH, G_TYPE_STRING, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_BOOLEAN);
 
-  signals[PRESENCE_UPDATE] =
-    g_signal_new ("presence-update",
-                  G_OBJECT_CLASS_TYPE (idle_connection_class),
-                  G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-                  0,
-                  NULL, NULL,
-                  idle_connection_marshal_VOID__BOXED,
-                  G_TYPE_NONE, 1, (dbus_g_type_get_map ("GHashTable", G_TYPE_UINT, (dbus_g_type_get_struct ("GValueArray", G_TYPE_UINT, (dbus_g_type_get_map ("GHashTable", G_TYPE_STRING, (dbus_g_type_get_map ("GHashTable", G_TYPE_STRING, G_TYPE_VALUE)))), G_TYPE_INVALID)))));
-
   signals[STATUS_CHANGED] =
     g_signal_new ("status-changed",
                   G_OBJECT_CLASS_TYPE (idle_connection_class),
@@ -633,18 +568,6 @@ idle_connection_dispose (GObject *object)
 	  g_hash_table_destroy(priv->muc_channels);
   }
 
-  if (priv->presence_polling_timer_id)
-  {
-	  g_source_remove(priv->presence_polling_timer_id);
-	  priv->presence_polling_timer_id = 0;
-  }
-
-  if (priv->presence_unload_timer_id)
-  {
-	  g_source_remove(priv->presence_unload_timer_id);
-	  priv->presence_unload_timer_id = 0;
-  }
-  
   if (priv->msg_queue_timeout)
   {
 	  g_source_remove(priv->msg_queue_timeout);
@@ -677,17 +600,11 @@ idle_connection_dispose (GObject *object)
     G_OBJECT_CLASS (idle_connection_parent_class)->dispose (object);
 }
 
-static void free_helper(gpointer data, gpointer unused)
-{
-	return g_free(data);
-}
-
 void
 idle_connection_finalize (GObject *object)
 {
   IdleConnection *self = IDLE_CONNECTION (object);
   IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE (self);
-  gchar *nick;
   IdleOutputPendingMsg *msg;
 
   g_free(priv->protocol);
@@ -705,27 +622,12 @@ idle_connection_finalize (GObject *object)
 
   g_hash_table_destroy(priv->chan_req_ctxs);
 
-  tp_intset_destroy(priv->polled_presences);
-  
-  while ((nick = g_queue_pop_head(priv->presence_queue)) != NULL)
-  {
-	  g_free(nick);
-  }
-  
-  g_queue_free(priv->presence_queue);
-
   while ((msg = g_queue_pop_head(priv->msg_queue)) != NULL)
   {
 	  idle_output_pending_msg_free(msg);
   }
 
   g_queue_free(priv->msg_queue);
-
-  if (priv->presence_reply_list)
-  {
-	  g_list_foreach(priv->presence_reply_list, free_helper, NULL);
-	  g_list_free(priv->presence_reply_list);
-  }
 
   G_OBJECT_CLASS (idle_connection_parent_class)->finalize (object);
 }
@@ -840,11 +742,8 @@ static IdleMUCChannel *new_muc_channel(IdleConnection *conn, TpHandle handle, gb
 static void connection_connect_cb(IdleConnection *conn, gboolean success);
 static void connection_disconnect(IdleConnection *conn, TpConnectionStatusReason reason);
 static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusReason reason);
-static void update_presence(IdleConnection *self, TpHandle contact_handle, IdlePresenceState presence_id, const gchar *status_message);
-static void update_presence_full(IdleConnection *self, TpHandle contact_handle, IdlePresenceState presence_id, const gchar *status_message, guint last_activity);
 static void connection_status_change(IdleConnection *conn, TpConnectionStatus status, TpConnectionStatusReason reason);
 static void connection_message_cb(IdleConnection *conn, const gchar *msg);
-static void emit_presence_update(IdleConnection *self, const TpHandle *contact_handles);
 static void send_irc_cmd(IdleConnection *conn, const gchar *msg);
 static void priv_rename(IdleConnection *conn, guint old, guint new);
 
@@ -977,7 +876,6 @@ static void priv_rename(IdleConnection *conn, guint old, guint new)
 {
 	IdleConnectionPrivate *priv;
 	MUCChannelRenameData data = {old, new};
-	IdleContactPresence *cp;
 
 	g_assert(conn != NULL);
 	g_assert(IDLE_IS_CONNECTION(conn));
@@ -990,11 +888,6 @@ static void priv_rename(IdleConnection *conn, guint old, guint new)
 
 		return;
 	}
-
-	cp = idle_handle_get_presence(conn->handles[TP_HANDLE_TYPE_CONTACT], old);
-
-	idle_handle_set_presence(conn->handles[TP_HANDLE_TYPE_CONTACT], new, cp);
-	idle_handle_set_presence(conn->handles[TP_HANDLE_TYPE_CONTACT], old, NULL);
 
 	if (old == priv->self_handle)
 	{
@@ -1331,7 +1224,6 @@ static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMe
 	}
 
 	connection_connect_cb(conn, TRUE);
-	update_presence(conn, priv->self_handle, IDLE_PRESENCE_AVAILABLE, NULL);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
@@ -1861,11 +1753,6 @@ cleanupl:
 #define IRC_ERR_BANNEDFROMCHAN 474
 #define IRC_ERR_BADCHANNELKEY 475
 
-static gint strcasecmp_helper(gconstpointer a, gconstpointer b)
-{
-	return g_ascii_strcasecmp(a, b);
-}
-
 static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 {
 	IdleConnectionPrivate *priv;
@@ -2177,36 +2064,6 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 
 		_idle_muc_channel_mode(chan, tmp);
 	}
-	else if (numeric == IRC_ERR_NOSUCHNICK)
-	{
-		TpHandle handle;
-		GList *link;
-
-		if (tokenc < 4)
-		{
-			g_debug("%s: got ERR_NOSUCHNICK with tokenc < 4, ignoring...", G_STRFUNC);
-			goto cleanupl;
-		}
-
-		if ((link = g_list_find_custom(priv->presence_reply_list, tokens[3], strcasecmp_helper)) != NULL)
-		{
-			g_debug("%s: one of the contacts we asked presence for was offline, removing query...", G_STRFUNC);
-			g_free(link->data);
-			priv->presence_reply_list = g_list_delete_link(priv->presence_reply_list, link);
-		}
-		
-		handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], tokens[3]);
-
-		if (handle == 0)
-		{
-			g_debug("%s: could not get handle for (%s) in ERR_NOSUCHNICK", G_STRFUNC, tokens[3]);
-			goto cleanupl;
-		}
-
-		update_presence(conn, handle, IDLE_PRESENCE_OFFLINE, NULL);
-
-		g_debug("%s: got ERR_NOSUCHNICK for (%s) (handle %u)", G_STRFUNC, tokens[3], handle);
-	}
 	else if (numeric == IRC_ERR_BANNEDFROMCHAN 
 			|| numeric == IRC_ERR_CHANNELISFULL
 			|| numeric == IRC_ERR_INVITEONLYCHAN)
@@ -2257,116 +2114,6 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 
 		_idle_muc_channel_join_error(chan, err);
 	}
-	else if (numeric == IRC_RPL_NOWAWAY
-			|| numeric == IRC_RPL_UNAWAY)
-	{
-		update_presence(conn, priv->self_handle, 
-				(numeric == IRC_RPL_UNAWAY) ? IDLE_PRESENCE_AVAILABLE : IDLE_PRESENCE_AWAY, NULL);
-
-		g_debug("%s: got away state change", G_STRFUNC);
-	}
-	else if (numeric == IRC_RPL_AWAY)
-	{
-		TpHandle handle;
-		char *tmp;
-		GList *link;
-		
-		if (tokenc < 5)
-		{
-			g_debug("%s: got RPL_AWAY with tokenc < 3, ignoring...", G_STRFUNC);
-			goto cleanupl;
-		}
-
-		handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], tokens[3]);
-
-		if (handle == 0)
-		{
-			g_debug("%s: could not get handle for (%s) in IRC_RPL_AWAY...", G_STRFUNC, tokens[3]);
-			goto cleanupl;
-		}
-
-		tmp = strstr(msg, " :")+1;
-
-		if (tmp == NULL)
-		{
-			g_debug("%s: failed to find body separator in RPL_AWAY, ignoring...", G_STRFUNC);
-			goto cleanupl;
-		}
-
-		g_debug("%s: got RPL_AWAY for %u", G_STRFUNC, handle);
-
-		if ((link = g_list_find_custom(priv->presence_reply_list, tokens[3], strcasecmp_helper)) != NULL)
-		{
-			g_debug("%s: got RPL_AWAY for someone we had queried presence for...", G_STRFUNC);
-			g_free(link->data);
-			priv->presence_reply_list = g_list_remove_link(priv->presence_reply_list, link);
-		}
-
-		update_presence(conn, handle, IDLE_PRESENCE_AWAY, tmp+1);
-	}
-	else if (numeric == IRC_RPL_ENDOFWHOIS)
-	{
-		GList *link;
-		TpHandle handle;
-		
-		if (tokenc < 4)
-		{
-			g_debug("%s: got IRC_RPL_ENDOFWHOIS with <4 tokens, ignoring...", G_STRFUNC);
-			goto cleanupl;
-		}
-
-		if ((link = g_list_find_custom(priv->presence_reply_list, tokens[3], strcasecmp_helper)) != NULL)
-		{
-			g_debug("%s: got end of whois for someone we have queried presence for but haven't got away/offline yet -> available", G_STRFUNC);
-
-			g_free(link->data);
-			priv->presence_reply_list = g_list_remove_link(priv->presence_reply_list, link);
-
-			handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], tokens[3]);
-
-			if (handle == 0)
-			{
-				g_debug("%s: could not get handle for (%s) in IRC_RPL_ENDOFWHOIS...", G_STRFUNC, tokens[3]);
-				goto cleanupl;
-			}
-
-			update_presence(conn, handle, IDLE_PRESENCE_AVAILABLE, NULL);
-		}
-	}
-	else if (numeric == IRC_RPL_WHOISIDLE)
-	{
-		TpHandle handle;
-		IdleContactPresence *cp;
-		guint last_activity;
-
-		if (tokenc < 5)
-		{
-			g_debug("%s: got IRC_RPL_WHOISIDLE with tokenc < 5, ignoring...", G_STRFUNC);
-			goto cleanupl;
-		}
-
-		handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], tokens[2]);
-
-		if (handle == 0)
-		{
-			g_debug("%s: failed to get handle for (%s) in RPL_WHOISIDLE, ignoring...", G_STRFUNC, tokens[2]);
-			goto cleanupl;
-		}
-
-		cp = idle_handle_get_presence(conn->handles[TP_HANDLE_TYPE_CONTACT], handle);
-
-		if (cp == NULL)
-		{
-			g_debug("%s: failed to get cp in RPL_WHOISIDLE, ignoring...", G_STRFUNC);
-			goto cleanupl;
-		}
-
-		last_activity = time(NULL) - atoi(tokens[3]);
-
-		update_presence_full(conn, handle, cp->presence_state, NULL, last_activity);
-
-		g_debug("%s: got RPL_WHOISIDLE for (%s) (handle %u)", G_STRFUNC, tokens[2], handle);
-	}
 	else
 	{
 		g_debug("%s: ignored unparsed message from server (%s)", G_STRFUNC, msg);
@@ -2415,131 +2162,6 @@ static void connection_connect_cb(IdleConnection *conn, gboolean success)
 	{
 		connection_status_change(conn, TP_CONNECTION_STATUS_DISCONNECTED, TP_CONNECTION_STATUS_REASON_NETWORK_ERROR);
 	}
-}
-
-/* 2 minutes */
-#define PRESENCE_POLLING_TIMEOUT 2*60*1000
-
-static void presence_request_push(IdleConnection *obj, const gchar *nick);
-
-static void polling_foreach_func(guint i, gpointer user_data)
-{
-	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	TpHandle handle = (TpHandle)(i);
-
-	if (tp_handle_is_valid(conn->handles[TP_HANDLE_TYPE_CONTACT], handle, NULL))
-	{
-		const gchar *nick = idle_handle_inspect(conn->handles[TP_HANDLE_TYPE_CONTACT], handle);
-
-		presence_request_push(conn, nick);
-	}
-	else
-	{
-		tp_intset_remove(priv->polled_presences, handle);
-	}
-}
-
-static gboolean presence_polling_cb(gpointer user_data)
-{
-	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(user_data);
-
-	tp_intset_foreach(priv->polled_presences, polling_foreach_func, conn);
-
-	if (!tp_intset_size(priv->polled_presences))
-	{
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
-static void polled_presence_add(IdleConnection *conn, TpHandle handle)
-{
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	
-	tp_intset_add(priv->polled_presences, handle);
-
-	if (!priv->presence_polling_timer_id)
-	{
-		presence_polling_cb(conn);
-		priv->presence_polling_timer_id = g_timeout_add(PRESENCE_POLLING_TIMEOUT, presence_polling_cb, conn);
-	}
-}
-
-static void polled_presence_remove(IdleConnection *conn, TpHandle handle)
-{
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	
-	tp_intset_remove(priv->polled_presences, handle);
-
-	if (priv->presence_polling_timer_id && !tp_intset_size(priv->polled_presences))
-	{
-		g_source_remove(priv->presence_polling_timer_id);
-		priv->presence_polling_timer_id = 0;
-	}
-}
-
-static void update_presence(IdleConnection *self, TpHandle contact_handle, IdlePresenceState presence_state, const gchar *status_message)
-{
-	return update_presence_full(self, contact_handle, presence_state, status_message, 0);
-}
-
-static void update_presence_full(IdleConnection *self, TpHandle contact_handle, IdlePresenceState presence_state, const gchar *status_message, guint last_activity)
-{
-	IdleContactPresence *cp = idle_handle_get_presence(self->handles[TP_HANDLE_TYPE_CONTACT], contact_handle);
-	TpHandle handles[2] = {contact_handle, 0};
-
-	if (cp)
-	{
-		if (cp->presence_state == presence_state &&
-			((cp->status_message == NULL && status_message == NULL) ||
-			 (cp->status_message != NULL && status_message != NULL &&
-			  strcmp(cp->status_message, status_message) == 0)))
-		{
-			return;
-		}
-
-		if (presence_state == IDLE_PRESENCE_AVAILABLE)
-		{
-			polled_presence_remove(self, contact_handle);
-			idle_contact_presence_free(cp);
-			idle_handle_set_presence(self->handles[TP_HANDLE_TYPE_CONTACT], contact_handle, NULL);
-		}
-	}
-	else if (presence_state != IDLE_PRESENCE_AVAILABLE)
-	{
-		cp = idle_contact_presence_new0();
-		g_assert(idle_handle_set_presence(self->handles[TP_HANDLE_TYPE_CONTACT], contact_handle, cp));
-
-		polled_presence_add(self, contact_handle);
-	}
-	else
-	{
-		goto emit;
-	}
-
-	cp->presence_state = presence_state;
-
-	g_free(cp->status_message);
-
-	if (status_message && status_message[0] != '\0')
-	{
-		cp->status_message = g_strdup(status_message);
-	}
-	else
-	{
-		cp->status_message = NULL;
-	}
-
-	if (last_activity != 0)
-	{
-		cp->last_activity = last_activity;
-	}
-
-emit:
-	emit_presence_update(self, handles);
 }
 
 static void connection_status_change(IdleConnection *conn, TpConnectionStatus status, TpConnectionStatusReason reason)
@@ -2658,176 +2280,6 @@ static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusRea
 		g_debug("%s: emitting DISCONNECTED", G_STRFUNC);
 		g_signal_emit(conn, signals[DISCONNECTED], 0);
 	}
-}
-
-struct member_check_data
-{
-	TpHandle handle;
-	gboolean is_present;
-};
-
-static void member_check_foreach(gpointer key, gpointer value, gpointer user_data)
-{
-	IdleMUCChannel *chan = IDLE_MUC_CHANNEL(value);
-	struct member_check_data *data = (struct member_check_data *)(user_data);
-	
-	if (!data->is_present && _idle_muc_channel_has_current_member(chan, data->handle))
-	{
-		data->is_present = TRUE;
-	}
-}
-
-const IdleContactPresence *get_contact_presence(IdleConnection *conn, TpHandle handle)
-{
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	const IdleContactPresence *ret;
-
-	ret = idle_handle_get_presence(conn->handles[TP_HANDLE_TYPE_CONTACT], handle);
-
-	if (!ret)
-	{
-		const static IdleContactPresence available_presence = {IDLE_PRESENCE_AVAILABLE, NULL, 0};
-		const static IdleContactPresence offline_presence = {IDLE_PRESENCE_OFFLINE, NULL, 0};
-		
-		if (FALSE)
-		{
-			ret = &available_presence;
-		}
-		else
-		{
-			struct member_check_data data = {handle, FALSE};
-			
-			g_hash_table_foreach(priv->muc_channels, member_check_foreach, &data);
-
-			if (data.is_present)
-			{
-				ret = &available_presence;
-			}
-			else
-			{
-				ret = &offline_presence;
-			}
-		}
-	}
-
-	return ret;
-}
-
-static void
-bastard_destroyer_from_collabora(GValue *value)
-{
-	g_value_unset(value);
-	g_free(value);
-}
-
-static void emit_presence_update(IdleConnection *self, const TpHandle *contact_handles)
-{
-	IdleConnectionPrivate *priv;
-	const IdleContactPresence *cp; 
-	GHashTable *presence;
-	GValueArray *vals;
-	GHashTable *contact_status, *parameters;
-	int i;
-
-	g_assert(self != NULL);
-	g_assert(IDLE_IS_CONNECTION(self));
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(self);
-
-	presence = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify)(g_value_array_free));
-	
-	for (i = 0; contact_handles[i] != 0; i++)
-	{
-		GValue *message;
-
-		cp = get_contact_presence(self, contact_handles[i]);
-
-		if (cp == NULL)
-		{
-			g_debug("%s: did not find presence for %u!!", G_STRFUNC, contact_handles[i]);
-			continue;
-		}
-
-		message = g_new0(GValue, 1);
-		g_value_init(message, G_TYPE_STRING);
-
-		g_value_set_string(message, cp->status_message);
-
-		parameters = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, (GDestroyNotify)(bastard_destroyer_from_collabora));
-
-		g_hash_table_insert(parameters, "message", message);
-
-		contact_status = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, (GDestroyNotify)(g_hash_table_destroy));
-
-		g_hash_table_insert(contact_status, (gpointer)(idle_statuses[cp->presence_state].name), parameters);
-
-		vals = g_value_array_new(2);
-
-		g_value_array_append(vals, NULL);
-		g_value_init(g_value_array_get_nth(vals, 0), G_TYPE_UINT);
-		g_value_set_uint(g_value_array_get_nth(vals, 0), cp->last_activity);
-
-		g_value_array_append(vals, NULL);
-		g_value_init(g_value_array_get_nth(vals, 1),
-				dbus_g_type_get_map("GHashTable", G_TYPE_STRING,
-					dbus_g_type_get_map("GHashTable", G_TYPE_STRING, G_TYPE_VALUE)));
-		g_value_take_boxed(g_value_array_get_nth(vals, 1), contact_status);
-
-		g_hash_table_insert(presence, GINT_TO_POINTER(contact_handles[i]), vals);
-	}
-	
-	g_debug("%s: emitting PRESENCE_UPDATE with %u presences", G_STRFUNC, g_hash_table_size(presence));
-	g_signal_emit(self, signals[PRESENCE_UPDATE], 0, presence);
-	g_hash_table_destroy(presence);
-}
-
-static gboolean signal_own_presence (IdleConnection *self, GError **error)
-{
-	IdleConnectionPrivate *priv;
-	gchar msg[IRC_MSG_MAXLEN+1];
-	IdleContactPresence *cp;
-
-	g_assert(self != NULL);
-	g_assert(error != NULL);
-	g_assert(IDLE_IS_CONNECTION(self));
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(self);
-	
-	cp = idle_handle_get_presence(self->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
-
-	g_assert(cp != NULL);
-	
-	switch (cp->presence_state)
-	{
-		case IDLE_PRESENCE_AVAILABLE:
-		{
-			strcpy(msg, "AWAY");
-		}
-		break;
-		default:
-		{
-			gchar *awaymsg;
-
-			/* we can't post a zero-length away message so let's use "away" instead */
-			if ((cp->status_message == NULL) || (strlen(cp->status_message) == 0))
-			{
-				awaymsg = g_strdup("away");
-			}
-			else
-			{
-				awaymsg = g_strndup(cp->status_message, IRC_MSG_MAXLEN+1-strlen("AWAY :"));
-			}
-			
-			sprintf(msg, "AWAY :%s", awaymsg);
-
-			g_free(awaymsg);
-		}
-		break;
-	}
-
-	send_irc_cmd(self, msg);
-
-	return TRUE;
 }
 
 static IdleMUCChannel *new_muc_channel(IdleConnection *conn, TpHandle handle, gboolean suppress_handler)
@@ -2980,92 +2432,6 @@ static void muc_channel_closed_cb(IdleMUCChannel *chan, gpointer user_data)
 	}
 }
 
-static GHashTable *
-get_statuses_arguments()
-{
-  static GHashTable *arguments = NULL;
-
-  if (arguments == NULL)
-    {
-      arguments = g_hash_table_new (g_str_hash, g_str_equal);
-
-      g_hash_table_insert (arguments, "message", "s");
-    }
-
-  return arguments;
-}
-
-/* D-BUS-exported methods */
-
-/**
- * idle_connection_add_status
- *
- * Implements DBus method AddStatus
- * on interface org.freedesktop.Telepathy.Connection.Interface.Presence
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-gboolean idle_connection_add_status (IdleConnection *obj, const gchar * status, GHashTable * parms, GError **error)
-{
-	IdleConnectionPrivate *priv;
-
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_CONNECTION(obj));
-	
-	priv = IDLE_CONNECTION_GET_PRIVATE(obj);
-
-	ERROR_IF_NOT_CONNECTED(obj, priv, *error);
-
-	*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED, 
-			"Only one status is possible at a time with this protocol");
-	
-  	return FALSE;
-}
-
-/**
- * idle_connection_clear_status
- *
- * Implements DBus method ClearStatus
- * on interface org.freedesktop.Telepathy.Connection.Interface.Presence
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-gboolean idle_connection_clear_status (IdleConnection *obj, GError **error)
-{
-	IdleConnectionPrivate *priv;
-	IdleContactPresence *cp;
-	
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_CONNECTION(obj));
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(obj);
-
-	ERROR_IF_NOT_CONNECTED(obj, priv, *error);
-
-	cp = idle_handle_get_presence(obj->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
-
-    if (!cp)
-    {
-      return TRUE;
-    }
-
-	cp->presence_state = IDLE_PRESENCE_AVAILABLE;
-	g_free(cp->status_message);
-	cp->status_message = NULL;
-	cp->last_activity = 0;
-
-  	return signal_own_presence(obj, error);
-}
-
-
 /**
  * idle_connection_connect
  *
@@ -3123,7 +2489,7 @@ gboolean idle_connection_disconnect (IdleConnection *obj, GError **error)
  */
 gboolean idle_connection_get_interfaces (IdleConnection *obj, gchar *** ret, GError **error)
 {
-	const char *interfaces[] = {TP_IFACE_CONNECTION_INTERFACE_PRESENCE, TP_IFACE_CONNECTION_INTERFACE_RENAMING,	NULL};
+	const char *interfaces[] = {TP_IFACE_CONNECTION_INTERFACE_RENAMING,	NULL};
 	IdleConnectionPrivate *priv;
 
 	g_assert(obj != NULL);
@@ -3215,67 +2581,6 @@ gboolean idle_connection_get_status (IdleConnection *obj, guint* ret, GError **e
 	*ret = priv->status;
 
 	return TRUE;
-}
-
-
-/**
- * idle_connection_get_statuses
- *
- * Implements DBus method GetStatuses
- * on interface org.freedesktop.Telepathy.Connection.Interface.Presence
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-gboolean idle_connection_get_statuses (IdleConnection *obj, GHashTable ** ret, GError **error)
-{
-  	IdleConnectionPrivate *priv;
-  	GValueArray *status;
-  	int i;
-
-  	g_assert (IDLE_IS_CONNECTION (obj));
-
-  	priv = IDLE_CONNECTION_GET_PRIVATE (obj);
-
-  	ERROR_IF_NOT_CONNECTED (obj, priv, *error)
-
-  	g_debug ("%s called.", G_STRFUNC);
-
-  	*ret = g_hash_table_new_full (g_str_hash, g_str_equal,
-                                NULL, (GDestroyNotify) g_value_array_free);
-
-  	for (i=0; i < LAST_IDLE_PRESENCE_ENUM; i++)
-    {
-    	status = g_value_array_new (5);
-
-      	g_value_array_append (status, NULL);
-      	g_value_init (g_value_array_get_nth (status, 0), G_TYPE_UINT);
-      	g_value_set_uint (g_value_array_get_nth (status, 0),
-          						idle_statuses[i].presence_type);
-
-      	g_value_array_append (status, NULL);
-      	g_value_init (g_value_array_get_nth(status, 1), G_TYPE_BOOLEAN);
-      	g_value_set_boolean(g_value_array_get_nth(status, 1),
-          						idle_statuses[i].self);
-
-      	g_value_array_append (status, NULL);
-      	g_value_init(g_value_array_get_nth (status, 2), G_TYPE_BOOLEAN);
-      	g_value_set_boolean(g_value_array_get_nth (status, 2),
-          						idle_statuses[i].exclusive);
-
-      	g_value_array_append (status, NULL);
-      	g_value_init (g_value_array_get_nth (status, 3),
-          						DBUS_TYPE_G_STRING_STRING_HASHTABLE);
-      	g_value_set_static_boxed(g_value_array_get_nth (status, 3),
-          						get_statuses_arguments());
-
-      	g_hash_table_insert (*ret, (gchar*)(idle_statuses[i].name), status);
-    }
-    
-  	return TRUE;
 }
 
 
@@ -3598,47 +2903,6 @@ gboolean idle_connection_release_handles (IdleConnection *obj,
 	return TRUE;
 }
 
-
-/**
- * idle_connection_remove_status
- *
- * Implements DBus method RemoveStatus
- * on interface org.freedesktop.Telepathy.Connection.Interface.Presence
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-gboolean idle_connection_remove_status (IdleConnection *obj, const gchar * status, GError **error)
-{
-	IdleConnectionPrivate *priv;
-	IdleContactPresence *cp;
-
-	g_assert(IDLE_IS_CONNECTION(obj));
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(obj);
-
-	ERROR_IF_NOT_CONNECTED(obj, priv, *error);
-
-	cp = idle_handle_get_presence(obj->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
-
-	if ((cp != NULL) && !strcmp(status, idle_statuses[cp->presence_state].name))
-	{
-		cp->presence_state = IDLE_PRESENCE_AVAILABLE;
-		g_free(cp->status_message);
-		cp->status_message = NULL;
-		cp->last_activity = 0;
-		return signal_own_presence(obj, error);
-	}
-	else
-	{
-		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "Attempting to remove non-existant presence.");
-		return FALSE;
-	}
-}
-
 /**
  * idle_connection_request_channel
  *
@@ -3901,260 +3165,6 @@ static TpHandle _idle_connection_request_handle(IdleConnection *obj,
 	}
 
 	return handle;
-}
-
-static gboolean presence_timer_cb(gpointer data)
-{
-	IdleConnection *conn = IDLE_CONNECTION(data);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	gchar *nick;
-	gchar cmd[IRC_MSG_MAXLEN+2];
-
-	nick = g_queue_pop_head(priv->presence_queue);
-
-	if (nick == NULL)
-	{
-		priv->presence_unload_timer_id = 0;
-
-		return FALSE;
-	}
-	
-	g_snprintf(cmd, IRC_MSG_MAXLEN+2, "WHOIS %s", nick);
-
-	send_irc_cmd_full(conn, cmd, SERVER_CMD_MIN_PRIORITY);
-
-	priv->presence_reply_list = g_list_append(priv->presence_reply_list, nick);
-
-	return TRUE;
-}
-
-#define PRESENCE_TIMER_TIMEOUT 3300
-
-static void presence_request_push(IdleConnection *obj, const gchar *nick)
-{
-	IdleConnectionPrivate *priv;
-	GList *node;
-	
-	priv = IDLE_CONNECTION_GET_PRIVATE(obj);
-
-	node = g_queue_find_custom(priv->presence_queue, nick, (GCompareFunc)(strcmp));
-
-	if (!node)
-	{
-		g_queue_push_tail(priv->presence_queue, g_strdup(nick));
-	}
-
-	if (priv->presence_unload_timer_id == 0)
-	{
-		priv->presence_unload_timer_id = g_timeout_add(PRESENCE_TIMER_TIMEOUT, presence_timer_cb, obj);
-	}
-}
-
-/**
- * idle_connection_request_presence
- *
- * Implements DBus method RequestPresence
- * on interface org.freedesktop.Telepathy.Connection.Interface.Presence
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-gboolean idle_connection_request_presence (IdleConnection *obj, const GArray * contacts, GError **error)
-{
-	IdleConnectionPrivate *priv;
-	int i;
-	TpHandle *handles = g_new0(TpHandle, contacts->len+1);
-
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_CONNECTION(obj));
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(obj);
-
-	ERROR_IF_NOT_CONNECTED(obj, priv, *error);
-
-	for (i=0; i<contacts->len; i++)
-	{
-		TpHandle handle;
-
-		handle = g_array_index(contacts, guint, i);
-
-		if (!tp_handle_is_valid(obj->handles[TP_HANDLE_TYPE_CONTACT], handle, NULL))
-		{
-			g_debug("%s: invalid handle %u", G_STRFUNC, handle);
-
-			*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid handle %u", handle);
-
-			return FALSE;
-		}
-
-		handles[i] = handle;
-	}
-
-	handles[i] = 0;
-
-	g_debug("%s: got presence request for %u handles", G_STRFUNC, contacts->len);
-
-	if (contacts->len)
-	{
-		emit_presence_update(obj, handles);
-	}
-
-	g_free(handles);
-
-	return TRUE;
-}
-
-
-/**
- * idle_connection_set_last_activity_time
- *
- * Implements DBus method SetLastActivityTime
- * on interface org.freedesktop.Telepathy.Connection.Interface.Presence
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-gboolean idle_connection_set_last_activity_time (IdleConnection *obj, guint time, GError **error)
-{
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_CONNECTION(obj));
-
-	ERROR_IF_NOT_CONNECTED(obj, IDLE_CONNECTION_GET_PRIVATE(obj), *error);
-	
-	/* this is not really possible but let's pretend it succeeded */
-	
-	return TRUE;
-}
-
-struct idle_conn_hashtable_foreach_data
-{
-	IdleConnection *conn;
-	GError **error;
-	gboolean retval;
-};
-
-static void setstatuses_foreach(gpointer key, gpointer value, gpointer user_data)
-{
-	struct idle_conn_hashtable_foreach_data *data = (struct idle_conn_hashtable_foreach_data *)(user_data);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(data->conn);
-	int i;
-
-	for (i = 0; i < LAST_IDLE_PRESENCE_ENUM; i++)
-	{
-		if (!strcmp(idle_statuses[i].name, (const gchar *)(key)))
-		{
-			break;
-		}
-	}
-
-	if (i < LAST_IDLE_PRESENCE_ENUM)
-	{
-		GHashTable *args = (GHashTable *)(value);
-		GValue *message = g_hash_table_lookup(args, "message");
-		const gchar *status = NULL;
-		IdleContactPresence *cp;
-
-		if (message)
-		{
-			if (!G_VALUE_HOLDS_STRING(message))
-			{
-				g_debug("%s: got a status message which was not a string", G_STRFUNC);
-				
-				if (*(data->error))
-				{
-					g_error_free(*(data->error));
-					*(data->error) = NULL;
-				}
-
-				*(data->error) = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
-								"Status argument 'message' requires a string");
-				data->retval = FALSE;
-				return;
-			}
-
-			status = g_value_get_string(message);
-		}
-
-		cp = idle_handle_get_presence(data->conn->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle);
-
-		if (!cp)
-		{
-			cp = idle_contact_presence_new();
-			g_assert(idle_handle_set_presence(data->conn->handles[TP_HANDLE_TYPE_CONTACT], priv->self_handle, cp));
-		}
-
-		cp->presence_state = i;
-		cp->status_message = g_strdup(status);
-		cp->last_activity = 0;
-
-		data->retval = signal_own_presence(data->conn, data->error);
-	}
-	else
-	{
-		g_debug("%s: got unknown status identifier %s", G_STRFUNC, (const gchar *)(key));
-		
-		if (*(data->error))
-		{
-			g_error_free(*(data->error));
-			*(data->error) = NULL;
-		}
-		
-		*(data->error) = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
-									"unknown status identifier received: %s",
-									(const gchar *)(key));
-		data->retval = FALSE;
-	}
-}
-
-/**
- * idle_connection_set_status
- *
- * Implements DBus method SetStatus
- * on interface org.freedesktop.Telepathy.Connection.Interface.Presence
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-gboolean idle_connection_set_status (IdleConnection *obj, GHashTable * statuses, GError **error)
-{
-	IdleConnectionPrivate *priv;
-	int size;
-	struct idle_conn_hashtable_foreach_data data = {obj, error, TRUE};
-	
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_CONNECTION(obj));
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(obj);
-
-	ERROR_IF_NOT_CONNECTED(obj, priv, *error);
-	
-	if ((size = g_hash_table_size(statuses)) != 1)
-	{
-		g_debug("%s: got %i statuses instead of 1", G_STRFUNC, size);
-		
-		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "Got %i statuses instead of 1", size);
-		
-		return FALSE;
-	}
-
-	g_hash_table_foreach(statuses, setstatuses_foreach, &data);
-
-	if (*(data.error) != NULL)
-	{
-		g_debug("%s: error: %s", G_STRFUNC, (*data.error)->message);
-		g_error_free(*(data.error));
-	}
-	
-	return data.retval;
 }
 
 static void idle_connection_request_rename(TpSvcConnectionInterfaceRenaming *iface, const gchar *nick, DBusGMethodInvocation *context)

@@ -167,19 +167,6 @@ idle_handle_real_quark()
   return quark;
 }
 
-static GQuark
-idle_handle_presence_quark()
-{
-  static GQuark quark = 0;
-
-  if (!quark)
-  {
-    quark = g_quark_from_static_string("idle_handle_presence");
-  }
-  
-  return quark;
-}
-
 static gchar *
 _nick_normalize_func(TpHandleRepoIface *storage, const gchar *id, gpointer ctx, GError **error)
 {
@@ -268,21 +255,5 @@ TpHandle idle_handle_for_room(TpHandleRepoIface *storage, const char *channel)
 	}
 
 	return handle;
-}
-
-gboolean idle_handle_set_presence(TpHandleRepoIface *storage, TpHandle handle, IdleContactPresence *cp)
-{
-  g_assert(storage != NULL);
-
-  tp_handle_set_qdata(storage, handle, idle_handle_presence_quark(), cp, cp ? (GDestroyNotify)(idle_contact_presence_free) : NULL);
-
-	return TRUE;
-}
-
-IdleContactPresence *idle_handle_get_presence(TpHandleRepoIface *storage, TpHandle handle)
-{
-	g_assert(storage != NULL);
-
-	return tp_handle_get_qdata(storage, handle, idle_handle_presence_quark());
 }
 
