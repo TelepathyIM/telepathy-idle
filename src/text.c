@@ -25,6 +25,22 @@
 #include <time.h>
 #include <string.h>
 
+void idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gchar **body) {
+	if (text[0] != '\001') {
+		*type = TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL;
+		*body = g_strdup(text);
+	} else {
+		size_t actionlen = strlen("\001ACTION ");
+		if (!g_ascii_strncasecmp(text, "\001ACTION ", actionlen)) {
+			*type = TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION;
+			*body = g_strndup(text + actionlen, strlen(text + actionlen) - 1);
+		} else {
+			*type = -1;
+			*body = NULL;
+		}
+	}
+}
+
 void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *context)
 {
 	gchar msg[IRC_MSG_MAXLEN+1];

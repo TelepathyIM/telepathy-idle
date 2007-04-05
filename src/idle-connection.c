@@ -29,6 +29,7 @@
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/svc-connection.h>
+#include <telepathy-glib/channel-factory-iface.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,13 +52,13 @@
 #include <netdb.h>
 
 #include "idle-handles.h"
-#include "idle-im-channel.h"
 #include "idle-muc-channel.h"
 
 #include "idle-parser.h"
 #include "idle-server-connection.h"
 #include "idle-ssl-server-connection.h"
 #include "idle-server-connection-iface.h"
+#include "idle-im-factory.h"
 
 #include "idle-connection.h"
 #include "idle-connection-glue.h"
@@ -256,7 +257,7 @@ struct _IdleConnectionPrivate
 	GHashTable *chan_req_ctxs;
 
 	/* channels (for queries and regular IRC channels respectively) */
-	GHashTable *im_channels;
+	GPtrArray *factories;
 	GHashTable *muc_channels;
 
 	/* Set of handles whose presence status we should poll and associated polling timer */
@@ -286,6 +287,8 @@ struct _IdleConnectionPrivate
 
 #define IDLE_CONNECTION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), IDLE_TYPE_CONNECTION, IdleConnectionPrivate))
 
+static GPtrArray *_create_channel_factories(IdleConnection *obj);
+
 static void
 idle_connection_init (IdleConnection *obj)
 {
@@ -307,7 +310,7 @@ idle_connection_init (IdleConnection *obj)
   priv->ctcp_version_string = g_strdup_printf("telepathy-idle %s Telepathy IM/VoIP framework http://telepathy.freedesktop.org", TELEPATHY_IDLE_VERSION);
   
   priv->chan_req_ctxs = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_free);
-  priv->im_channels = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_object_unref);
+	priv->factories = _create_channel_factories(obj);
   priv->muc_channels = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_object_unref);
 
   for (i = 0; i < LAST_TP_HANDLE_TYPE; i++)
@@ -619,15 +622,14 @@ idle_connection_dispose (GObject *object)
 
   g_debug("%s called", G_STRFUNC);
 
-  if (priv->im_channels)
-  {
-  	  g_assert(g_hash_table_size(priv->im_channels) == 0);
-  	  g_hash_table_destroy(priv->im_channels);
-  }
-  
+	if (priv->factories) {
+		g_ptr_array_foreach(priv->factories, (GFunc) g_object_unref, NULL);
+		g_ptr_array_free(priv->factories, TRUE);
+	}
+
   if (priv->muc_channels)
   {
-  	  g_assert(g_hash_table_size(priv->muc_channels) == 0);
+		g_assert(g_hash_table_size(priv->muc_channels) == 0);
 	  g_hash_table_destroy(priv->muc_channels);
   }
 
@@ -728,6 +730,16 @@ idle_connection_finalize (GObject *object)
   G_OBJECT_CLASS (idle_connection_parent_class)->finalize (object);
 }
 
+static GPtrArray *_create_channel_factories(IdleConnection *obj) {
+	GPtrArray *factories = g_ptr_array_sized_new(1);
+	GObject *factory;
+
+	factory = g_object_new(IDLE_TYPE_IM_FACTORY, "connection", obj, NULL);
+	g_ptr_array_add(factories, factory);
+
+	return factories;
+}
+
 gboolean _idle_connection_register(IdleConnection *conn, gchar **bus_name, gchar **object_path, GError **error)
 {
 	DBusGConnection *bus;
@@ -824,7 +836,6 @@ static IdleParserHandlerResult _nickname_in_use_handler(IdleParser *parser, Idle
 static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 
 static void irc_handshakes(IdleConnection *conn);
-static IdleIMChannel *new_im_channel(IdleConnection *conn, TpHandle handle, gboolean suppress_handler);
 static IdleMUCChannel *new_muc_channel(IdleConnection *conn, TpHandle handle, gboolean suppress_handler);
 static void connection_connect_cb(IdleConnection *conn, gboolean success);
 static void connection_disconnect(IdleConnection *conn, TpConnectionStatusReason reason);
@@ -966,7 +977,6 @@ static void priv_rename(IdleConnection *conn, guint old, guint new)
 {
 	IdleConnectionPrivate *priv;
 	MUCChannelRenameData data = {old, new};
-	gpointer chan;
 	IdleContactPresence *cp;
 
 	g_assert(conn != NULL);
@@ -997,17 +1007,6 @@ static void priv_rename(IdleConnection *conn, guint old, guint new)
 		tp_handle_ref(conn->handles[TP_HANDLE_TYPE_CONTACT], new);
 	}
 
-	chan = g_hash_table_lookup(priv->im_channels, GINT_TO_POINTER(old));
-
-	if (chan != NULL)
-	{
-		g_hash_table_steal(priv->im_channels, GINT_TO_POINTER(old));
-
-		g_hash_table_insert(priv->im_channels, GINT_TO_POINTER(new), chan);
-
-		_idle_im_channel_rename((IdleIMChannel *)(chan), new);
-	}
-
 	g_hash_table_foreach(priv->muc_channels, muc_channel_rename_foreach, &data);
 
 	tp_svc_connection_interface_renaming_emit_renamed((TpSvcConnectionInterfaceRenaming *)(conn), old, new);
@@ -1016,6 +1015,7 @@ static void priv_rename(IdleConnection *conn, guint old, guint new)
 gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
 {
 	IdleConnectionPrivate *priv;
+	int i;
 
 	g_assert(conn != NULL);
 	g_assert(error != NULL);
@@ -1091,6 +1091,9 @@ gboolean _idle_connection_connect(IdleConnection *conn, GError **error)
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_ERRONEOUSNICKNAME, _erroneous_nickname_handler, conn);
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_NICKNAMEINUSE, _nickname_in_use_handler, conn);
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WELCOME, _welcome_handler, conn);
+
+		for (i = 0; i < priv->factories->len; i++)
+			tp_channel_factory_iface_connecting(g_ptr_array_index(priv->factories, i));
 
 		irc_handshakes(conn);
 	}
@@ -1451,7 +1454,7 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 
 		ucs4char = g_utf8_get_char_validated(recipient, -1);
 			
-		if (g_unichar_isalpha(ucs4char))
+/*		if (g_unichar_isalpha(ucs4char))
 		{
 			IdleIMChannel *chan;
 			
@@ -1476,7 +1479,7 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 
 			_idle_im_channel_receive(chan, msgtype, handle, body);
 		}
-		else if ((recipient[0] == '#') || (recipient[0] == '&') || (recipient[0] == '!') || (recipient[0] == '+'))
+		else */if ((recipient[0] == '#') || (recipient[0] == '&') || (recipient[0] == '!') || (recipient[0] == '+'))
 		{
 			IdleMUCChannel *chan;
 			TpHandle sender_handle;
@@ -1762,7 +1765,6 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 	else if (g_strncasecmp(cmd, "QUIT", 4) == 0)
 	{
 		TpHandle handle;
-		IdleIMChannel *chan;
 
 		handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], from);
 
@@ -1772,15 +1774,6 @@ static gchar *prefix_cmd_parse(IdleConnection *conn, const gchar *msg)
 			goto cleanupl;
 		}
 		
-		chan = g_hash_table_lookup(priv->im_channels, GINT_TO_POINTER(handle));
-
-		if (chan != NULL)
-		{
-			g_debug("%s: contact QUIT, closing IMChannel...", G_STRFUNC);
-			
-			g_hash_table_remove(priv->im_channels, GINT_TO_POINTER(handle));
-		}
-
 		g_hash_table_foreach(priv->muc_channels, muc_channel_handle_quit_foreach, GINT_TO_POINTER(handle));
 	}
 	else if (g_strncasecmp(cmd, "TOPIC", 5) == 0)
@@ -2569,7 +2562,6 @@ static void connection_status_change(IdleConnection *conn, TpConnectionStatus st
 	}
 }
 
-static void im_channel_closed_cb(IdleIMChannel *chan, gpointer user_data);
 static void muc_channel_closed_cb(IdleMUCChannel *chan, gpointer user_data);
 
 static void close_all_channels(IdleConnection *conn)
@@ -2581,13 +2573,6 @@ static void close_all_channels(IdleConnection *conn)
 
 	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 
-	if (priv->im_channels)
-	{
-		GHashTable *tmp = priv->im_channels;
-		priv->im_channels = NULL;
-		g_hash_table_destroy(tmp);
-	}
-	
 	if (priv->muc_channels)
 	{
 		GHashTable *tmp = priv->muc_channels;
@@ -2639,6 +2624,7 @@ static void connection_disconnect(IdleConnection *conn, TpConnectionStatusReason
 static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusReason reason)
 {
 	IdleConnectionPrivate *priv;
+	int i;
 
 	g_assert(conn != NULL);
 	g_assert(IDLE_IS_CONNECTION(conn));
@@ -2662,7 +2648,10 @@ static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusRea
 		g_source_remove(priv->msg_queue_timeout);
 		priv->msg_queue_timeout = 0;
 	}
-	
+
+	for (i = 0; i < priv->factories->len; i++)
+		tp_channel_factory_iface_connecting(g_ptr_array_index(priv->factories, i));
+
 	if (!priv->disconnected)
 	{
 		priv->disconnected = TRUE;
@@ -2700,7 +2689,7 @@ const IdleContactPresence *get_contact_presence(IdleConnection *conn, TpHandle h
 		const static IdleContactPresence available_presence = {IDLE_PRESENCE_AVAILABLE, NULL, 0};
 		const static IdleContactPresence offline_presence = {IDLE_PRESENCE_OFFLINE, NULL, 0};
 		
-		if (g_hash_table_lookup(priv->im_channels, GUINT_TO_POINTER(handle)) != NULL)
+		if (FALSE)
 		{
 			ret = &available_presence;
 		}
@@ -2841,38 +2830,6 @@ static gboolean signal_own_presence (IdleConnection *self, GError **error)
 	return TRUE;
 }
 
-static IdleIMChannel *new_im_channel(IdleConnection *conn, TpHandle handle, gboolean suppress_handler)
-{
-	IdleConnectionPrivate *priv;
-	IdleIMChannel *chan;
-	gchar *object_path;
-
-	g_assert(conn != NULL);
-	g_assert(IDLE_IS_CONNECTION(conn));
-
-	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-
-	object_path = g_strdup_printf("%s/ImChannel%u", conn->object_path, handle);
-
-	chan = g_object_new(IDLE_TYPE_IM_CHANNEL, "connection", conn,
-												"object-path", object_path,
-												"handle", handle,
-												NULL);
-
-	g_debug("%s: object path %s", G_STRFUNC, object_path);
-
-	g_signal_connect(chan, "closed", (GCallback)(im_channel_closed_cb), conn);
-
-	g_hash_table_insert(priv->im_channels, GINT_TO_POINTER(handle), chan);
-	
-	g_signal_emit(conn, signals[NEW_CHANNEL], 0, object_path, TP_IFACE_CHANNEL_TYPE_TEXT,
-					TP_HANDLE_TYPE_CONTACT, handle, suppress_handler);
-
-	g_free(object_path);
-
-	return chan;
-}
-
 static IdleMUCChannel *new_muc_channel(IdleConnection *conn, TpHandle handle, gboolean suppress_handler)
 {
 	IdleConnectionPrivate *priv;
@@ -3005,27 +2962,6 @@ static IdleMUCChannel *new_muc_channel_async_req(IdleConnection *conn, TpHandle 
 	g_free(object_path);
 
 	return chan;
-}
-
-static void im_channel_closed_cb(IdleIMChannel *chan, gpointer user_data)
-{
-	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	IdleConnectionPrivate *priv;
-	TpHandle contact_handle;
-
-	g_assert(conn != NULL);
-	g_assert(IDLE_IS_CONNECTION(conn));
-	
-	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-
-	if (priv->im_channels)
-	{
-		g_object_get(chan, "handle", &contact_handle, NULL);
-
-		g_debug("%s: removing channel with handle %u", G_STRFUNC, contact_handle);
-		g_hash_table_remove(priv->im_channels, GINT_TO_POINTER(contact_handle));
-		g_debug("%s: removed channel with handle %u", G_STRFUNC, contact_handle);
-	}
 }
 
 static void muc_channel_closed_cb(IdleMUCChannel *chan, gpointer user_data)
@@ -3557,6 +3493,10 @@ list_channel_hash_foreach (gpointer key,
   g_ptr_array_add (channels, vals);
 }
 
+static void list_channel_foreach_nokey(TpChannelIface *self, gpointer user_data) {
+	list_channel_hash_foreach(NULL, self, user_data);
+}
+
 /**
  * idle_connection_list_channels
  *
@@ -3574,6 +3514,7 @@ gboolean idle_connection_list_channels (IdleConnection *obj, GPtrArray ** ret, G
 	IdleConnectionPrivate *priv;
 	guint count;
 	GPtrArray *channels;
+	int i;
 
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_CONNECTION(obj));
@@ -3582,11 +3523,13 @@ gboolean idle_connection_list_channels (IdleConnection *obj, GPtrArray ** ret, G
 
 	ERROR_IF_NOT_CONNECTED(obj, priv, *error);
 
-	count = g_hash_table_size(priv->im_channels);
-	count += g_hash_table_size(priv->muc_channels);
+	count = g_hash_table_size(priv->muc_channels);
 	channels = g_ptr_array_sized_new(count);
 
-	g_hash_table_foreach(priv->im_channels, list_channel_hash_foreach, channels);
+	for (i = 0; i < priv->factories->len; i++) {
+		tp_channel_factory_iface_foreach(g_ptr_array_index(priv->factories, i), list_channel_foreach_nokey, channels);
+	}
+
 	g_hash_table_foreach(priv->muc_channels, list_channel_hash_foreach, channels);
 
 	*ret = channels;
@@ -3729,47 +3672,41 @@ gboolean idle_connection_request_channel (IdleConnection *obj, const gchar * typ
 
 	if (!strcmp(type, TP_IFACE_CHANNEL_TYPE_TEXT))
 	{
-		gpointer chan;
+		TpChannelIface *chan;
 
-		switch (handle_type)
-		{
-			case TP_HANDLE_TYPE_CONTACT:
-			{
-				chan = g_hash_table_lookup(priv->im_channels, GINT_TO_POINTER(handle));
-			}
-			break;
-			case TP_HANDLE_TYPE_ROOM:
-			{
-				chan = g_hash_table_lookup(priv->muc_channels, GINT_TO_POINTER(handle));
-			}
-			break;
-			default:
-			{
-				goto NOT_AVAILABLE;
-			}
-			break;
-		}
-
-		if (chan == NULL)
-		{
+		if (handle_type == TP_HANDLE_TYPE_CONTACT) {
+			tp_channel_factory_iface_request(g_ptr_array_index(priv->factories, 0), type, handle_type, handle, NULL, &chan, NULL);
+		} else {
 			switch (handle_type)
 			{
-				case TP_HANDLE_TYPE_CONTACT:
-				{
-					chan = new_im_channel(obj, handle, suppress_handler);
-				}
-				break;
 				case TP_HANDLE_TYPE_ROOM:
-				{
-					queued = TRUE;
-					chan = new_muc_channel_async_req(obj, handle, suppress_handler, ctx);
-				}
-				break;
+					{
+						chan = g_hash_table_lookup(priv->muc_channels, GINT_TO_POINTER(handle));
+					}
+					break;
 				default:
+					{
+						goto NOT_AVAILABLE;
+					}
+					break;
+			}
+
+			if (chan == NULL)
+			{
+				switch (handle_type)
 				{
-					goto NOT_AVAILABLE;
+					case TP_HANDLE_TYPE_ROOM:
+						{
+							queued = TRUE;
+							chan = (TpChannelIface *) new_muc_channel_async_req(obj, handle, suppress_handler, ctx);
+						}
+						break;
+					default:
+						{
+							goto NOT_AVAILABLE;
+						}
+						break;
 				}
-				break;
 			}
 		}
 

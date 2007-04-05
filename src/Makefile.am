@@ -27,6 +27,7 @@ CORE_SOURCES = \
 	idle-dns-resolver.h \
 	idle-ssl-server-connection.h \
 	idle-parser.h \
+	idle-im-factory.h \
 	idle-connection-manager.c \
 	idle-connection.c \
 	idle-im-channel.c \
@@ -37,6 +38,7 @@ CORE_SOURCES = \
 	idle-dns-resolver.c \
 	idle-ssl-server-connection.c \
 	idle-parser.c \
+	idle-im-factory.c \
 	idle-version.h \
 	text.h \
 	text.c \
