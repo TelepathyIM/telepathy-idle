@@ -165,9 +165,10 @@ static void _iface_disconnected(TpBaseConnection *self);
 static void _iface_shut_down(TpBaseConnection *self);
 static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error);
 
-static IdleParserHandlerResult _ping_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _erroneous_nickname_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
+static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _nickname_in_use_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
+static IdleParserHandlerResult _ping_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 
 static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServerConnectionState state, IdleServerConnectionStateReason reason, IdleConnection *conn);
@@ -461,9 +462,10 @@ static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error) 
 
 		g_signal_connect(sconn, "received", (GCallback)(sconn_received_cb), conn);
 
-		idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_ERRONEOUSNICKNAME, _erroneous_nickname_handler, conn);
+		idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_NICK, _nick_handler, conn);
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_NICKNAMEINUSE, _nickname_in_use_handler, conn);
+		idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WELCOME, _welcome_handler, conn);
 
 		irc_handshakes(conn);
@@ -653,16 +655,6 @@ static void send_irc_cmd(IdleConnection *conn, const gchar *msg) {
 	return send_irc_cmd_full(conn, msg, SERVER_CMD_NORMAL_PRIORITY);	
 }
 
-static IdleParserHandlerResult _ping_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
-	IdleConnection *conn = IDLE_CONNECTION(user_data);
-
-	gchar *reply = g_strdup_printf("PONG %s", g_value_get_string(g_value_array_get_nth(args, 0)));
-	send_irc_cmd_full (conn, reply, SERVER_CMD_MAX_PRIORITY);
-	g_free(reply);
-
-	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
-}
-
 static IdleParserHandlerResult _erroneous_nickname_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 
@@ -672,11 +664,39 @@ static IdleParserHandlerResult _erroneous_nickname_handler(IdleParser *parser, I
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
 
+static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
+	TpHandle old = g_value_get_uint(g_value_array_get_nth(args, 0));
+	TpHandle new = g_value_get_uint(g_value_array_get_nth(args, 1));
+
+	if (old == conn->parent.self_handle) {
+		TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT);
+
+		tp_handle_unref(handles, conn->parent.self_handle);
+		conn->parent.self_handle = new;
+		tp_handle_ref(handles, new);
+
+		tp_svc_connection_interface_renaming_emit_renamed((TpSvcConnectionInterfaceRenaming *) conn, old, new);
+	}
+
+	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+}
+
 static IdleParserHandlerResult _nickname_in_use_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 
 	if (conn->parent.status == TP_CONNECTION_STATUS_CONNECTING)
 		connection_connect_cb(conn, FALSE, TP_CONNECTION_STATUS_REASON_NAME_IN_USE);
+
+	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
+}
+
+static IdleParserHandlerResult _ping_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
+
+	gchar *reply = g_strdup_printf("PONG %s", g_value_get_string(g_value_array_get_nth(args, 0)));
+	send_irc_cmd_full (conn, reply, SERVER_CMD_MAX_PRIORITY);
+	g_free(reply);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
@@ -856,28 +876,6 @@ static void muc_channel_rename_foreach(gpointer key, gpointer value, gpointer da
 	MUCChannelRenameData *rename_data = (MUCChannelRenameData *)(data);
 
 	_idle_muc_channel_rename(chan, rename_data->old, rename_data->new);
-}
-#endif
-
-#if 0
-static void priv_rename(IdleConnection *conn, guint old, guint new) {
-	TpBaseConnection *base = TP_BASE_CONNECTION(conn);
-	TpHandleRepoIface *handles = tp_base_connection_get_handles(base, TP_HANDLE_TYPE_CONTACT);
-
-	if (old == new) {
-		g_debug("%s: tried to rename with old == new? (%u, %u)", G_STRFUNC, old, new);
-		return;
-	}
-
-	if (old == base->self_handle) {
-		g_debug("%s: renaming self_handle (%u -> %u)", G_STRFUNC, old, new);
-
-		tp_handle_unref(handles, old);
-		base->self_handle = new;
-		tp_handle_ref(handles, new);
-	}
-
-	tp_svc_connection_interface_renaming_emit_renamed((TpSvcConnectionInterfaceRenaming *)(conn), old, new);
 }
 #endif
 
