@@ -1,8 +1,8 @@
 /*
  * This file is part of telepathy-idle
  * 
- * Copyright(C) 2006 Nokia Corporation. All rights reserved.
- *
+ * Copyright (C) 2006-2007 Collabora Limited
+ * Copyright (C) 2006-2007 Nokia Corporation
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License 
