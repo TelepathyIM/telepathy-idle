@@ -35,11 +35,6 @@ void idle_handle_repos_init(TpHandleRepoIface **handles);
 gboolean idle_nickname_is_valid(const gchar *nickname);
 gboolean idle_channelname_is_valid(const gchar *channelname);
 
-const char *idle_handle_inspect(TpHandleRepoIface *storage, TpHandle handle);
-
-TpHandle idle_handle_for_contact(TpHandleRepoIface *storage, const char *nickname);
-TpHandle idle_handle_for_room(TpHandleRepoIface *storage, const char *channel);
-
 G_END_DECLS
 
 #endif /* __IDLE_HANDLES_H__ */

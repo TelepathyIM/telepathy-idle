@@ -154,19 +154,6 @@ gboolean idle_channelname_is_valid(const gchar *channel)
 	return TRUE;
 }
 
-static GQuark
-idle_handle_real_quark()
-{
-  static GQuark quark = 0;
-
-  if (!quark)
-  {
-    quark = g_quark_from_static_string("idle_handle_real");
-  }
-  
-  return quark;
-}
-
 static gchar *
 _nick_normalize_func(TpHandleRepoIface *storage, const gchar *id, gpointer ctx, GError **error)
 {
@@ -208,52 +195,5 @@ idle_handle_repos_init(TpHandleRepoIface **handles)
 
 	handles[TP_HANDLE_TYPE_CONTACT] = (TpHandleRepoIface *)(g_object_new(TP_TYPE_DYNAMIC_HANDLE_REPO, "handle-type", TP_HANDLE_TYPE_CONTACT, "normalize-function", _nick_normalize_func, "default-normalize-context", NULL, NULL));
 	handles[TP_HANDLE_TYPE_ROOM] = (TpHandleRepoIface *)(g_object_new(TP_TYPE_DYNAMIC_HANDLE_REPO, "handle-type", TP_HANDLE_TYPE_ROOM, "normalize-function", _channel_normalize_func, "default-normalize-context", NULL, NULL));
-}
-
-const gchar *
-idle_handle_inspect(TpHandleRepoIface *storage, TpHandle handle)
-{
-  g_assert(storage != NULL);
-  g_assert(tp_handle_is_valid(storage, handle, NULL));
-
-  return tp_handle_get_qdata(storage, handle, idle_handle_real_quark());
-}
-
-TpHandle idle_handle_for_contact(TpHandleRepoIface *storage, const char *nickname)
-{
-	TpHandle handle;
-
-	g_assert(storage != NULL);
-
-  handle = tp_handle_lookup(storage, nickname, NULL, NULL);
-
-  if (!handle) {
-		handle = tp_handle_ensure(storage, nickname, NULL, NULL);
-		if (handle)
-			tp_handle_set_qdata(storage, handle, idle_handle_real_quark(), g_strdup(nickname), (GDestroyNotify)(g_free));
-  } else {
-		tp_handle_ref(storage, handle);
-	}
-
-	return handle;
-}
-
-TpHandle idle_handle_for_room(TpHandleRepoIface *storage, const char *channel)
-{
-	TpHandle handle;
-
-	g_assert(storage != NULL);
-
-  handle = tp_handle_lookup(storage, channel, NULL, NULL);
-
-  if (!handle) {
-    handle = tp_handle_ensure(storage, channel, NULL, NULL);
-		if (handle)
-			tp_handle_set_qdata(storage, handle, idle_handle_real_quark(), g_strdup(channel), (GDestroyNotify)(g_free));
-  } else {
-		tp_handle_ref(storage, handle);
-	}
-
-	return handle;
 }
 

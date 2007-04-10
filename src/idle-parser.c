@@ -314,8 +314,8 @@ static void _parse_message(IdleParser *parser, const gchar *split_msg) {
 				_parse_and_forward_one(parser, tokens, spec->code, spec->format, contact_handles, room_handles);
 		}
 
-		tp_intset_foreach(contact_handles, _unref_one, priv->conn->handles[TP_HANDLE_TYPE_CONTACT]);
-		tp_intset_foreach(room_handles, _unref_one, priv->conn->handles[TP_HANDLE_TYPE_ROOM]);
+		tp_intset_foreach(contact_handles, _unref_one, tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_CONTACT));
+		tp_intset_foreach(room_handles, _unref_one, tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_ROOM));
 
 		tp_intset_destroy(contact_handles);
 		tp_intset_destroy(room_handles);
@@ -408,9 +408,10 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 
 static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, const gchar *token, TpIntSet *contact_handles, TpIntSet *room_handles) {
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
-	TpHandleRepoIface **handles = priv->conn->handles;
 	TpHandle handle;
 	GValue val = {0};
+	TpHandleRepoIface *contact_repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_CONTACT);
+	TpHandleRepoIface *room_repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_ROOM);
 
 	if (token[0] == ':')
 		token++;
@@ -427,10 +428,12 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 			gchar *id, *bang = NULL;
 			gchar modechar = '\0';
 
+#if 0
 			if ((atom == 'C') && idle_muc_channel_is_modechar(token[0])) {
 				modechar = token[0];
 				token++;
 			}
+#endif
 
 			id = g_strdup(token);
 			bang = strchr(id, '!');
@@ -439,10 +442,10 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 				*bang = '\0';
 
 			if (atom == 'r') {
-				if ((handle = idle_handle_for_room(handles[TP_HANDLE_TYPE_ROOM], id)))
+				if ((handle = tp_handle_ensure(room_repo, id, NULL, NULL)))
 					tp_intset_add(room_handles, handle);
 			} else {
-				if ((handle = idle_handle_for_contact(handles[TP_HANDLE_TYPE_CONTACT], id)))
+				if ((handle = tp_handle_ensure(contact_repo, id, NULL, NULL)))
 					tp_intset_add(contact_handles, handle);
 			}
 

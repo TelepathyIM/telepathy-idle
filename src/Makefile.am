@@ -2,11 +2,8 @@ BUILT_SOURCES = \
 		idle-connection-manager-glue.h \
 		idle-connection-manager-signals-marshal.h \
 		idle-connection-manager-signals-marshal.c \
-		idle-connection-glue.h \
 		idle-connection-signals-marshal.h \
 		idle-connection-signals-marshal.c \
-		idle-muc-channel-signals-marshal.h \
-		idle-muc-channel-signals-marshal.c \
 		idle-server-connection-iface-signals-marshal.h \
 		idle-server-connection-iface-signals-marshal.c \
 		config.h
@@ -20,7 +17,6 @@ CORE_SOURCES = \
 	idle-connection-manager.h \
 	idle-connection.h \
 	idle-im-channel.h \
-	idle-muc-channel.h \
 	idle-handles.h \
 	idle-server-connection-iface.h \
 	idle-server-connection.h \
@@ -31,7 +27,6 @@ CORE_SOURCES = \
 	idle-connection-manager.c \
 	idle-connection.c \
 	idle-im-channel.c \
-	idle-muc-channel.c \
 	idle-handles.c \
 	idle-server-connection-iface.c \
 	idle-server-connection.c \

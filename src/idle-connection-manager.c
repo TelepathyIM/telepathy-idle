@@ -432,13 +432,13 @@ gboolean idle_connection_manager_request_connection (IdleConnectionManager *obj,
 
 	free_params(&params);
 
-	if (!_idle_connection_register(conn, bus_name, object_path, error))
+	if (!tp_base_connection_register(TP_BASE_CONNECTION(conn), "idle", bus_name, object_path, error))
 	{
 		g_debug("%s failed: %s", G_STRFUNC, (*error)->message);
 		goto lerror;
 	}
 
-	g_signal_connect(conn, "disconnected", G_CALLBACK(connection_disconnected_cb), self);
+	g_signal_connect(conn, "shutdown-finished", G_CALLBACK(connection_disconnected_cb), self);
 	g_hash_table_insert(priv->connections, conn, GINT_TO_POINTER(TRUE));
 
 	g_signal_emit(obj, signals[NEW_CONNECTION], 0, *bus_name, *object_path, proto);

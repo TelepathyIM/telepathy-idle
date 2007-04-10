@@ -185,7 +185,7 @@ static TpChannelFactoryRequestStatus _iface_request(TpChannelFactoryIface *iface
   if (handle_type != TP_HANDLE_TYPE_CONTACT)
     return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_AVAILABLE;
 
-  if (!tp_handle_is_valid(priv->conn->handles[TP_HANDLE_TYPE_CONTACT], handle, error))
+  if (!tp_handle_is_valid(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_CONTACT), handle, error))
     return TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
 
 	if ((*new_chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(handle)))) {
@@ -201,7 +201,7 @@ static IdleIMChannel *_create_channel(IdleIMFactory *factory, TpHandle handle, g
 	IdleIMChannel *chan;
 	gchar *object_path;
 
-	object_path = g_strdup_printf("%s/ImChannel%u", priv->conn->object_path, handle);
+	object_path = g_strdup_printf("%s/ImChannel%u", priv->conn->parent.object_path, handle);
 	chan = g_object_new(IDLE_TYPE_IM_CHANNEL, "connection", priv->conn, "object-path", object_path, "handle", handle, NULL);
 
 	g_signal_connect(chan, "closed", (GCallback) _channel_closed_cb, factory);

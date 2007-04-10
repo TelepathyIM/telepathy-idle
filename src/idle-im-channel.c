@@ -89,9 +89,9 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 	obj = G_OBJECT_CLASS(idle_im_channel_parent_class)->constructor(type, n_props, props);
 	priv = IDLE_IM_CHANNEL_GET_PRIVATE(IDLE_IM_CHANNEL(obj));
 
-	handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
+	handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
 	tp_handle_ref(handles, priv->handle);
-	g_assert(tp_handle_is_valid(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], priv->handle, NULL));
+	g_assert(tp_handle_is_valid(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), priv->handle, NULL));
 
 	bus = tp_get_bus();
 	dbus_g_connection_register_g_object(bus, priv->object_path, obj);
@@ -258,7 +258,7 @@ idle_im_channel_finalize (GObject *object)
   IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE (self);
   TpHandleRepoIface *handles;
 
-  handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
+  handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
   tp_handle_unref(handles, priv->handle);
 
   if (priv->object_path)
@@ -292,7 +292,7 @@ void _idle_im_channel_rename(IdleIMChannel *chan, TpHandle new)
 	g_assert(new != 0);
 
 	priv = IDLE_IM_CHANNEL_GET_PRIVATE(chan);
-	handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
+	handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
 
 	tp_handle_unref(handles, priv->handle);
 	priv->handle = new;
@@ -412,7 +412,7 @@ static void idle_im_channel_send (TpSvcChannelTypeText *iface, guint type, const
 {
 	IdleIMChannel *obj = (IdleIMChannel *)(iface);
 	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE(obj);
-	const gchar *recipient = idle_handle_inspect(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], priv->handle);
+	const gchar *recipient = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), priv->handle);
 	GError *error;
 
 	if ((recipient == NULL) || (recipient[0] == '\0'))
