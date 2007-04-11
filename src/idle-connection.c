@@ -59,6 +59,7 @@
 #include "idle-ssl-server-connection.h"
 #include "idle-server-connection-iface.h"
 #include "idle-im-factory.h"
+#include "idle-muc-factory.h"
 
 #include "idle-connection.h"
 
@@ -364,6 +365,9 @@ static GPtrArray *_iface_create_channel_factories(TpBaseConnection *self) {
 	GObject *factory;
 
 	factory = g_object_new(IDLE_TYPE_IM_FACTORY, "connection", self, NULL);
+	g_ptr_array_add(factories, factory);
+
+	factory = g_object_new(IDLE_TYPE_MUC_FACTORY, "connection", self, NULL);
 	g_ptr_array_add(factories, factory);
 
 	return factories;

@@ -74,10 +74,10 @@ void _idle_muc_channel_join_attempt(IdleMUCChannel *chan);
 gboolean _idle_muc_channel_receive(IdleMUCChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *msg);
 void _idle_muc_channel_rename(IdleMUCChannel *chan, guint old, guint _new);
 
-void _idle_muc_channel_join(IdleMUCChannel *chan, const gchar *nick);
-void _idle_muc_channel_part(IdleMUCChannel *chan, const gchar *nick);
-void _idle_muc_channel_kick(IdleMUCChannel *chan, const gchar *nick, const gchar *kicker, TpChannelGroupChangeReason reason);
-void _idle_muc_channel_handle_quit(IdleMUCChannel *chan, TpHandle handle, gboolean suppress, TpHandle actor, TpChannelGroupChangeReason reason);
+void _idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner);
+void _idle_muc_channel_part(IdleMUCChannel *chan, TpHandle leaver, const gchar *message);
+void _idle_muc_channel_kick(IdleMUCChannel *chan, TpHandle kicked, TpHandle kicker, const gchar *message);
+void _idle_muc_channel_quit(IdleMUCChannel *chan, TpHandle handle, const gchar *message);
 void _idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter);
 
 void _idle_muc_channel_names(IdleMUCChannel *chan, GArray *nicks);

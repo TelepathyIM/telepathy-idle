@@ -1013,126 +1013,63 @@ static void send_mode_query_request(IdleMUCChannel *chan)
 	_idle_connection_send(priv->connection, cmd);
 }
 
-void _idle_muc_channel_join(IdleMUCChannel *chan, const gchar *nick)
+void _idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner)
 {
-	IdleMUCChannelPrivate *priv;
-	TpHandle handle;
+	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 	TpIntSet *set;
 
-	g_assert(chan != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(chan));
-	g_assert(nick != NULL);
-
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
-
 	set = tp_intset_new();
+	tp_intset_add(set, joiner);
 
-	handle = tp_handle_ensure(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), nick, NULL, NULL);
-
-	if (handle == 0)
-	{
-		g_debug("%s: invalid nick (%s)", G_STRFUNC, nick);
-		
-		return;
-	}
-
-	if (handle == priv->own_handle)
-	{
+	if (joiner == priv->own_handle) {
 		/* woot we managed to get into a channel, great */
 		change_state(chan, MUC_STATE_JOINED);
-		tp_intset_add(set, handle);
-		tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "We joined the group", set, NULL, NULL, NULL, handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+		tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "We joined the group", set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 		tp_group_mixin_change_flags((TpSvcChannelInterfaceGroup *)(chan), TP_CHANNEL_GROUP_FLAG_CAN_ADD, 0);
 
 		send_mode_query_request(chan);
 
 		if (priv->channel_name[0] == '+')
-		{
 			/* according to IRC specs, PLUS channels do not support channel modes and alway have only +t set, so we work with that. */
 			change_mode_state(chan, MODE_FLAG_TOPIC_ONLY_SETTABLE_BY_OPS, 0);
-		}
-	}
-	else
-	{
-		tp_intset_add(set, handle);
-
-		tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "New member joined the group", set, NULL, NULL, NULL, handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+	}	else {
+		tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "New member joined the group", set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 	}
 
-	g_debug("%s: member joined with handle %u and nick %s", G_STRFUNC, handle, nick);
+	g_debug("%s: member joined with handle %u", G_STRFUNC, joiner);
 
 	tp_intset_destroy(set);
 }
 
-void _idle_muc_channel_part(IdleMUCChannel *chan, const gchar *nick)
-{
-	return _idle_muc_channel_kick(chan, nick, nick, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
-}
-
-void _idle_muc_channel_kick(IdleMUCChannel *chan, const gchar *nick, const gchar *kicker, TpChannelGroupChangeReason reason)
-{
+static void _network_member_left(IdleMUCChannel *chan, TpHandle leaver, TpHandle actor, const gchar *message, TpChannelGroupChangeReason reason) {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
-	TpHandle handle;
-	TpHandle kicker_handle;
-	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
+	TpIntSet *set = tp_intset_new();
 
-	handle = tp_handle_ensure(handles, nick, NULL, NULL);
+	tp_intset_add(set, leaver);
+	tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *) chan, message, NULL, set, NULL, NULL, actor, reason);
 
-	if (handle == 0)
-	{
-		g_debug("%s: failed to get handle for (%s)", G_STRFUNC, nick);
-
-		return;
-	}
-
-	kicker_handle = tp_handle_ensure(handles, kicker, NULL, NULL);
-
-	if (kicker_handle == 0)
-	{
-		g_debug("%s: failed to get handle for (%s)", G_STRFUNC, kicker);
-	}
-	
-	return _idle_muc_channel_handle_quit(chan,
-										 handle,
-										 FALSE,
-										 kicker_handle,
-										 reason);
-}
-
-void _idle_muc_channel_handle_quit(IdleMUCChannel *chan,
-								   TpHandle handle,
-								   gboolean suppress,
-								   TpHandle actor,
-								   TpChannelGroupChangeReason reason)
-{
-	IdleMUCChannelPrivate *priv;
-	TpIntSet *set;
-
-	g_assert(chan != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(chan));
-
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
-
-	set = tp_intset_new();
-
-	tp_intset_add(set, handle);
-
-	tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "A member left the group", NULL, set, NULL, NULL, handle, reason);
-	
-	if (handle == priv->own_handle)
-	{
-		g_debug("%s: it was us!", G_STRFUNC);
-		
+	if (leaver == priv->own_handle) {
 		change_state(chan, MUC_STATE_PARTED);
 
-		if (!suppress)
-		{
+		if (!priv->closed) {
 			priv->closed = TRUE;
-			tp_svc_channel_emit_closed((TpSvcChannel*)(chan));
+			tp_svc_channel_emit_closed((TpSvcChannel *) chan);
 		}
 	}
 
 	tp_intset_destroy(set);
+}
+
+void _idle_muc_channel_part(IdleMUCChannel *chan, TpHandle leaver, const gchar *message) {
+	return _network_member_left(chan, leaver, leaver, message, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+}
+
+void _idle_muc_channel_kick(IdleMUCChannel *chan, TpHandle kicked, TpHandle kicker, const gchar *message) {
+	return _network_member_left(chan, kicked, kicker, message, TP_CHANNEL_GROUP_CHANGE_REASON_KICKED);
+}
+
+void _idle_muc_channel_quit(IdleMUCChannel *chan, TpHandle quitter, const gchar *message) {
+	return _network_member_left(chan, quitter, quitter, message, TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE);
 }
 
 void _idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter)

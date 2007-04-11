@@ -23,6 +23,8 @@ CORE_SOURCES = \
 	idle-im-factory.h \
 	idle-muc-channel.c \
 	idle-muc-channel.h \
+	idle-muc-factory.c \
+	idle-muc-factory.h \
 	idle-parser.c \
 	idle-parser.h \
 	idle-server-connection.c \
