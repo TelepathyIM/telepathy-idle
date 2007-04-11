@@ -23,17 +23,19 @@
 
 #include <glib-object.h>
 
+#include <telepathy-glib/base-connection-manager.h>
+
 G_BEGIN_DECLS
 
 typedef struct _IdleConnectionManager IdleConnectionManager;
 typedef struct _IdleConnectionManagerClass IdleConnectionManagerClass;
 
 struct _IdleConnectionManagerClass {
-    GObjectClass parent_class;
+    TpBaseConnectionManagerClass parent_class;
 };
 
 struct _IdleConnectionManager {
-    GObject parent;
+    TpBaseConnection parent;
 };
 
 GType idle_connection_manager_get_type(void);
@@ -51,13 +53,6 @@ GType idle_connection_manager_get_type(void);
   (G_TYPE_CHECK_CLASS_TYPE((klass), IDLE_TYPE_CONNECTION_MANAGER))
 #define IDLE_CONNECTION_MANAGER_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_CONNECTION_MANAGER, IdleConnectionManagerClass))
-
-void _idle_connection_manager_register (IdleConnectionManager *self);
-
-gboolean idle_connection_manager_request_connection (IdleConnectionManager *obj, const gchar * proto, GHashTable * parameters, gchar ** ret, gchar ** ret1, GError **error);
-gboolean idle_connection_manager_get_parameters (IdleConnectionManager *obj, const gchar * proto, GPtrArray **ret, GError **error);
-gboolean idle_connection_manager_list_protocols (IdleConnectionManager *obj, gchar *** ret, GError **error);
-
 
 G_END_DECLS
 

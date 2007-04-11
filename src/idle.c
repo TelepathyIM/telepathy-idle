@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
   g_signal_connect (manager, "no-more-connections",
                     (GCallback) no_more_connections, NULL);
 
-  _idle_connection_manager_register (manager);
+  tp_base_connection_manager_register(TP_BASE_CONNECTION_MANAGER(manager));
 
   g_debug ("started");
 

@@ -1,9 +1,4 @@
 BUILT_SOURCES = \
-		idle-connection-manager-glue.h \
-		idle-connection-manager-signals-marshal.h \
-		idle-connection-manager-signals-marshal.c \
-		idle-connection-signals-marshal.h \
-		idle-connection-signals-marshal.c \
 		idle-server-connection-iface-signals-marshal.h \
 		idle-server-connection-iface-signals-marshal.c \
 		config.h
