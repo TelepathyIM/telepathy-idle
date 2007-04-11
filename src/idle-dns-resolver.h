@@ -19,8 +19,10 @@
  */
 
 #include <glib.h>
+#define __USE_POSIX
 #include <sys/types.h>
 #include <netdb.h>
+#undef __USE_POSIX
 
 G_BEGIN_DECLS
 
