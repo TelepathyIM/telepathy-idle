@@ -30,6 +30,8 @@
 
 #define __USE_GNU
 #include <string.h>
+#undef __USE_GNU
+#include <stdio.h>
 
 #define IDLE_PARSER_GET_PRIVATE(parser) (G_TYPE_INSTANCE_GET_PRIVATE((parser), IDLE_TYPE_PARSER, IdleParserPrivate))
 
@@ -263,7 +265,7 @@ static gchar **_tokenize(const gchar *str) {
 				const gchar * vals[] = {g_strndup(last, iter - last), last};
 				g_array_append_vals(array, vals, 2);
 			}
-		} else {
+		} else if (*last != '\0') {
 			const gchar * vals[] = {g_strdup(last), last};
 			g_array_append_vals(array, vals, 2);
 		}
@@ -287,9 +289,6 @@ static void _free_tokens(gchar **tokens) {
 
 	g_free(tokens);
 }
-
-#undef __USE_GNU
-#include <stdio.h>
 
 static void _unref_one(guint i, gpointer user_data) {
 	TpHandleRepoIface *iface = (TpHandleRepoIface *) user_data;
@@ -415,6 +414,8 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 
 	if (token[0] == ':')
 		token++;
+
+	g_debug("%s: parsing atom \"%s\" as %c", G_STRFUNC, token, atom);
 
 	switch (atom) {
 		case 'I':
