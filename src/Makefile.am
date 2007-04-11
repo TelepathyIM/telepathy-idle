@@ -48,10 +48,6 @@ noinst_LTLIBRARIES = libidle-convenience.la
 AM_CFLAGS = $(ERROR_CFLAGS) @DBUS_CFLAGS@ @GLIB_CFLAGS@ @SOFIA_CFLAGS@ @OPENSSL_CFLAGS@ @TELEPATHY_CFLAGS@ -std=c99
 AM_LDFLAGS = @DBUS_LIBS@ @GLIB_LIBS@ @SOFIA_LIBS@ @OPENSSL_LIBS@ @TELEPATHY_LIBS@
 
-# rule to generate the binding headers
-%-glue.h: ../generate/xml-modified/%.xml Makefile
-	dbus-binding-tool --mode=glib-server --output=$@ --prefix=$(subst -,_,$*) $<
-
 %-signals-marshal.h: %-signals-marshal.list Makefile
 	glib-genmarshal --header --prefix=$(subst -,_,$*)_marshal $< > $*-signals-marshal.h
 
