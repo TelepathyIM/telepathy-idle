@@ -429,7 +429,7 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 			gchar *id, *bang = NULL;
 			gchar modechar = '\0';
 
-			if ((atom == 'C') && idle_muc_channel_is_modechar(token[0])) {
+			if (idle_muc_channel_is_modechar(token[0])) {
 				modechar = token[0];
 				token++;
 			}
@@ -460,7 +460,7 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 
 			g_debug("%s: set handle %u", G_STRFUNC, handle);
 
-			if (modechar != '\0') {
+			if (atom == 'C') {
 				g_value_init(&val, G_TYPE_CHAR);
 				g_value_set_char(&val, modechar);
 				g_value_array_append(arr, &val);
