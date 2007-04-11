@@ -348,7 +348,7 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 				iter += 2;
 			}
 		} else if ((*format == ':') || (*format == '.')) {
-			if (iter[0][0] != ':') {
+			if ((iter[0][0] != ':') || (iter[0][1] == '\0')) {
 				success = FALSE;
 				break;
 			}
@@ -370,7 +370,7 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 		iter += 2;
 	}
 
-	if (!success) {
+	if (!success && (*format != '.')) {
 		g_debug("%s: failed to parse \"%s\"", G_STRFUNC, tokens[1]);
 
 		g_value_array_free(args);
