@@ -36,7 +36,6 @@
 #include <time.h>
 
 #include "idle-muc-channel.h"
-#include "idle-muc-channel-signals-marshal.h"
 
 #include "idle-connection.h"
 #include "idle-handles.h"
@@ -260,22 +259,17 @@ static void idle_muc_channel_finalize (GObject *object);
 
 static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectConstructParam *props)
 {
-	GObject *obj;
-	IdleMUCChannelPrivate *priv;
+	GObject *obj = G_OBJECT_CLASS(idle_muc_channel_parent_class)->constructor(type, n_props, props);
+	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 	DBusGConnection *bus;
-  TpHandleRepoIface *room_handles, *contact_handles;
-
-	obj = G_OBJECT_CLASS(idle_muc_channel_parent_class)->constructor(type, n_props, props);
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(IDLE_MUC_CHANNEL(obj));
-
-	room_handles = priv->connection->handles[TP_HANDLE_TYPE_ROOM];
-	contact_handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
+	TpHandleRepoIface *room_handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_ROOM);
+	TpHandleRepoIface *contact_handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
 
 	tp_handle_ref(room_handles, priv->handle);
-	g_assert(tp_handle_is_valid(priv->connection->handles[TP_HANDLE_TYPE_ROOM], priv->handle, NULL));
-	priv->channel_name = idle_handle_inspect(room_handles, priv->handle);
+	g_assert(tp_handle_is_valid(room_handles, priv->handle, NULL));
+	priv->channel_name = tp_handle_inspect(room_handles, priv->handle);
 
-	idle_connection_get_self_handle(priv->connection, &(priv->own_handle), NULL);
+	priv->own_handle = priv->connection->parent.self_handle;
 	tp_handle_ref(contact_handles, priv->own_handle);
 	g_assert(tp_handle_is_valid(contact_handles, priv->own_handle, NULL));
 
@@ -418,14 +412,7 @@ idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class)
                                     G_PARAM_STATIC_BLURB);
   g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
 
-  signals[JOIN_READY] =
-	  g_signal_new("join-ready",
-			  		G_OBJECT_CLASS_TYPE(idle_muc_channel_class),
-					G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
-					0,
-					NULL, NULL,
-					idle_muc_channel_marshal_VOID__INT,
-					G_TYPE_NONE, 1, G_TYPE_UINT);
+  signals[JOIN_READY] = g_signal_new("join-ready", G_OBJECT_CLASS_TYPE(idle_muc_channel_class), G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 1, G_TYPE_UINT);
 
 	tp_group_mixin_class_init((TpSvcChannelInterfaceGroupClass *)(object_class), G_STRUCT_OFFSET(IdleMUCChannelClass, group_class), add_member, remove_member);
 
@@ -457,10 +444,10 @@ idle_muc_channel_finalize (GObject *object)
   IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (self);
   TpHandleRepoIface *handles;
 
-  handles = priv->connection->handles[TP_HANDLE_TYPE_ROOM];
+  handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_ROOM);
   tp_handle_unref(handles, priv->handle);
 
-  handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
+  handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
   tp_handle_unref(handles, priv->own_handle);
 
   if (priv->object_path)
@@ -1040,7 +1027,7 @@ void _idle_muc_channel_join(IdleMUCChannel *chan, const gchar *nick)
 
 	set = tp_intset_new();
 
-	handle = idle_handle_for_contact(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], nick);
+	handle = tp_handle_ensure(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), nick, NULL, NULL);
 
 	if (handle == 0)
 	{
@@ -1084,16 +1071,12 @@ void _idle_muc_channel_part(IdleMUCChannel *chan, const gchar *nick)
 
 void _idle_muc_channel_kick(IdleMUCChannel *chan, const gchar *nick, const gchar *kicker, TpChannelGroupChangeReason reason)
 {
-	IdleMUCChannelPrivate *priv;
+	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 	TpHandle handle;
 	TpHandle kicker_handle;
+	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
 
-	g_assert(chan != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(chan));
-
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
-
-	handle = idle_handle_for_contact(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], nick);
+	handle = tp_handle_ensure(handles, nick, NULL, NULL);
 
 	if (handle == 0)
 	{
@@ -1102,7 +1085,7 @@ void _idle_muc_channel_kick(IdleMUCChannel *chan, const gchar *nick, const gchar
 		return;
 	}
 
-	kicker_handle = idle_handle_for_contact(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], kicker);
+	kicker_handle = tp_handle_ensure(handles, kicker, NULL, NULL);
 
 	if (kicker_handle == 0)
 	{
@@ -1173,19 +1156,13 @@ void _idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter)
 
 void _idle_muc_channel_names(IdleMUCChannel *chan, GArray *names)
 {
-	IdleMUCChannelPrivate *priv;
+	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 	int i;
 	TpIntSet *handles_to_add;
-	TpHandleRepoIface *handles; 
+	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
 
-	g_assert(chan != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(chan));
 	g_assert(names != NULL);
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
-
-	handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
-	
 	handles_to_add = tp_intset_new();
 
 	for (i=0; i<names->len; i++)
@@ -1205,7 +1182,7 @@ void _idle_muc_channel_names(IdleMUCChannel *chan, GArray *names)
 			nick++;
 		}
 
-		handle = idle_handle_for_contact(handles, nick);
+		handle = tp_handle_ensure(handles, nick, NULL, NULL);
 
 		if (handle == 0)
 		{
@@ -1304,7 +1281,7 @@ void _idle_muc_channel_mode(IdleMUCChannel *chan, const gchar *mode_str)
 		goto cleanupl;
 	}
 
-	own_nick = idle_handle_inspect(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], priv->own_handle);
+	own_nick = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), priv->own_handle);
 	
 	while (*operation != '\0')
 	{
@@ -1616,12 +1593,9 @@ void _idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old, TpHandle new)
 
 	if (priv->own_handle == old)
 	{
-		TpHandleRepoIface *handles;
-
-		handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
+		TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
 
 		tp_handle_unref(handles, old);
-		g_assert(tp_handle_is_valid(handles, old, NULL));
 
 		priv->own_handle = new;
 
@@ -1698,7 +1672,7 @@ static gboolean send_invite_request(IdleMUCChannel *obj, TpHandle handle, GError
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	nick = idle_handle_inspect(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], handle);
+	nick = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), handle);
 
 	if ((nick == NULL) || (nick[0] == '\0'))
 	{
@@ -1727,7 +1701,7 @@ static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gc
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	nick = idle_handle_inspect(priv->connection->handles[TP_HANDLE_TYPE_CONTACT], handle);
+	nick = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), handle);
 
 	if ((nick == NULL) || (nick[0] == '\0'))
 	{
@@ -1752,18 +1726,10 @@ static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gc
 	return TRUE;
 }
 
-static gboolean add_member(TpSvcChannelInterfaceGroup *iface, TpHandle handle, const gchar *message, GError **error)
-{
+static gboolean add_member(TpSvcChannelInterfaceGroup *iface, TpHandle handle, const gchar *message, GError **error) {
 	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
-	IdleMUCChannelPrivate *priv;
-	TpHandleRepoIface *handles;
+	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(obj));
-
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
-	handles = priv->connection->handles[TP_HANDLE_TYPE_CONTACT];
-	
 	if (handle == priv->own_handle)
 	{
 		if (tp_handle_set_is_member(obj->group.members, handle) || tp_handle_set_is_member(obj->group.remote_pending, handle))

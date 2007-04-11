@@ -428,12 +428,10 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 			gchar *id, *bang = NULL;
 			gchar modechar = '\0';
 
-#if 0
 			if ((atom == 'C') && idle_muc_channel_is_modechar(token[0])) {
 				modechar = token[0];
 				token++;
 			}
-#endif
 
 			id = g_strdup(token);
 			bang = strchr(id, '!');

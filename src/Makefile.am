@@ -9,26 +9,28 @@ CLEANFILES = $(BUILT_SOURCES)
 bin_PROGRAMS=telepathy-idle
 
 CORE_SOURCES = \
-	idle-connection-manager.h \
-	idle-connection.h \
-	idle-im-channel.h \
-	idle-handles.h \
-	idle-server-connection-iface.h \
-	idle-server-connection.h \
-	idle-dns-resolver.h \
-	idle-ssl-server-connection.h \
-	idle-parser.h \
-	idle-im-factory.h \
-	idle-connection-manager.c \
 	idle-connection.c \
-	idle-im-channel.c \
-	idle-handles.c \
-	idle-server-connection-iface.c \
-	idle-server-connection.c \
+	idle-connection.h \
+	idle-connection-manager.c \
+	idle-connection-manager.h \
 	idle-dns-resolver.c \
-	idle-ssl-server-connection.c \
-	idle-parser.c \
+	idle-dns-resolver.h \
+	idle-handles.c \
+	idle-handles.h \
+	idle-im-channel.c \
+	idle-im-channel.h \
 	idle-im-factory.c \
+	idle-im-factory.h \
+	idle-muc-channel.c \
+	idle-muc-channel.h \
+	idle-parser.c \
+	idle-parser.h \
+	idle-server-connection.c \
+	idle-server-connection.h \
+	idle-server-connection-iface.c \
+	idle-server-connection-iface.h \
+	idle-ssl-server-connection.h \
+	idle-ssl-server-connection.c \
 	idle-version.h \
 	text.h \
 	text.c \
@@ -62,3 +64,4 @@ AM_LDFLAGS = @DBUS_LIBS@ @GLIB_LIBS@ @SOFIA_LIBS@ @OPENSSL_LIBS@ @TELEPATHY_LIBS
 
 config.h:
 	echo '#define TELEPATHY_IDLE_VERSION "'@TELEPATHY_IDLE_VERSION@'"' > config.h
+
