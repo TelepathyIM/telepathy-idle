@@ -1438,52 +1438,6 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 		goto cleanupl;
 	}
 
-	else if (numeric == IRC_ERR_BADCHANNELKEY)
-	{
-		gchar *channel;
-		gchar *tmp;
-		TpHandle handle;
-		IdleMUCChannel *chan;
-
-		if (((channel = strchr(msg, '#')) == NULL) && 
-				((channel = strchr(msg, '!')) == NULL) &&
-				((channel = strchr(msg, '&')) == NULL) &&
-				((channel = strchr(msg, '+')) == NULL))
-		{
-			g_debug("%s: didn't find valid channel name in ERR_BADCHANNELKEY (%s), ignoring", G_STRFUNC, msg);
-			goto cleanupl;
-		}
-
-		if ((tmp = strstr(channel, " :")+1) == NULL)
-		{
-			g_debug("%s: failed to find : separator in ERR_BADCHANNELKEY (%s), ignoring", G_STRFUNC, msg);
-			goto cleanupl;
-		}
-
-		*tmp = '\0';
-
-		channel = g_strstrip(channel);
-
-		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], channel);
-
-		if (handle == 0)
-		{
-			g_debug("%s: failed to get handle for channel %s in ERR_BADCHANNELKEY (%s)", G_STRFUNC, channel, msg);
-			goto cleanupl;
-		}
-
-		chan = (IdleMUCChannel *)(g_hash_table_lookup(priv->muc_channels, GINT_TO_POINTER(handle)));
-
-		if (chan == NULL)
-		{
-			g_debug("%s: got ERR_BADCHANNELKEY for channel %s we are not on yet have a handle (%u) for?", G_STRFUNC, channel, handle);
-			goto cleanupl;
-		}
-
-		_idle_muc_channel_badchannelkey(chan);
-
-		g_debug("%s: got ERR_BADCHANNELKEY for channel %s (handle %u)", G_STRFUNC, channel, handle);
-	}
 	else if (numeric == IRC_RPL_TOPIC)
 	{
 		TpHandle handle;
@@ -1610,56 +1564,6 @@ static gchar *prefix_numeric_parse(IdleConnection *conn, const gchar *msg)
 		g_debug("%s: got RPL_MODEREPLY for (%s) (%s)", G_STRFUNC, tokens[3], tmp);
 
 		_idle_muc_channel_mode(chan, tmp);
-	}
-	else if (numeric == IRC_ERR_BANNEDFROMCHAN 
-			|| numeric == IRC_ERR_CHANNELISFULL
-			|| numeric == IRC_ERR_INVITEONLYCHAN)
-	{
-		TpHandle handle;
-		IdleMUCChannel *chan;
-		guint err;
-
-		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], tokens[3]);
-
-		if (handle == 0)
-		{
-			g_debug("%s: failed to get handle for (%s) in join errors", G_STRFUNC, tokens[2]);
-			goto cleanupl;
-		}
-
-		chan = g_hash_table_lookup(priv->muc_channels, GINT_TO_POINTER(handle));
-
-		if (chan == NULL)
-		{
-			g_debug("%s: failed to find channel with handle %u in join errors", G_STRFUNC, handle);
-			goto cleanupl;
-		}
-
-		switch (numeric)
-		{
-			case IRC_ERR_BANNEDFROMCHAN:
-				{
-					err = MUC_CHANNEL_JOIN_ERROR_BANNED;
-				}
-				break;
-			case IRC_ERR_CHANNELISFULL:
-				{
-					err = MUC_CHANNEL_JOIN_ERROR_FULL;
-				}
-				break;
-			case IRC_ERR_INVITEONLYCHAN:
-				{
-					err = MUC_CHANNEL_JOIN_ERROR_INVITE_ONLY;
-				}
-				break;
-			default:
-				{
-					g_assert_not_reached();
-				}
-				break;
-		}
-
-		_idle_muc_channel_join_error(chan, err);
 	}
 	else
 	{
