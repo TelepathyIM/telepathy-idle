@@ -213,8 +213,6 @@ struct _IdleMUCChannelPrivate
 	TpHandle handle;
 	const gchar *channel_name;
 	
-	TpHandle own_handle;
-
 	IdleMUCState state;
 
 	IRCChannelModeState mode_state;
@@ -269,14 +267,10 @@ static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectC
 	g_assert(tp_handle_is_valid(room_handles, priv->handle, NULL));
 	priv->channel_name = tp_handle_inspect(room_handles, priv->handle);
 
-	priv->own_handle = priv->connection->parent.self_handle;
-	tp_handle_ref(contact_handles, priv->own_handle);
-	g_assert(tp_handle_is_valid(contact_handles, priv->own_handle, NULL));
-
 	bus = tp_get_bus();
 	dbus_g_connection_register_g_object(bus, priv->object_path, obj);
 
-	tp_group_mixin_init((TpSvcChannelInterfaceGroup *)(obj), G_STRUCT_OFFSET(IdleMUCChannel, group), contact_handles, priv->own_handle);
+	tp_group_mixin_init((TpSvcChannelInterfaceGroup *)(obj), G_STRUCT_OFFSET(IdleMUCChannel, group), contact_handles, priv->connection->parent.self_handle);
 
 	tp_text_mixin_init(obj, G_STRUCT_OFFSET(IdleMUCChannel, text), contact_handles);
   tp_text_mixin_set_message_types(obj,
@@ -442,13 +436,9 @@ idle_muc_channel_finalize (GObject *object)
 {
   IdleMUCChannel *self = IDLE_MUC_CHANNEL (object);
   IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (self);
-  TpHandleRepoIface *handles;
-
-  handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_ROOM);
+  TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_ROOM);
   tp_handle_unref(handles, priv->handle);
 
-  handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
-  tp_handle_unref(handles, priv->own_handle);
 
   if (priv->object_path)
   {
@@ -1021,7 +1011,7 @@ void _idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner)
 	set = tp_intset_new();
 	tp_intset_add(set, joiner);
 
-	if (joiner == priv->own_handle) {
+	if (joiner == priv->connection->parent.self_handle) {
 		/* woot we managed to get into a channel, great */
 		change_state(chan, MUC_STATE_JOINED);
 		tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "We joined the group", set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
@@ -1048,7 +1038,7 @@ static void _network_member_left(IdleMUCChannel *chan, TpHandle leaver, TpHandle
 	tp_intset_add(set, leaver);
 	tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *) chan, message, NULL, set, NULL, NULL, actor, reason);
 
-	if (leaver == priv->own_handle) {
+	if (leaver == priv->connection->parent.self_handle) {
 		change_state(chan, MUC_STATE_PARTED);
 
 		if (!priv->closed) {
@@ -1094,7 +1084,7 @@ void _idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
 		TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, i));
 		gchar modechar = g_value_get_char(g_value_array_get_nth(args, i + 1));
 
-		if (handle == priv->own_handle) {
+		if (handle == priv->connection->parent.self_handle) {
 			guint remove = MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_VOICE_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE;
 			guint add = 0;
 
@@ -1172,7 +1162,7 @@ void _idle_muc_channel_mode(IdleMUCChannel *chan, const gchar *mode_str)
 		goto cleanupl;
 	}
 
-	own_nick = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), priv->own_handle);
+	own_nick = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), priv->connection->parent.self_handle);
 	
 	while (*operation != '\0')
 	{
@@ -1482,20 +1472,6 @@ void _idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old, TpHandle new)
 	local = tp_intset_new();
 	remote = tp_intset_new();
 
-	if (priv->own_handle == old)
-	{
-		TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
-
-		tp_handle_unref(handles, old);
-
-		priv->own_handle = new;
-
-		tp_handle_ref(handles, new);
-		g_assert(tp_handle_is_valid(handles, old, NULL));
-
-		g_debug("%s: changed own_handle to %u", G_STRFUNC, new);
-	}
-	
 	if (tp_handle_set_is_member(chan->group.members, old))
 	{
 		tp_intset_add(add, new);
@@ -1621,7 +1597,7 @@ static gboolean add_member(TpSvcChannelInterfaceGroup *iface, TpHandle handle, c
 	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	if (handle == priv->own_handle)
+	if (handle == priv->connection->parent.self_handle)
 	{
 		if (tp_handle_set_is_member(obj->group.members, handle) || tp_handle_set_is_member(obj->group.remote_pending, handle))
 		{
@@ -1668,7 +1644,7 @@ static gboolean add_member(TpSvcChannelInterfaceGroup *iface, TpHandle handle, c
 
 			tp_intset_add(add_set, handle);
 
-			tp_group_mixin_change_members(iface, "We invited a contact to the group", NULL, NULL, NULL, add_set, priv->own_handle, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
+			tp_group_mixin_change_members(iface, "We invited a contact to the group", NULL, NULL, NULL, add_set, priv->connection->parent.self_handle, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 		}
 	}
 
@@ -1703,7 +1679,7 @@ static gboolean remove_member(TpSvcChannelInterfaceGroup *iface, TpHandle handle
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 	GError *kick_error;
 
-	if (handle == priv->own_handle)
+	if (handle == priv->connection->parent.self_handle)
 	{
 		part_from_channel(obj, message);
 		return TRUE;
