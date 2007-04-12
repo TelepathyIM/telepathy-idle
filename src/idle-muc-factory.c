@@ -54,6 +54,7 @@ static IdleParserHandlerResult _numeric_error_handler(IdleParser *parser, IdlePa
 static IdleParserHandlerResult _numeric_topic_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _invite_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _join_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
+static IdleParserHandlerResult _kick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _namereply_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _part_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
@@ -197,6 +198,20 @@ static IdleParserHandlerResult _join_handler(IdleParser *parser, IdleParserMessa
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
 
+static IdleParserHandlerResult _kick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	TpHandle kicker_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
+	TpHandle kicked_handle = g_value_get_uint(g_value_array_get_nth(args, 2));
+	const gchar *message = (args->n_values == 4) ? g_value_get_string(g_value_array_get_nth(args, 3)) : NULL;
+	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+
+	if (chan)
+		_idle_muc_channel_kick(chan, kicked_handle, kicker_handle, message);
+
+	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
+}
+
 static IdleParserHandlerResult _namereply_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
@@ -294,6 +309,7 @@ static void _iface_connecting(TpChannelFactoryIface *iface) {
 
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_INVITE, _invite_handler, iface);
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_JOIN, _join_handler, iface);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_KICK, _kick_handler, iface);
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_NOTICE_CHANNEL, _notice_privmsg_handler, iface);
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_CHANNEL, _notice_privmsg_handler, iface);
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_PART, _part_handler, iface);
