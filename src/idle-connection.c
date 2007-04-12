@@ -983,52 +983,6 @@ static void muc_channel_rename_foreach(gpointer key, gpointer value, gpointer da
 	{
 		g_debug("%s: ignored unparsed message from server (%s) = (%s, %s, %s)", G_STRFUNC, msg, sender, cmd, recipient);
 	}
-	else if (numeric == IRC_RPL_TOPIC_STAMP)
-	{
-		TpHandle handle, toucher_handle;
-		IdleMUCChannel *chan;
-		guint timestamp;
-
-		if (tokenc != 6)
-		{
-			g_debug("%s: wrong amount of tokens (%u) for RPL_TOPICSTAMP in (%s), ignoring...", G_STRFUNC, tokenc, msg);
-			goto cleanupl;
-		}
-
-		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], tokens[3]);
-
-		if (handle == 0)
-		{
-			g_debug("%s: failed to get handle for (%s) in RPL_TOPICSTAMP", G_STRFUNC, tokens[3]);
-			goto cleanupl;
-		}
-
-		chan = g_hash_table_lookup(priv->muc_channels, GINT_TO_POINTER(handle));
-
-		if (chan == NULL)
-		{
-			g_debug("%s: failed to find channel (%s) (handle %u) in RPL_TOPICSTAMP", G_STRFUNC, tokens[3], handle);
-			goto cleanupl;
-		}
-
-		toucher_handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], tokens[4]);
-
-		if (toucher_handle == 0)
-		{
-			g_debug("%s: failed to get handle for toucher (%s) in RPL_TOPICSTAMP", G_STRFUNC, tokens[4]);
-			goto cleanupl;
-		}
-
-		if (sscanf(tokens[5], "%u", &timestamp) != 1)
-		{
-			g_debug("%s: failed to parse (%s) to uint in RPL_TOPICSTAMP", G_STRFUNC, tokens[5]);
-			goto cleanupl;
-		}
-
-		_idle_muc_channel_topic_touch(chan, toucher_handle, timestamp);
-
-		g_debug("%s: got RPL_TOPICSTAMP for (%s)", G_STRFUNC, tokens[3]);
-	}
 	else if (numeric == IRC_RPL_MODEREPLY)
 	{
 		TpHandle handle;
