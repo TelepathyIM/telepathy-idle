@@ -24,6 +24,8 @@
 #include "idle-parser.h"
 #include "text.h"
 
+#include <time.h>
+
 #include <glib.h>
 
 #include <telepathy-glib/channel-factory-iface.h>
@@ -61,6 +63,7 @@ static IdleParserHandlerResult _namereply_handler(IdleParser *parser, IdleParser
 static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _part_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _quit_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
+static IdleParserHandlerResult _topic_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 
 static void _iface_close_all(TpChannelFactoryIface *iface);
 static void _iface_connecting(TpChannelFactoryIface *iface);
@@ -303,6 +306,24 @@ static IdleParserHandlerResult _quit_handler(IdleParser *parser, IdleParserMessa
 	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 }
 
+static IdleParserHandlerResult _topic_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	TpHandle setter_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
+	const gchar *topic = (args->n_values == 3) ? g_value_get_string(g_value_array_get_nth(args, 2)) : NULL;
+	time_t stamp = time(NULL);
+	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+
+	if (chan) {
+		if (topic)
+			_idle_muc_channel_topic_full(chan, setter_handle, stamp, topic);
+		else
+			_idle_muc_channel_topic_unset(chan);
+	}
+
+	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
+}
+
 static void _iface_close_all(TpChannelFactoryIface *iface) {
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(iface);
 	GHashTable *tmp;
@@ -330,6 +351,7 @@ static void _iface_connecting(TpChannelFactoryIface *iface) {
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_CHANNEL, _notice_privmsg_handler, iface);
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_PART, _part_handler, iface);
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_QUIT, _quit_handler, iface);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_TOPIC, _topic_handler, iface);
 }
 
 static void _iface_disconnected(TpChannelFactoryIface *iface) {

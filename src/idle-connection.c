@@ -930,59 +930,6 @@ static void muc_channel_rename_foreach(gpointer key, gpointer value, gpointer da
 
 		_idle_muc_channel_mode(chan, tmp);
 	}
-	else if (g_strncasecmp(cmd, "TOPIC", 5) == 0)
-	{
-		TpHandle handle, setter_handle;
-		IdleMUCChannel *chan;
-		char *tmp;
-
-		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], recipient);
-
-		if (handle == 0)
-		{
-			g_debug("%s: could not get handle for (%s) in TOPIC", G_STRFUNC, recipient);
-			goto cleanupl;
-		}
-
-		chan = g_hash_table_lookup(priv->muc_channels, GINT_TO_POINTER(handle));
-
-		if (chan == NULL)
-		{
-			g_debug("%s: got NULL MUCChannel for (%s) (handle %u)", G_STRFUNC, recipient, handle);
-			goto cleanupl;
-		}
-
-		tmp = strstr(msg, " :")+1;
-
-		if (tmp == NULL)
-		{
-			g_debug("%s: could not find body identifier in TOPIC message (%s)", G_STRFUNC, msg);
-			goto cleanupl;
-		}
-
-		setter_handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], from);
-
-		if (setter_handle == 0)
-		{
-			g_debug("%s: could not get handle for (%s) in TOPIC", G_STRFUNC, from);
-			goto cleanupl;
-		}
-
-		if (tmp+1 != '\0')
-		{
-			_idle_muc_channel_topic_full(chan, setter_handle, time(NULL), tmp+1);
-		}
-		else
-		{
-			_idle_muc_channel_topic_unset(chan);
-		}
-
-		g_debug("%s: got TOPIC for (%s)", G_STRFUNC, recipient);
-	}
-	else
-	{
-		g_debug("%s: ignored unparsed message from server (%s) = (%s, %s, %s)", G_STRFUNC, msg, sender, cmd, recipient);
-	}
 	else if (numeric == IRC_RPL_MODEREPLY)
 	{
 		TpHandle handle;
