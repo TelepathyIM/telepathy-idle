@@ -128,6 +128,13 @@ static IdleParserHandlerResult _join_handler(IdleParser *parser, IdleParserMessa
 }
 
 static IdleParserHandlerResult _namereply_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+
+	if (chan)
+		_idle_muc_channel_namereply(chan, args);
+
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
 

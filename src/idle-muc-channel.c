@@ -1091,84 +1091,43 @@ void _idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter)
 	tp_intset_destroy(handles_to_add);
 }
 
-void _idle_muc_channel_names(IdleMUCChannel *chan, GArray *names)
-{
+void _idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
-	int i;
-	TpIntSet *handles_to_add;
-	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
+	TpIntSet *handles_to_add = tp_intset_new();
 
-	g_assert(names != NULL);
+	for (int i = 1; (i + 1) < args->n_values; i += 2) {
+		TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, i));
+		gchar modechar = g_value_get_char(g_value_array_get_nth(args, i + 1));
 
-	handles_to_add = tp_intset_new();
-
-	for (i=0; i<names->len; i++)
-	{
-		TpHandle handle;
-		gchar *nick = g_array_index(names, gchar *, i);
-		gunichar ucs4char;
-
-		gchar own_mode = '\0';
-
-		ucs4char = g_utf8_get_char_validated(nick, -1);
-		
-		if (!g_unichar_isalpha(ucs4char))
-		{
-			own_mode = *nick;
-			
-			nick++;
-		}
-
-		handle = tp_handle_ensure(handles, nick, NULL, NULL);
-
-		if (handle == 0)
-		{
-			g_debug("%s: failed to get valid handle for nick %s, ignoring", G_STRFUNC, nick);
-			continue;
-		}
-
-		if (handle == priv->own_handle)
-		{
-			guint remove = MODE_FLAG_OPERATOR_PRIVILEGE|MODE_FLAG_VOICE_PRIVILEGE|MODE_FLAG_HALFOP_PRIVILEGE;
+		if (handle == priv->own_handle) {
+			guint remove = MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_VOICE_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE;
 			guint add = 0;
-			
-			switch (own_mode)
-			{
+
+			switch (modechar) {
 				case '@':
-				{
-					g_debug("%s: we are OP", G_STRFUNC);
 					add |= MODE_FLAG_OPERATOR_PRIVILEGE;
-				}
-				break;
+					break;
+
 				case '&':
-				{
-					g_debug("%s: we are HALFOP", G_STRFUNC);
-					add |= MODE_FLAG_HALFOP_PRIVILEGE;
-				}
-				break;
+					add |= MODE_FLAG_OPERATOR_PRIVILEGE;
+					break;
+
 				case '+':
-				{
-					g_debug("%s: we are VOICED", G_STRFUNC);
 					add |= MODE_FLAG_VOICE_PRIVILEGE;
-				}
-				break;
+					break;
+
 				default:
-				{
-					g_debug("%s: we are NORMAL", G_STRFUNC);
-				}
-				break;
+					break;
 			}
 
 			remove &= ~add;
-
 			change_mode_state(chan, add, remove);
 		}
 
 		tp_intset_add(handles_to_add, handle);
-
 	}
 
-	tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "We got the group's member listing", handles_to_add, NULL, NULL, NULL, 0, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+	tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "The channel member listing arrived", handles_to_add, NULL, NULL, NULL, 0, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 }
 
 void _idle_muc_channel_mode(IdleMUCChannel *chan, const gchar *mode_str)
