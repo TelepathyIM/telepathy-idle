@@ -197,7 +197,7 @@ void idle_parser_receive(IdleParser *parser, const gchar *msg) {
 		if ((msg[i] == '\n' || msg[i] == '\r')) {
 			if (i > lasti) {
 				if ((lasti == 0) && (priv->split_buf[0] != '\0')) {
-					g_strlcpy(g_stpcpy(concat_buf, priv->split_buf), msg, i);
+					g_strlcpy(g_stpcpy(concat_buf, priv->split_buf), msg, i + 1);
 					tmp = concat_buf;
 					memset(priv->split_buf, '\0', IRC_MSG_MAXLEN + 3);
 				}	else {
