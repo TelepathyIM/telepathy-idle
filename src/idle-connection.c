@@ -875,18 +875,6 @@ static void muc_channel_rename_foreach(gpointer key, gpointer value, gpointer da
 
 	_idle_muc_channel_rename(chan, rename_data->old, rename_data->new);
 }
-#endif
-
-#if 0
-static void muc_channel_handle_quit_foreach(gpointer key, gpointer value, gpointer user_data)
-{
-	IdleMUCChannel *chan = value;
-	TpHandle handle = GPOINTER_TO_INT(user_data);
-
-	g_debug("%s: for %p %p %p", G_STRFUNC, key, value, user_data);
-
-	_idle_muc_channel_handle_quit(chan, handle, TRUE, handle, TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE);
-}
 
 				else if (!g_strncasecmp(body, "VERSION", 7))
 				{
@@ -941,20 +929,6 @@ static void muc_channel_handle_quit_foreach(gpointer key, gpointer value, gpoint
 		g_debug("%s: got MODE for (%s) (%s)", G_STRFUNC, recipient, tmp);
 
 		_idle_muc_channel_mode(chan, tmp);
-	}
-	else if (g_strncasecmp(cmd, "QUIT", 4) == 0)
-	{
-		TpHandle handle;
-
-		handle = idle_handle_for_contact(conn->handles[TP_HANDLE_TYPE_CONTACT], from);
-
-		if (handle == 0)
-		{
-			g_debug("%s: could not get handle for (%s) in QUIT", G_STRFUNC, from);
-			goto cleanupl;
-		}
-
-		g_hash_table_foreach(priv->muc_channels, muc_channel_handle_quit_foreach, GINT_TO_POINTER(handle));
 	}
 	else if (g_strncasecmp(cmd, "TOPIC", 5) == 0)
 	{

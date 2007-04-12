@@ -56,6 +56,7 @@ static IdleParserHandlerResult _join_handler(IdleParser *parser, IdleParserMessa
 static IdleParserHandlerResult _namereply_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _part_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
+static IdleParserHandlerResult _quit_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 
 static void _iface_close_all(TpChannelFactoryIface *iface);
 static void _iface_connecting(TpChannelFactoryIface *iface);
@@ -235,6 +236,30 @@ static IdleParserHandlerResult _part_handler(IdleParser *parser, IdleParserMessa
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
 
+typedef struct _ChannelQuitForeachData ChannelQuitForeachData;
+struct _ChannelQuitForeachData {
+	TpHandle handle;
+	const gchar *message;
+};
+
+static void _channel_quit_foreach(TpChannelIface *iface, gpointer user_data) {
+	IdleMUCChannel *chan = IDLE_MUC_CHANNEL(iface);
+	ChannelQuitForeachData *data = user_data;
+
+	_idle_muc_channel_quit(chan, data->handle, data->message);
+}
+
+static IdleParserHandlerResult _quit_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	TpChannelFactoryIface *iface = TP_CHANNEL_FACTORY_IFACE(user_data);
+	TpHandle leaver_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+	const gchar *message = (args->n_values == 2) ? g_value_get_string(g_value_array_get_nth(args, 1)) : NULL;
+	ChannelQuitForeachData data = {leaver_handle, message};
+
+	tp_channel_factory_iface_foreach(iface, _channel_quit_foreach, &data);
+
+	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+}
+
 static void _iface_close_all(TpChannelFactoryIface *iface) {
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(iface);
 	GHashTable *tmp;
@@ -258,6 +283,7 @@ static void _iface_connecting(TpChannelFactoryIface *iface) {
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_NOTICE_CHANNEL, _notice_privmsg_handler, iface);
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_CHANNEL, _notice_privmsg_handler, iface);
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_PART, _part_handler, iface);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_QUIT, _quit_handler, iface);
 }
 
 static void _iface_disconnected(TpChannelFactoryIface *iface) {
