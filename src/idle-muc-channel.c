@@ -1072,23 +1072,18 @@ void _idle_muc_channel_quit(IdleMUCChannel *chan, TpHandle quitter, const gchar 
 	return _network_member_left(chan, quitter, quitter, message, TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE);
 }
 
-void _idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter)
-{
-	IdleMUCChannelPrivate *priv;
-	TpIntSet *handles_to_add;
+void _idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter) {
+	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	TpIntSet *add = tp_intset_new();
+	TpIntSet *local = tp_intset_new();
 
-	g_assert(chan != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(chan));
+	tp_intset_add(add, inviter);
+	tp_intset_add(local, priv->connection->parent.self_handle);
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "We were invited to join a channel", add, NULL, local, NULL, inviter, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 
-	handles_to_add = tp_intset_new();
-
-	tp_intset_add(handles_to_add, priv->own_handle);
-
-	tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "We were invited to a group", NULL, NULL, handles_to_add, NULL, inviter, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
-
-	tp_intset_destroy(handles_to_add);
+	tp_intset_destroy(add);
+	tp_intset_destroy(local);
 }
 
 void _idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
