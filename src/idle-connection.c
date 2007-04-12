@@ -983,48 +983,6 @@ static void muc_channel_rename_foreach(gpointer key, gpointer value, gpointer da
 	{
 		g_debug("%s: ignored unparsed message from server (%s) = (%s, %s, %s)", G_STRFUNC, msg, sender, cmd, recipient);
 	}
-
-	else if (numeric == IRC_RPL_TOPIC)
-	{
-		TpHandle handle;
-		IdleMUCChannel *chan;
-		gchar *tmp;
-
-		if (tokenc < 5)
-		{
-			g_debug("%s: not enough tokens for RPL_TOPIC in (%s), ignoring...", G_STRFUNC, msg);
-			goto cleanupl;
-		}
-
-		handle = idle_handle_for_room(conn->handles[TP_HANDLE_TYPE_ROOM], tokens[3]);
-
-		if (handle == 0)
-		{
-			g_debug("%s: failed to get handle for (%s) in RPL_TOPIC", G_STRFUNC, tokens[3]);
-			goto cleanupl;
-		}
-
-		chan = g_hash_table_lookup(priv->muc_channels, GINT_TO_POINTER(handle));
-
-		if (chan == NULL)
-		{
-			g_debug("%s: failed to find channel (%s) (handle %u) in RPL_TOPIC", G_STRFUNC, tokens[3], handle);
-			goto cleanupl;
-		}
-
-		tmp = strstr(msg, " :")+1;
-
-		if (tmp == NULL)
-		{
-			g_debug("%s: failed to find body separator in (%s)", G_STRFUNC, msg);
-
-			goto cleanupl;
-		}
-
-		_idle_muc_channel_topic(chan, tmp+1);
-
-		g_debug("%s: got RPL_TOPIC for (%s)", G_STRFUNC, tokens[3]);
-	}
 	else if (numeric == IRC_RPL_TOPIC_STAMP)
 	{
 		TpHandle handle, toucher_handle;
