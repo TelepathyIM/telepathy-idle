@@ -860,19 +860,6 @@ renaming_iface_init(gpointer g_iface, gpointer iface_data) {
 }
 
 #if 0
-typedef struct
-{
-	guint old, new;
-} MUCChannelRenameData;
-
-static void muc_channel_rename_foreach(gpointer key, gpointer value, gpointer data)
-{
-	IdleMUCChannel *chan = IDLE_MUC_CHANNEL(value);
-
-	MUCChannelRenameData *rename_data = (MUCChannelRenameData *)(data);
-
-	_idle_muc_channel_rename(chan, rename_data->old, rename_data->new);
-}
 
 				else if (!g_strncasecmp(body, "VERSION", 7))
 				{
