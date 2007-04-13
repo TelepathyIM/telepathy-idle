@@ -664,17 +664,15 @@ static IdleParserHandlerResult _erroneous_nickname_handler(IdleParser *parser, I
 
 static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	TpHandle old = g_value_get_uint(g_value_array_get_nth(args, 0));
-	TpHandle new = g_value_get_uint(g_value_array_get_nth(args, 1));
+	TpHandle old_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+	TpHandle new_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 
-	if (old == conn->parent.self_handle) {
+	if (old_handle == conn->parent.self_handle) {
 		TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT);
 
 		tp_handle_unref(handles, conn->parent.self_handle);
-		conn->parent.self_handle = new;
-		tp_handle_ref(handles, new);
-
-		tp_svc_connection_interface_renaming_emit_renamed((TpSvcConnectionInterfaceRenaming *) conn, old, new);
+		conn->parent.self_handle = new_handle;
+		tp_handle_ref(handles, new_handle);
 	}
 
 	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;

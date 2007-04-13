@@ -1457,38 +1457,26 @@ void _idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError 
 	}
 }
 
-void _idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old, TpHandle new)
-{
-	IdleMUCChannelPrivate *priv;
-	TpIntSet *add, *remove, *local, *remote;
+void _idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old_handle, TpHandle new_handle) {
+	TpIntSet *add = tp_intset_new();
+	TpIntSet *remove = tp_intset_new();
+	TpIntSet *local = tp_intset_new();
+	TpIntSet *remote = tp_intset_new();
 
-	g_assert(chan != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(chan));
+	tp_intset_add(remove, old_handle);
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	if (tp_handle_set_is_member(chan->group.members, old_handle))
+		tp_intset_add(add, new_handle);
+	else if (tp_handle_set_is_member(chan->group.local_pending, old_handle))
+		tp_intset_add(local, new_handle);
+	else if (tp_handle_set_is_member(chan->group.remote_pending, old_handle))
+		tp_intset_add(remote, new_handle);
+	else
+		goto cleanup;
 
-	add = tp_intset_new();
-	remove = tp_intset_new();
-	local = tp_intset_new();
-	remote = tp_intset_new();
+	tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "Member changed nick", add, remove, local, remote, new_handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 
-	if (tp_handle_set_is_member(chan->group.members, old))
-	{
-		tp_intset_add(add, new);
-		tp_intset_add(remove, old);
-	}
-	else if (tp_handle_set_is_member(chan->group.local_pending, old))
-	{
-		tp_intset_add(local, new);
-		tp_intset_add(remove, old);
-	}
-	else if (tp_handle_set_is_member(chan->group.remote_pending, old))
-	{
-		tp_intset_add(remote, new);
-		tp_intset_add(remove, old);
-	}
-
-	tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "Handle renamed", add, remove, local, remote, new, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+cleanup:
 
 	tp_intset_destroy(add);
 	tp_intset_destroy(remove);
