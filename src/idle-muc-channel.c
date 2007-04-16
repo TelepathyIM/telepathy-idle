@@ -1115,19 +1115,24 @@ void _idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
 	tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "The channel member listing arrived", handles_to_add, NULL, NULL, NULL, 0, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 }
 
-void _idle_muc_channel_mode(IdleMUCChannel *chan, const gchar *mode_str)
-{
+static guint _modechar_to_modeflag(gchar modechar) {
+	switch (modechar) {
+		case 'o':
+			return MODE_FLAG_OPERATOR_PRIVILEGE;
+		case 'h':
+			return MODE_FLAG_HALFOP_PRIVILEGE;
+		case 'v':
+			return MODE_FLAG_VOICE_PRIVILEGE;
+		default:
+			return 0;
+	}
+}
+
+void _idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args) {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
-	gchar **mode_argv;
-	gchar *operation;
-	gboolean remove;
-	guint mode_accum = 0;
-	guint limit = 0;
-	gchar *key = NULL;
-	const gchar *own_nick;
-	GArray *flags_to_change;
-	static const guint flags_helper[] = 
-	{
+	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
+	GArray *flags_to_change = g_array_new(FALSE, FALSE, sizeof(guint));
+	static const guint flags_helper[] = {
 		TP_PROPERTY_INVITE_ONLY,
 		TP_PROPERTY_LIMITED,
 		TP_PROPERTY_MODERATED,
@@ -1136,164 +1141,144 @@ void _idle_muc_channel_mode(IdleMUCChannel *chan, const gchar *mode_str)
 		LAST_TP_PROPERTY_ENUM
 	};
 
-	int i = 1;
-
-	mode_argv = g_strsplit_set(mode_str, " ", -1);
-
-	if (mode_argv[0] == NULL)
-	{
-		g_debug("%s: failed to parse (%s) to tokens", G_STRFUNC, mode_str);
-		goto cleanupl;
-	}
-
-	operation = mode_argv[0]+1;
-
-	if (mode_argv[0][0] == '+')
-	{
-		remove = FALSE;
-	}
-	else if (mode_argv[0][0] == '-')
-	{
-		remove = TRUE;
-	}
-	else
-	{
-		g_debug("%s: failed to decide whether to add or remove modes in (%s)", G_STRFUNC, mode_argv[0]);
-		goto cleanupl;
-	}
-
-	own_nick = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), priv->connection->parent.self_handle);
-	
-	while (*operation != '\0')
-	{
-		switch (*operation)
-		{
-			case 'o':
-			{
-				if (g_strncasecmp(own_nick, mode_argv[i++], -1) == 0)
-				{
-					g_debug("%s: got MODE o concerning us", G_STRFUNC);
-					mode_accum |= MODE_FLAG_OPERATOR_PRIVILEGE;
-				}
-			}
-			break;
-			case 'h':
-			{
-				if (g_strncasecmp(own_nick, mode_argv[i++], -1) == 0)
-				{
-					g_debug("%s: got MODE h concerning us", G_STRFUNC);
-					mode_accum |= MODE_FLAG_HALFOP_PRIVILEGE;
-				}
-			}
-			break;
-			case 'v':
-			{
-				if (g_strncasecmp(own_nick, mode_argv[i++], -1) == 0)
-				{
-					g_debug("%s: got MODE v concerning us", G_STRFUNC);
-					mode_accum |= MODE_FLAG_VOICE_PRIVILEGE;
-				}
-			}
-			break;
-			case 'l':
-			{
-				limit = atoi(mode_argv[i++]);
-				g_debug("%s: got channel user limit %u", G_STRFUNC, limit);
-				mode_accum |= MODE_FLAG_USER_LIMIT;
-			}
-			break;
-			case 'k':
-			{
-				key = g_strdup(mode_argv[i++]);
-				g_debug("%s: got channel key %s", G_STRFUNC, key);
-				mode_accum |= MODE_FLAG_KEY;
-			}
-			break;
-			case 'a':
-			{
-				mode_accum |= MODE_FLAG_ANONYMOUS;
-			}
-			break;
-			case 'i':
-			{
-				mode_accum |= MODE_FLAG_INVITE_ONLY;
-			}
-			break;
-			case 'm':
-			{
-				mode_accum |= MODE_FLAG_MODERATED;
-			}
-			break;
-			case 'n':
-			{
-				mode_accum |= MODE_FLAG_NO_OUTSIDE_MESSAGES;
-			}
-			break;
-			case 'q':
-			{
-				mode_accum |= MODE_FLAG_QUIET;
-			}
-			break;
-			case 'p':
-			{
-				mode_accum |= MODE_FLAG_PRIVATE;
-			}
-			break;
-			case 's':
-			{
-				mode_accum |= MODE_FLAG_SECRET;
-			}
-			break;
-			case 'r':
-			{
-				mode_accum |= MODE_FLAG_SERVER_REOP;
-			}
-			break;
-			case 't':
-			{
-				mode_accum |= MODE_FLAG_TOPIC_ONLY_SETTABLE_BY_OPS;
-			}
-			break;
-			default:
-			{
-				g_debug("%s: did not understand mode identifier %c", G_STRFUNC, *operation);
-			}
-			break;
-		}
-		operation++;
-	}
-
-	if (mode_accum & MODE_FLAG_KEY)
-	{
-		priv->mode_state.key = key;
-	}
-	if (mode_accum & MODE_FLAG_USER_LIMIT)
-	{
-		priv->mode_state.limit = limit;
-	}
-	
-	flags_to_change = g_array_new(FALSE, FALSE, sizeof(guint));
-
-	for (i=0; flags_helper[i] != LAST_TP_PROPERTY_ENUM; i++)
-	{
-		guint prop_id = flags_helper[i];
-		g_array_append_val(flags_to_change, prop_id);
-	}
+	for (const guint *prop_id = flags_helper; *prop_id != LAST_TP_PROPERTY_ENUM; prop_id++)
+		g_array_append_val(flags_to_change, *prop_id);
 
 	set_tp_property_flags(chan, flags_to_change, TP_PROPERTY_FLAG_READ, 0);
 
-	if (!remove)
-	{
-		change_mode_state(chan, mode_accum, 0);
-	}
-	else
-	{
-		change_mode_state(chan, 0, mode_accum);
-	}
+	g_array_free(flags_to_change, TRUE);
 
-cleanupl:
+	for (int i = 1; i < args->n_values; i++) {
+		const gchar *modes = g_value_get_string(g_value_array_get_nth(args, i));
+		gchar operation = modes[0];
+		guint mode_accum = 0;
+		guint limit = 0;
+		gchar *key = NULL;
 
-	g_strfreev(mode_argv);
+		if ((operation != '+') && (operation != '-'))
+			continue;
+
+		for (; *modes != '\0'; modes++) {
+			switch (*modes) {
+				case 'o':
+				case 'h':
+				case 'v':
+					if ((i + 1) < args->n_values) {
+						TpHandle handle = tp_handle_ensure(handles, g_value_get_string(g_value_array_get_nth(args, ++i)), NULL, NULL);
+
+						if (handle == priv->connection->parent.self_handle) {
+							g_debug("%s: got MODE '%c' concerning us", G_STRFUNC, *modes);
+							mode_accum |= _modechar_to_modeflag(*modes);
+						}
+
+						if (handle)
+							tp_handle_unref(handles, handle);
+					}
+					break;
+
+				case 'l':
+					if (operation == '+') {
+						if ((i + 1) < args->n_values) {
+							const gchar *limit_str = g_value_get_string(g_value_array_get_nth(args, ++i));
+							gchar *endptr;
+							guint maybe_limit = strtol(limit_str, &endptr, 10);
+
+							if (endptr != limit_str)
+								limit = maybe_limit;
+						}
+					}
+
+					mode_accum |= MODE_FLAG_USER_LIMIT;
+					break;
+
+				case 'k':
+					if (operation == '+') {
+						if ((i + 1) < args->n_values) {
+							g_free(key);
+							key = g_strdup(g_value_get_string(g_value_array_get_nth(args, ++i)));
+						}
+					}
+
+					mode_accum |= MODE_FLAG_KEY;
+					break;
+
+				case 'a':
+					mode_accum |= MODE_FLAG_ANONYMOUS;
+					break;
+
+				case 'i':
+					mode_accum |= MODE_FLAG_INVITE_ONLY;
+					break;
+
+				case 'm':
+					mode_accum |= MODE_FLAG_MODERATED;
+					break;
+
+				case 'n':
+					mode_accum |= MODE_FLAG_NO_OUTSIDE_MESSAGES;
+					break;
+
+				case 'q':
+					mode_accum |= MODE_FLAG_QUIET;
+					break;
+
+				case 'p':
+					mode_accum |= MODE_FLAG_PRIVATE;
+					break;
+
+				case 's':
+					mode_accum |= MODE_FLAG_SECRET;
+					break;
+
+				case 'r':
+					mode_accum |= MODE_FLAG_SERVER_REOP;
+					break;
+
+				case 't':
+					mode_accum |= MODE_FLAG_TOPIC_ONLY_SETTABLE_BY_OPS;
+					break;
+
+				case '+':
+				case '-':
+					if (operation != *modes) {
+						if (mode_accum & MODE_FLAG_KEY) {
+							g_free(priv->mode_state.key);
+							priv->mode_state.key = key;
+						}
+
+						if (mode_accum & MODE_FLAG_USER_LIMIT)
+							priv->mode_state.limit = limit;
+
+						if (operation == '+')
+							change_mode_state(chan, mode_accum, 0);
+						else
+							change_mode_state(chan, 0, mode_accum);
+
+						operation = *modes;
+						mode_accum = 0;
+					}
+
+					break;
+
+				default:
+					g_debug("%s: did not understand mode identifier %c", G_STRFUNC, *modes);
+					break;
+			}
+		}
+
+		if (mode_accum & MODE_FLAG_KEY) {
+			g_free(priv->mode_state.key);
+			priv->mode_state.key = key;
+		}
+
+		if (mode_accum & MODE_FLAG_USER_LIMIT)
+			priv->mode_state.limit = limit;
+
+		if (operation == '+')
+			change_mode_state(chan, mode_accum, 0);
+		else
+			change_mode_state(chan, 0, mode_accum);
+	}
 }
 
 void _idle_muc_channel_topic(IdleMUCChannel *chan, const char *topic)
@@ -1302,7 +1287,7 @@ void _idle_muc_channel_topic(IdleMUCChannel *chan, const char *topic)
 	GValue val = {0, };
 	GPtrArray *arr;
 	IdleMUCChannelPrivate *priv;
-	
+
 	g_assert(chan != NULL);
 	g_assert(topic != NULL);
 

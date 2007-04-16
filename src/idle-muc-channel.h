@@ -77,7 +77,7 @@ void _idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter);
 void _idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner);
 void _idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError err);
 void _idle_muc_channel_kick(IdleMUCChannel *chan, TpHandle kicked, TpHandle kicker, const gchar *message);
-void _idle_muc_channel_mode(IdleMUCChannel *chan, const gchar *params);
+void _idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args);
 void _idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args);
 void _idle_muc_channel_part(IdleMUCChannel *chan, TpHandle leaver, const gchar *message);
 void _idle_muc_channel_quit(IdleMUCChannel *chan, TpHandle handle, const gchar *message);
