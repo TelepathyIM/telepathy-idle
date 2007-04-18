@@ -66,8 +66,11 @@ dnl ])
 AC_SUBST(SOFIA_CFLAGS)
 AC_SUBST(SOFIA_LIBS)
 
-dnl Check for telepathy-glib
-PKG_CHECK_MODULES(TELEPATHY, [telepathy-glib >= 0.5.8])
+dnl Check for telepathy-glib. Use -unstable to get the Renaming interface,
+dnl if telepathy-glib is a version where that's necessary.
+PKG_CHECK_EXISTS([telepathy-glib > 0.5.9],
+    [PKG_CHECK_MODULES(TELEPATHY, [telepathy-glib telepathy-glib-unstable])],
+    [PKG_CHECK_MODULES(TELEPATHY, [telepathy-glib >= 0.5.8])])
 
 AC_SUBST(TELEPATHY_CFLAGS)
 AC_SUBST(TELEPATHY_LIBS)
