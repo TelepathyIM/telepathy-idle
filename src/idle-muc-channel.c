@@ -193,8 +193,8 @@ static const gchar *ascii_muc_states[] =
 	"MUC_STATE_PARTED"
 };
 
-static gboolean add_member(TpSvcChannelInterfaceGroup *obj, TpHandle handle, const gchar *message, GError **error);
-static gboolean remove_member(TpSvcChannelInterfaceGroup *obj, TpHandle handle, const gchar *message, GError **error);
+static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message, GError **error);
+static gboolean remove_member(GObject *gobj, TpHandle handle, const gchar *message, GError **error);
 
 static void muc_channel_tp_properties_init(IdleMUCChannel *chan);
 static void muc_channel_tp_properties_destroy(IdleMUCChannel *chan);
@@ -270,7 +270,7 @@ static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectC
 	bus = tp_get_bus();
 	dbus_g_connection_register_g_object(bus, priv->object_path, obj);
 
-	tp_group_mixin_init((TpSvcChannelInterfaceGroup *)(obj), G_STRUCT_OFFSET(IdleMUCChannel, group), contact_handles, priv->connection->parent.self_handle);
+	tp_group_mixin_init(obj, G_STRUCT_OFFSET(IdleMUCChannel, group), contact_handles, priv->connection->parent.self_handle);
 
 	tp_text_mixin_init(obj, G_STRUCT_OFFSET(IdleMUCChannel, text), contact_handles);
   tp_text_mixin_set_message_types(obj,
@@ -408,7 +408,7 @@ idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class)
 
   signals[JOIN_READY] = g_signal_new("join-ready", G_OBJECT_CLASS_TYPE(idle_muc_channel_class), G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED, 0, NULL, NULL, g_cclosure_marshal_VOID__INT, G_TYPE_NONE, 1, G_TYPE_UINT);
 
-	tp_group_mixin_class_init((TpSvcChannelInterfaceGroupClass *)(object_class), G_STRUCT_OFFSET(IdleMUCChannelClass, group_class), add_member, remove_member);
+	tp_group_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleMUCChannelClass, group_class), add_member, remove_member);
 
 	tp_text_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleMUCChannelClass, text_class));
 }
@@ -459,7 +459,7 @@ idle_muc_channel_finalize (GObject *object)
   g_free(priv->properties);
 
 	tp_text_mixin_finalize(object);
-	tp_group_mixin_finalize((TpSvcChannelInterfaceGroup *)(object));
+	tp_group_mixin_finalize(object);
 
   G_OBJECT_CLASS (idle_muc_channel_parent_class)->finalize (object);
 }
@@ -942,7 +942,7 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove)
 		}
 	}
 
-	tp_group_mixin_change_flags((TpSvcChannelInterfaceGroup *)(obj), group_add, group_remove);
+	tp_group_mixin_change_flags((GObject *)obj, group_add, group_remove);
 	change_tp_properties(obj, tp_props_to_change);
 
 	priv->mode_state.flags = flags;
@@ -1014,8 +1014,8 @@ void _idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner)
 	if (joiner == priv->connection->parent.self_handle) {
 		/* woot we managed to get into a channel, great */
 		change_state(chan, MUC_STATE_JOINED);
-		tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "We joined the group", set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
-		tp_group_mixin_change_flags((TpSvcChannelInterfaceGroup *)(chan), TP_CHANNEL_GROUP_FLAG_CAN_ADD, 0);
+		tp_group_mixin_change_members((GObject *)(chan), "We joined the group", set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+		tp_group_mixin_change_flags((GObject *)(chan), TP_CHANNEL_GROUP_FLAG_CAN_ADD, 0);
 
 		send_mode_query_request(chan);
 
@@ -1023,7 +1023,7 @@ void _idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner)
 			/* according to IRC specs, PLUS channels do not support channel modes and alway have only +t set, so we work with that. */
 			change_mode_state(chan, MODE_FLAG_TOPIC_ONLY_SETTABLE_BY_OPS, 0);
 	}	else {
-		tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "New member joined the group", set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+		tp_group_mixin_change_members((GObject *)(chan), "New member joined the group", set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 	}
 
 	g_debug("%s: member joined with handle %u", G_STRFUNC, joiner);
@@ -1036,7 +1036,7 @@ static void _network_member_left(IdleMUCChannel *chan, TpHandle leaver, TpHandle
 	TpIntSet *set = tp_intset_new();
 
 	tp_intset_add(set, leaver);
-	tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *) chan, message, NULL, set, NULL, NULL, actor, reason);
+	tp_group_mixin_change_members((GObject *) chan, message, NULL, set, NULL, NULL, actor, reason);
 
 	if (leaver == priv->connection->parent.self_handle) {
 		change_state(chan, MUC_STATE_PARTED);
@@ -1070,7 +1070,7 @@ void _idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter) {
 	tp_intset_add(add, inviter);
 	tp_intset_add(local, priv->connection->parent.self_handle);
 
-	tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "We were invited to join a channel", add, NULL, local, NULL, inviter, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
+	tp_group_mixin_change_members((GObject *)(chan), "We were invited to join a channel", add, NULL, local, NULL, inviter, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 
 	tp_intset_destroy(add);
 	tp_intset_destroy(local);
@@ -1112,7 +1112,7 @@ void _idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
 		tp_intset_add(handles_to_add, handle);
 	}
 
-	tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "The channel member listing arrived", handles_to_add, NULL, NULL, NULL, 0, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+	tp_group_mixin_change_members((GObject *)(chan), "The channel member listing arrived", handles_to_add, NULL, NULL, NULL, 0, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 }
 
 static guint _modechar_to_modeflag(gchar modechar) {
@@ -1459,7 +1459,7 @@ void _idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old_handle, TpHandl
 	else
 		goto cleanup;
 
-	tp_group_mixin_change_members((TpSvcChannelInterfaceGroup *)(chan), "Member changed nick", add, remove, local, remote, new_handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+	tp_group_mixin_change_members((GObject *)(chan), "Member changed nick", add, remove, local, remote, new_handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 
 cleanup:
 
@@ -1561,8 +1561,8 @@ static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gc
 	return TRUE;
 }
 
-static gboolean add_member(TpSvcChannelInterfaceGroup *iface, TpHandle handle, const gchar *message, GError **error) {
-	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
+static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message, GError **error) {
+	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(gobj);
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
 	if (handle == priv->connection->parent.self_handle)
@@ -1585,7 +1585,7 @@ static gboolean add_member(TpSvcChannelInterfaceGroup *iface, TpHandle handle, c
 
 			tp_intset_add(add_set, handle);
 
-			tp_group_mixin_change_members(iface, message, NULL, NULL, NULL, add_set, handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+			tp_group_mixin_change_members(gobj, message, NULL, NULL, NULL, add_set, handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 		}
 	}
 	else
@@ -1612,7 +1612,7 @@ static gboolean add_member(TpSvcChannelInterfaceGroup *iface, TpHandle handle, c
 
 			tp_intset_add(add_set, handle);
 
-			tp_group_mixin_change_members(iface, "We invited a contact to the group", NULL, NULL, NULL, add_set, priv->connection->parent.self_handle, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
+			tp_group_mixin_change_members(gobj, "We invited a contact to the group", NULL, NULL, NULL, add_set, priv->connection->parent.self_handle, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 		}
 	}
 
@@ -1641,9 +1641,9 @@ static void part_from_channel(IdleMUCChannel *obj, const gchar *msg)
 	_idle_connection_send(priv->connection, cmd);
 }
 
-static gboolean remove_member(TpSvcChannelInterfaceGroup *iface, TpHandle handle, const gchar *message, GError **error)
+static gboolean remove_member(GObject *gobj, TpHandle handle, const gchar *message, GError **error)
 {
-	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
+	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(gobj);
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 	GError *kick_error;
 
