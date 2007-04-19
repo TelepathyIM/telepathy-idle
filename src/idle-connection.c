@@ -63,8 +63,6 @@
 
 #include "idle-connection.h"
 
-#include "idle-version.h"
-
 /* From RFC 2813 :
  * This in essence means that the client may send one (1) message every
  * two (2) seconds without being adversely affected.  Services MAY also

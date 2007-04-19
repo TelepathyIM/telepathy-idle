@@ -1,7 +1,6 @@
 BUILT_SOURCES = \
 		idle-server-connection-iface-signals-marshal.h \
-		idle-server-connection-iface-signals-marshal.c \
-		config.h
+		idle-server-connection-iface-signals-marshal.c
 
 # correctly clean the generated source files
 CLEANFILES = $(BUILT_SOURCES)
@@ -33,7 +32,6 @@ CORE_SOURCES = \
 	idle-server-connection-iface.h \
 	idle-ssl-server-connection.h \
 	idle-ssl-server-connection.c \
-	idle-version.h \
 	text.h \
 	text.c \
 	$(BUILT_SOURCES)
@@ -63,7 +61,4 @@ AM_LDFLAGS = @DBUS_LIBS@ @GLIB_LIBS@ @SOFIA_LIBS@ @OPENSSL_LIBS@ @TELEPATHY_LIBS
 
 %-marshal.c: %-marshal.list Makefile
 	glib-genmarshal --body --prefix=$(subst -,_,$*)_marshal $< > $*-marshal.c
-
-config.h:
-	echo '#define TELEPATHY_IDLE_VERSION "'@TELEPATHY_IDLE_VERSION@'"' > config.h
 
