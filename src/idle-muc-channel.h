@@ -88,8 +88,6 @@ void _idle_muc_channel_topic_full(IdleMUCChannel *chan, const TpHandle handle, c
 void _idle_muc_channel_topic_touch(IdleMUCChannel *chan, const TpHandle handle, const guint timestamp);
 void _idle_muc_channel_topic_unset(IdleMUCChannel *chan);
 
-gboolean _idle_muc_channel_has_current_member(IdleMUCChannel *chan, TpHandle handle);
-
 gboolean idle_muc_channel_is_modechar(char c);
 
 G_END_DECLS

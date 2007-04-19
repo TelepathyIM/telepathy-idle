@@ -1496,11 +1496,6 @@ void _idle_muc_channel_join_attempt(IdleMUCChannel *obj)
 	return send_join_request(obj, NULL);
 }
 
-gboolean _idle_muc_channel_has_current_member(IdleMUCChannel *chan, TpHandle handle)
-{
-	return tp_handle_set_is_member(chan->group.members, handle);
-}
-
 static gboolean send_invite_request(IdleMUCChannel *obj, TpHandle handle, GError **error)
 {
 	IdleMUCChannelPrivate *priv;
