@@ -1763,34 +1763,6 @@ static void idle_muc_channel_get_handle (TpSvcChannel *iface, DBusGMethodInvocat
 	tp_svc_channel_return_from_get_handle(context, TP_HANDLE_TYPE_ROOM, priv->handle);
 }
 
-
-/**
- * idle_muc_channel_get_handle_owners
- *
- * Implements DBus method GetHandleOwners
- * on interface org.freedesktop.Telepathy.Channel.Interface.Group
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-gboolean idle_muc_channel_get_handle_owners (IdleMUCChannel *obj, const GArray * handles, GArray ** ret, GError **error)
-{
-	int i;
-	
-	*ret = g_array_sized_new(FALSE, FALSE, sizeof(guint), handles->len);
-
-	for (i=0; i<handles->len; i++)
-	{
-		g_array_index(*ret, guint, i) = g_array_index(handles, guint, i);
-	}
-	
-	return TRUE;
-}
-
-
 /**
  * idle_muc_channel_get_interfaces
  *
