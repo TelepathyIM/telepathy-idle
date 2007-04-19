@@ -31,6 +31,7 @@
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/svc-connection.h>
+#include <telepathy-glib/svc-unstable.h>
 #include <telepathy-glib/channel-factory-iface.h>
 
 #include <stdio.h>

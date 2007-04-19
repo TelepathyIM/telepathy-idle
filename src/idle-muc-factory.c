@@ -30,6 +30,7 @@
 
 #include <telepathy-glib/channel-factory-iface.h>
 #include <telepathy-glib/interfaces.h>
+#include <telepathy-glib/svc-unstable.h>
 
 static void _channel_factory_iface_init(gpointer g_iface, gpointer iface_data);
 
