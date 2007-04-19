@@ -18,6 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include <config.h>
+
 #define DBUS_API_SUBJECT_TO_CHANGE
 
 #include <dbus/dbus-glib.h>
@@ -167,6 +169,7 @@ static IdleParserHandlerResult _erroneous_nickname_handler(IdleParser *parser, I
 static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _nickname_in_use_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _ping_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
+static IdleParserHandlerResult _version_privmsg_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 
 static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServerConnectionState state, IdleServerConnectionStateReason reason, IdleConnection *conn);
@@ -459,10 +462,13 @@ static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error) 
 		g_signal_connect(sconn, "received", (GCallback)(sconn_received_cb), conn);
 
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_ERRONEOUSNICKNAME, _erroneous_nickname_handler, conn);
-		idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_NICK, _nick_handler, conn);
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_NICKNAMEINUSE, _nickname_in_use_handler, conn);
-		idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WELCOME, _welcome_handler, conn);
+
+		idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
+
+		idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_NICK, _nick_handler, conn);
+		idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_USER, _version_privmsg_handler, conn);
 
 		irc_handshakes(conn);
 	}	else {
@@ -695,6 +701,24 @@ static IdleParserHandlerResult _ping_handler(IdleParser *parser, IdleParserMessa
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
 
+static IdleParserHandlerResult _version_privmsg_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
+	const gchar *msg = g_value_get_string(g_value_array_get_nth(args, 2));
+
+	if (g_ascii_strcasecmp(msg, "\001VERSION\001"))
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+
+	TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+	const gchar *nick = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT), handle);
+	gchar *reply = g_strdup_printf("NOTICE %s :\001VERSION telepathy-idle %s Telepathy IM/VoIP Framework http://telepathy.freedesktop.org\001", nick, VERSION);
+
+	send_irc_cmd_full(conn, reply, SERVER_CMD_MIN_PRIORITY);
+
+	g_free(reply);
+
+	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
+}
+
 static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, 0));
@@ -856,22 +880,4 @@ renaming_iface_init(gpointer g_iface, gpointer iface_data) {
 	IMPLEMENT(request_rename);
 #undef IMPLEMENT
 }
-
-#if 0
-
-				else if (!g_strncasecmp(body, "VERSION", 7))
-				{
-					g_debug("%s: detected CTCP VERSION message", G_STRFUNC);
-
-					reply = g_strdup_printf("NOTICE %s :\001VERSION %s\001", from, priv->ctcp_version_string);
-
-					goto cleanupl;
-				}
-				else
-				{
-					g_debug("%s: ignored unimplemented (non-ACTION/VERSION) CTCP (%s)", G_STRFUNC, body);
-					goto cleanupl;
-				}
-
-#endif
 
