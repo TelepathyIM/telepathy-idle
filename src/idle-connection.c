@@ -538,6 +538,8 @@ static void sconn_received_cb(IdleServerConnectionIface *sconn, gchar *raw_msg, 
 
 	idle_connection_ntoh(conn, raw_msg, &converted);
 	idle_parser_receive(conn->parser, converted);
+
+	g_free(converted);
 }
 
 gboolean _idle_connection_send(IdleConnection *conn, const gchar *msg) {
