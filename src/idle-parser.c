@@ -26,8 +26,6 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <telepathy-glib/intset.h>
-
 #define __USE_GNU
 #include <string.h>
 #undef __USE_GNU
@@ -177,8 +175,8 @@ static void idle_parser_class_init(IdleParserClass *klass) {
 }
 
 static void _parse_message(IdleParser *parser, const gchar *split_msg);
-static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParserMessageCode code, const gchar *format, TpIntSet *contact_handles, TpIntSet *room_handles);
-static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, const gchar *token, TpIntSet *contact_handles, TpIntSet *room_handles);
+static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParserMessageCode code, const gchar *format, GSList **contact_handles, GSList **room_handles);
+static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, const gchar *token, GSList **contact_handles, GSList **room_handles);
 
 void idle_parser_receive(IdleParser *parser, const gchar *msg) {
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
@@ -290,11 +288,6 @@ static void _free_tokens(gchar **tokens) {
 	g_free(tokens);
 }
 
-static void _unref_one(guint i, gpointer user_data) {
-	TpHandleRepoIface *iface = (TpHandleRepoIface *) user_data;
-	tp_handle_unref(iface, i);
-}
-
 static void _parse_message(IdleParser *parser, const gchar *split_msg) {
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
 	int i;
@@ -302,28 +295,33 @@ static void _parse_message(IdleParser *parser, const gchar *split_msg) {
 	g_debug("%s: parsing \"%s\"", G_STRFUNC, split_msg);
 
 	for (i = 0; i < IDLE_PARSER_LAST_MESSAGE_CODE; i++) {
-		TpIntSet *contact_handles = tp_intset_new(), *room_handles = tp_intset_new();
+		GSList *contact_handles = NULL, *room_handles = NULL;
+		TpHandleRepoIface *contact_repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_CONTACT);
+		TpHandleRepoIface *room_repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_ROOM);
 		const MessageSpec *spec = &(message_specs[i]);
 
 		if (split_msg[0] != ':') {
 			if (!g_ascii_strcasecmp(tokens[0], spec->str))
-				_parse_and_forward_one(parser, tokens, spec->code, spec->format, contact_handles, room_handles);
+				_parse_and_forward_one(parser, tokens, spec->code, spec->format, &contact_handles, &room_handles);
 		} else {
 			if (!g_ascii_strcasecmp(tokens[2], spec->str))
-				_parse_and_forward_one(parser, tokens, spec->code, spec->format, contact_handles, room_handles);
+				_parse_and_forward_one(parser, tokens, spec->code, spec->format, &contact_handles, &room_handles);
 		}
 
-		tp_intset_foreach(contact_handles, _unref_one, tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_CONTACT));
-		tp_intset_foreach(room_handles, _unref_one, tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_ROOM));
+		for (GSList *cur = contact_handles; cur != NULL; cur = cur->next)
+			tp_handle_unref(contact_repo, GPOINTER_TO_UINT(cur->data));
 
-		tp_intset_destroy(contact_handles);
-		tp_intset_destroy(room_handles);
+		for (GSList *cur = room_handles; cur != NULL; cur = cur->next)
+			tp_handle_unref(room_repo, GPOINTER_TO_UINT(cur->data));
+
+		g_slist_free(contact_handles);
+		g_slist_free(room_handles);
 	}
 
 	_free_tokens(tokens);
 }
 
-static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParserMessageCode code, const gchar *format, TpIntSet *contact_handles, TpIntSet *room_handles) {
+static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParserMessageCode code, const gchar *format, GSList **contact_handles, GSList **room_handles) {
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
 	GValueArray *args = g_value_array_new(3);
 	GSList *link = priv->handlers[code];
@@ -405,7 +403,7 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 	g_value_array_free(args);
 }
 
-static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, const gchar *token, TpIntSet *contact_handles, TpIntSet *room_handles) {
+static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, const gchar *token, GSList **contact_handles, GSList **room_handles) {
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
 	TpHandle handle;
 	GValue val = {0};
@@ -442,10 +440,10 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 
 			if (atom == 'r') {
 				if ((handle = tp_handle_ensure(room_repo, id, NULL, NULL)))
-					tp_intset_add(room_handles, handle);
+					*room_handles = g_slist_prepend(*room_handles, GUINT_TO_POINTER(handle));
 			} else {
 				if ((handle = tp_handle_ensure(contact_repo, id, NULL, NULL)))
-					tp_intset_add(contact_handles, handle);
+					*contact_handles = g_slist_prepend(*contact_handles, GUINT_TO_POINTER(handle));
 			}
 
 			g_free(id);
