@@ -343,7 +343,7 @@ static void idle_connection_class_init (IdleConnectionClass *klass) {
 	param_spec = g_param_spec_string("server", "Hostname or IP of the IRC server to connect to", "The server used when establishing the connection.", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB);
 	g_object_class_install_property(object_class, PROP_SERVER, param_spec);
 
-	param_spec = g_param_spec_uint("port", "IRC server port", "The destination port used when establishing the connection.", 0, G_MAXUINT16, 6667, G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB | G_PARAM_CONSTRUCT);
+	param_spec = g_param_spec_uint("port", "IRC server port", "The destination port used when establishing the connection.", 0, G_MAXUINT16, 0, G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB | G_PARAM_CONSTRUCT);
 	g_object_class_install_property(object_class, PROP_PORT, param_spec);
 
 	param_spec = g_param_spec_string("password", "Server password", "Password to authenticate to the server with", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB);
@@ -352,10 +352,10 @@ static void idle_connection_class_init (IdleConnectionClass *klass) {
 	param_spec = g_param_spec_string("realname", "Real name", "The real name of the user connecting to IRC", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB);
 	g_object_class_install_property(object_class, PROP_REALNAME, param_spec);
 
-	param_spec = g_param_spec_string("charset", "Character set", "The character set to use to communicate with the outside world", "UTF-8", G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB | G_PARAM_CONSTRUCT);
+	param_spec = g_param_spec_string("charset", "Character set", "The character set to use to communicate with the outside world", "NULL", G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB | G_PARAM_CONSTRUCT);
 	g_object_class_install_property(object_class, PROP_CHARSET, param_spec);
 
-	param_spec = g_param_spec_string("quit-message", "Quit message", "The quit message to send to the server when leaving IRC", "So long and thanks for all the IRC - telepathy-idle IRC Connection Manager for Telepathy - http://telepathy.freedesktop.org", G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB | G_PARAM_CONSTRUCT);
+	param_spec = g_param_spec_string("quit-message", "Quit message", "The quit message to send to the server when leaving IRC", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB | G_PARAM_CONSTRUCT);
 	g_object_class_install_property(object_class, PROP_QUITMESSAGE, param_spec);
 
 	param_spec = g_param_spec_boolean("use-ssl", "Use SSL", "If the connection should use a SSL tunneled socket connection", FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB | G_PARAM_CONSTRUCT);

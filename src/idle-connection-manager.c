@@ -101,24 +101,23 @@ static void idle_connection_manager_class_init (IdleConnectionManagerClass *klas
 	parent_class->protocol_params = _protocols;
 }
 
-#define SET_PROPERTY_IF_PARAM_SET(prop, param, member) \
-  if (tp_intset_is_member(params_present, param)) \
-      g_object_set(conn, prop, member, NULL);
-
 static TpBaseConnection *_iface_new_connection(TpBaseConnectionManager *self, const gchar *proto, TpIntSet *params_present, void *parsed_params, GError **error) {
 	IdleConnection *conn;
 	Params *params = (Params *) parsed_params;
 
 	g_assert(IDLE_IS_CONNECTION_MANAGER(self));
 
-	conn = g_object_new(IDLE_TYPE_CONNECTION, "protocol", proto, "nickname", params->account, "server", params->server, NULL);
-
-	SET_PROPERTY_IF_PARAM_SET("port", PARAM_PORT, params->port);
-	SET_PROPERTY_IF_PARAM_SET("password", PARAM_PASSWORD, params->password);
-	SET_PROPERTY_IF_PARAM_SET("realname", PARAM_FULLNAME, params->fullname);
-	SET_PROPERTY_IF_PARAM_SET("charset", PARAM_CHARSET, params->charset);
-	SET_PROPERTY_IF_PARAM_SET("quit-message", PARAM_QUIT_MESSAGE, params->quit_message);
-	SET_PROPERTY_IF_PARAM_SET("use-ssl", PARAM_USE_SSL, params->use_ssl);
+	conn = g_object_new(IDLE_TYPE_CONNECTION,
+			"protocol", proto,
+			"nickname", params->account,
+			"server", params->server,
+			"port", params->port,
+			"password", params->password,
+			"realname", params->fullname,
+			"charset", params->charset,
+			"quit-message", params->quit_message,
+			"use-ssl", params->use_ssl,
+			NULL);
 
 	return TP_BASE_CONNECTION(conn);
 }
