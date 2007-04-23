@@ -23,6 +23,9 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+#define IDLE_DEBUG_FLAG IDLE_DEBUG_DNS
+#include "idle-debug.h"
+
 typedef struct _IdleDNSResultReal IdleDNSResultReal;
 
 struct _IdleDNSResultReal
@@ -489,7 +492,7 @@ _resolve_idle_func(struct _idle_helper *helper)
 
 	if (rc)
 	{
-		g_debug("%s: getaddrinfo(): %s", G_STRFUNC, gai_strerror(rc));
+		IDLE_DEBUG("getaddrinfo(): %s", gai_strerror(rc));
 		return FALSE;
 	}
 
@@ -573,7 +576,7 @@ idle_dns_resolver_cancel_query(IdleDNSResolver *res, guint id)
 
 	if (!data)
 	{
-		g_debug("%s query %u not found!", G_STRFUNC, id);
+		IDLE_DEBUG("query %u not found!", id);
 		return;
 	}
 
