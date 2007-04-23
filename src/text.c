@@ -25,6 +25,9 @@
 #include <time.h>
 #include <string.h>
 
+#define IDLE_DEBUG_FLAG IDLE_DEBUG_TEXT
+#include "idle-debug.h"
+
 void idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gchar **body) {
 	if (text[0] != '\001') {
 		*type = TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL;
@@ -53,7 +56,7 @@ void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gch
 
 	if ((recipient == NULL) || (strlen(recipient) == 0))
 	{
-		g_debug("%s: invalid recipient", G_STRFUNC);
+		IDLE_DEBUG("invalid recipient");
 
 		error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "invalid recipient");
 		dbus_g_method_return_error(context, error);
@@ -79,7 +82,7 @@ void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gch
 	}
 	else
 	{
-		g_debug("%s: invalid message type %u", G_STRFUNC, type);
+		IDLE_DEBUG("invalid message type %u", type);
 
 		error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid message type %u", type);
 		dbus_g_method_return_error(context, error);
