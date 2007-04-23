@@ -226,7 +226,6 @@ static void sres_answer_callback(sres_context_t *ctx, sres_query_t *query, sres_
 
 	if (!instance)
 	{
-		g_debug("%s: invalid or cancelled context %p, ignoring", G_STRFUNC, ctx);
 		return;
 	}
 
@@ -304,7 +303,6 @@ static void sres_answer_callback(sres_context_t *ctx, sres_query_t *query, sres_
 			break;
 			default:
 			{
-				g_debug("%s: unsupported address family %u encountered, ignoring", G_STRFUNC, answers[i]->sr_record->r_type);
 				continue;
 			}
 			break;
@@ -360,8 +358,6 @@ guint idle_dns_resolver_query(IdleDNSResolver *resolver, const gchar *name, guin
 	sres_query_t *sofia_query;
 	static const uint16_t types[] = {sres_type_a, sres_type_aaaa, sres_type_a6};
 	int i;
-
-	g_debug("%s: resolving %s:%u", G_STRFUNC, name, port);
 
 	data = idle_dns_query_data_new();
 
