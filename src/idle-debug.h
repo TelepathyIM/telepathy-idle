@@ -24,9 +24,9 @@
 
 typedef enum {
 	IDLE_DEBUG_CONNECTION = (1 << 0),
-	IDLE_DEBUG_DNS_RESOLVER = (1 << 1),
-	IDLE_DEBUG_IM_CHANNEL = (1 << 2),
-	IDLE_DEBUG_MUC_CHANNEL = (1 << 3),
+	IDLE_DEBUG_DNS = (1 << 1),
+	IDLE_DEBUG_IM = (1 << 2),
+	IDLE_DEBUG_MUC = (1 << 3),
 	IDLE_DEBUG_NETWORK = (1 << 4),
 	IDLE_DEBUG_PARSER = (1 << 5),
 	IDLE_DEBUG_TEXT = (1 << 6),

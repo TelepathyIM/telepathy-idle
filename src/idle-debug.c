@@ -29,9 +29,9 @@ static IdleDebugFlags _flags = 0;
 
 static GDebugKey _keys[] = {
 	{"connection", IDLE_DEBUG_CONNECTION},
-	{"dns-resolver", IDLE_DEBUG_DNS_RESOLVER},
-	{"im-channel", IDLE_DEBUG_IM_CHANNEL},
-	{"muc-channel", IDLE_DEBUG_MUC_CHANNEL},
+	{"dns", IDLE_DEBUG_DNS},
+	{"im", IDLE_DEBUG_IM},
+	{"muc", IDLE_DEBUG_MUC},
 	{"network", IDLE_DEBUG_NETWORK},
 	{"parser", IDLE_DEBUG_PARSER},
 	{"text", IDLE_DEBUG_TEXT},
