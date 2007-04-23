@@ -44,14 +44,8 @@
 
 #include "idle-dns-resolver.h"
 
-/* From RFC 2813 :
- * This in essence means that the client may send one (1) message every
- * two (2) seconds without being adversely affected.  Services MAY also
- * be subject to this mechanism.
- */
-
-#define SEND_QUEUE_UNLOAD_AT_A_TIME 1
-#define SEND_QUEUE_UNLOAD_DELAY 2
+#define IDLE_DEBUG_FLAG IDLE_DEBUG_NETWORK
+#include "idle-debug.h"
 
 static void idle_ssl_server_connection_iface_init(gpointer g_iface, gpointer iface_data);
 typedef struct _IdleSSLServerConnectionPrivate IdleSSLServerConnectionPrivate;
@@ -187,7 +181,7 @@ static void idle_ssl_server_connection_dispose(GObject *obj)
 		return;
 	}
 
-	g_debug("%s: dispose called", G_STRFUNC);
+	IDLE_DEBUG("dispose called");
 	priv->dispose_has_run = TRUE;
 
 	if (priv->state == SERVER_CONNECTION_STATE_CONNECTED)
@@ -355,7 +349,7 @@ static SSL_CTX *ssl_conn_get_ctx()
 
 		if (!ctx)
 		{
-			g_debug("%s: OpenSSL initialization failed!", G_STRFUNC);
+			IDLE_DEBUG("OpenSSL initialization failed!");
 		}
 	}
 
@@ -371,7 +365,7 @@ static gboolean ssl_io_err_cleanup_func(gpointer user_data)
 
 	if (!iface_ssl_disconnect_impl_full(iface, SERVER_CONNECTION_STATE_REASON_ERROR, &error))
 	{
-		g_debug("%s: disconnect: %s", G_STRFUNC, error->message);
+		IDLE_DEBUG("disconnect: %s", error->message);
 		g_error_free(error);
 	}
 
@@ -387,7 +381,7 @@ static gboolean ssl_io_func(GIOChannel *src, GIOCondition cond, gpointer data)
 
 	if ((cond == G_IO_ERR) || (cond == G_IO_HUP))
 	{
-		g_debug("%s: got G_IO_ERR || G_IO_HUP", G_STRFUNC);
+		IDLE_DEBUG("got G_IO_ERR || G_IO_HUP");
 		ssl_conn_change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
 		
 		priv->read_watch_id = 0;
@@ -403,7 +397,7 @@ static gboolean ssl_io_func(GIOChannel *src, GIOCondition cond, gpointer data)
 
 	if (err <= 0)
 	{
-		g_debug("%s: SSL_read failed with error %i", G_STRFUNC, SSL_get_error(priv->ssl, err));
+		IDLE_DEBUG("SSL_read failed with error %i", SSL_get_error(priv->ssl, err));
 
 		g_idle_add(ssl_io_err_cleanup_func, conn);
 
@@ -445,7 +439,7 @@ static void ssl_async_connecting_finished_cb(IdleSSLServerConnection *conn, gboo
 
 	if (fcntl(priv->fd, F_SETFL, 0))
 	{
-		g_debug("%s: failed to set socket back to blocking mode", G_STRFUNC);
+		IDLE_DEBUG("failed to set socket back to blocking mode");
 	}
 
 	opt = 1;
@@ -458,7 +452,7 @@ static void ssl_async_connecting_finished_cb(IdleSSLServerConnection *conn, gboo
 
 	if (!ctx)
 	{
-		g_debug("%s: failed to get SSL context object", G_STRFUNC);
+		IDLE_DEBUG("failed to get SSL context object");
 		return ssl_async_connecting_finished_cb(conn, FALSE);
 	}
 
@@ -466,7 +460,7 @@ static void ssl_async_connecting_finished_cb(IdleSSLServerConnection *conn, gboo
 
 	if (!priv->ssl)
 	{
-		g_debug("%s: failed to create SSL object", G_STRFUNC);
+		IDLE_DEBUG("failed to create SSL object");
 		return ssl_async_connecting_finished_cb(conn, FALSE);
 	}
 
@@ -474,7 +468,7 @@ static void ssl_async_connecting_finished_cb(IdleSSLServerConnection *conn, gboo
 
 	if (!status)
 	{
-		g_debug("%s: failed to set SSL socket", G_STRFUNC);
+		IDLE_DEBUG("failed to set SSL socket");
 		return ssl_async_connecting_finished_cb(conn, FALSE);
 	}
 
@@ -482,7 +476,7 @@ static void ssl_async_connecting_finished_cb(IdleSSLServerConnection *conn, gboo
 
 	if (status <= 0)
 	{
-		g_debug("%s: SSL_connect failed with status %i (error %i)", G_STRFUNC, status, SSL_get_error(priv->ssl, status));
+		IDLE_DEBUG("SSL_connect failed with status %i (error %i)", status, SSL_get_error(priv->ssl, status));
 		return ssl_async_connecting_finished_cb(conn, FALSE);
 	}
 
@@ -490,7 +484,7 @@ static void ssl_async_connecting_finished_cb(IdleSSLServerConnection *conn, gboo
 
 	if (!cert)
 	{
-		g_debug("%s: failed to get SSL peer certificate", G_STRFUNC);
+		IDLE_DEBUG("failed to get SSL peer certificate");
 		return ssl_async_connecting_finished_cb(conn, FALSE);
 	}
 
@@ -543,7 +537,7 @@ static void ssl_do_connect(AsyncConnectData *data)
 
 		if (fd == -1)
 		{
-			g_debug("%s: socket() failed: %s", G_STRFUNC, g_strerror(errno));
+			IDLE_DEBUG("socket() failed: %s", g_strerror(errno));
 		}
 		else
 		{
@@ -553,7 +547,7 @@ static void ssl_do_connect(AsyncConnectData *data)
 
 	if (fd == -1)
 	{
-		g_debug("%s: failed: %s", G_STRFUNC, g_strerror(errno));
+		IDLE_DEBUG("failed: %s", g_strerror(errno));
 		return data->finished_cb(data->conn, FALSE);
 	}
 
@@ -561,7 +555,7 @@ static void ssl_do_connect(AsyncConnectData *data)
 
 	if (rc != 0)
 	{
-		g_debug("%s: failed to set socket to non-blocking mode: %s", G_STRFUNC, g_strerror(errno));
+		IDLE_DEBUG("failed to set socket to non-blocking mode: %s", g_strerror(errno));
 		close(fd);
 		return data->finished_cb(data->conn, FALSE);
 	}
@@ -572,7 +566,7 @@ static void ssl_do_connect(AsyncConnectData *data)
 
 	if (errno != EINPROGRESS)
 	{
-		g_debug("%s: connect() failed: %s", G_STRFUNC, g_strerror(errno));
+		IDLE_DEBUG("connect() failed: %s", g_strerror(errno));
 		close(fd);
 		return data->finished_cb(data->conn, FALSE);
 	}
@@ -614,7 +608,7 @@ static gboolean iface_ssl_connect_impl(IdleServerConnectionIface *iface, GError 
 
 	if (priv->state != SERVER_CONNECTION_STATE_NOT_CONNECTED)
 	{
-		g_debug("%s: connection was not in state NOT_CONNECTED", G_STRFUNC);
+		IDLE_DEBUG("connection was not in state NOT_CONNECTED");
 
 		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection was in state NOT_CONNECTED");
 
@@ -623,7 +617,7 @@ static gboolean iface_ssl_connect_impl(IdleServerConnectionIface *iface, GError 
 
 	if (!priv->host && !priv->host[0])
 	{
-		g_debug("%s: no hostname provided", G_STRFUNC);
+		IDLE_DEBUG("no hostname provided");
 
 		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "no hostname provided");
 
@@ -632,7 +626,7 @@ static gboolean iface_ssl_connect_impl(IdleServerConnectionIface *iface, GError 
 
 	if (!priv->port)
 	{
-		g_debug("%s: no port provided", G_STRFUNC);
+		IDLE_DEBUG("no port provided");
 
 		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "no port provided");
 
@@ -653,7 +647,7 @@ static gboolean iface_ssl_disconnect_impl_full(IdleServerConnectionIface *iface,
 
 	if (priv->state == SERVER_CONNECTION_STATE_NOT_CONNECTED)
 	{
-		g_debug("%s: not connected", G_STRFUNC);
+		IDLE_DEBUG("not connected");
 
 		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "not connected");
 
@@ -674,7 +668,7 @@ static gboolean iface_ssl_disconnect_impl_full(IdleServerConnectionIface *iface,
 
 		if (io_error)
 		{
-			g_debug("%s: g_io_channel_shutdown failed: %s", G_STRFUNC, io_error->message);
+			IDLE_DEBUG("g_io_channel_shutdown failed: %s", io_error->message);
 
 			g_error_free(io_error);
 		}
@@ -711,7 +705,7 @@ static gboolean iface_ssl_send_impl(IdleServerConnectionIface *iface, const gcha
 
 	if (priv->state != SERVER_CONNECTION_STATE_CONNECTED)
 	{
-		g_debug("%s: connection was not in state CONNECTED", G_STRFUNC);
+		IDLE_DEBUG("connection was not in state CONNECTED");
 
 		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection was not in state CONNECTED");
 
@@ -731,7 +725,7 @@ static gboolean iface_ssl_send_impl(IdleServerConnectionIface *iface, const gcha
 	{
 		GError *local_error;
 		
-		g_debug("%s: SSL_write failed with status %i (error %i)", G_STRFUNC, rc, SSL_get_error(priv->ssl, rc));
+		IDLE_DEBUG("SSL_write failed with status %i (error %i)", rc, SSL_get_error(priv->ssl, rc));
 		
 		if (!iface_ssl_disconnect_impl_full(IDLE_SERVER_CONNECTION_IFACE(conn), SERVER_CONNECTION_STATE_REASON_ERROR, &local_error))
 		{
