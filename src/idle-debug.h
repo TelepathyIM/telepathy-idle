@@ -35,12 +35,13 @@ typedef enum {
 void idle_debug_init();
 void idle_debug(IdleDebugFlags flag, const gchar *format, ...) G_GNUC_PRINTF(2, 3);
 
+#endif
+
 #ifdef IDLE_DEBUG_FLAG
 
+#undef IDLE_DEBUG
 #define IDLE_DEBUG(format, ...) \
 	idle_debug(IDLE_DEBUG_FLAG, "%s: " format, G_STRFUNC, ##__VA_ARGS__)
-
-#endif
 
 #endif
 
