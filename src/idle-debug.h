@@ -1,8 +1,7 @@
 /*
  * This file is part of telepathy-idle
  * 
- * Copyright (C) 2006-2007 Collabora Limited
- * Copyright (C) 2006-2007 Nokia Corporation
+ * Copyright (C) 2007 Collabora Limited
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License 
@@ -18,23 +17,30 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <config.h>
+#ifndef __IDLE_DEBUG_H_
+#define __IDLE_DEBUG_H_
 
-#include <telepathy-glib/run.h>
-#include <telepathy-glib/debug.h>
+#include <glib.h>
 
-#include "idle-connection-manager.h"
-#include "idle-debug.h"
+typedef enum {
+	IDLE_DEBUG_CONNECTION = (1 << 0),
+	IDLE_DEBUG_DNS_RESOLVER = (1 << 1),
+	IDLE_DEBUG_IM_CHANNEL = (1 << 2),
+	IDLE_DEBUG_MUC_CHANNEL = (1 << 3),
+	IDLE_DEBUG_NETWORK = (1 << 4),
+	IDLE_DEBUG_PARSER = (1 << 5),
+	IDLE_DEBUG_TEXT = (1 << 6),
+} IdleDebugFlags;
 
-static TpBaseConnectionManager *_construct_cm() {
-	TpBaseConnectionManager *base_cm = TP_BASE_CONNECTION_MANAGER(g_object_new(IDLE_TYPE_CONNECTION_MANAGER, NULL));
+void idle_debug_init();
+void idle_debug(IdleDebugFlags flag, const gchar *format, ...) G_GNUC_PRINTF(2, 3);
 
-	return base_cm;
-}
+#ifdef IDLE_DEBUG_FLAG
 
-int main(int argc, char **argv) {
-	idle_debug_init();
+#define IDLE_DEBUG(format, ...) \
+	idle_debug(IDLE_DEBUG_FLAG, "%s: " format, G_STRFUNC, ##__VA_ARGS__)
 
-	return tp_run_connection_manager("telepathy-idle", VERSION, _construct_cm, argc, argv);
-}
+#endif
+
+#endif
 

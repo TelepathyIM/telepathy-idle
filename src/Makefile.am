@@ -12,6 +12,8 @@ CORE_SOURCES = \
 	idle-connection.h \
 	idle-connection-manager.c \
 	idle-connection-manager.h \
+	idle-debug.c \
+	idle-debug.h \
 	idle-dns-resolver.c \
 	idle-dns-resolver.h \
 	idle-handles.c \
