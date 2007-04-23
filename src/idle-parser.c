@@ -178,8 +178,8 @@ static void idle_parser_class_init(IdleParserClass *klass) {
 }
 
 static void _parse_message(IdleParser *parser, const gchar *split_msg);
-static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParserMessageCode code, const gchar *format, GSList **contact_handles, GSList **room_handles);
-static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, const gchar *token, GSList **contact_handles, GSList **room_handles);
+static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParserMessageCode code, const gchar *format);
+static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, const gchar *token, TpHandleSet *contact_reffed, TpHandleSet *room_reffed);
 
 void idle_parser_receive(IdleParser *parser, const gchar *msg) {
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
@@ -292,45 +292,34 @@ static void _free_tokens(gchar **tokens) {
 }
 
 static void _parse_message(IdleParser *parser, const gchar *split_msg) {
-	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
-	int i;
 	gchar **tokens = _tokenize(split_msg);
 	IDLE_DEBUG("parsing \"%s\"", split_msg);
 
-	for (i = 0; i < IDLE_PARSER_LAST_MESSAGE_CODE; i++) {
-		GSList *contact_handles = NULL, *room_handles = NULL;
-		TpHandleRepoIface *contact_repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_CONTACT);
-		TpHandleRepoIface *room_repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_ROOM);
+	for (int i = 0; i < IDLE_PARSER_LAST_MESSAGE_CODE; i++) {
 		const MessageSpec *spec = &(message_specs[i]);
 
 		if (split_msg[0] != ':') {
 			if (!g_ascii_strcasecmp(tokens[0], spec->str))
-				_parse_and_forward_one(parser, tokens, spec->code, spec->format, &contact_handles, &room_handles);
+				_parse_and_forward_one(parser, tokens, spec->code, spec->format);
 		} else {
 			if (!g_ascii_strcasecmp(tokens[2], spec->str))
-				_parse_and_forward_one(parser, tokens, spec->code, spec->format, &contact_handles, &room_handles);
+				_parse_and_forward_one(parser, tokens, spec->code, spec->format);
 		}
-
-		for (GSList *cur = contact_handles; cur != NULL; cur = cur->next)
-			tp_handle_unref(contact_repo, GPOINTER_TO_UINT(cur->data));
-
-		for (GSList *cur = room_handles; cur != NULL; cur = cur->next)
-			tp_handle_unref(room_repo, GPOINTER_TO_UINT(cur->data));
-
-		g_slist_free(contact_handles);
-		g_slist_free(room_handles);
 	}
 
 	_free_tokens(tokens);
 }
 
-static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParserMessageCode code, const gchar *format, GSList **contact_handles, GSList **room_handles) {
+static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParserMessageCode code, const gchar *format) {
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
 	GValueArray *args = g_value_array_new(3);
 	GSList *link = priv->handlers[code];
 	IdleParserHandlerResult result = IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 	gboolean success = TRUE;
 	gchar **iter = tokens;
+	/* We keep a ref to each unique handle in a message so that we can unref them after calling all handlers */
+	TpHandleSet *contact_reffed = tp_handle_set_new(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_CONTACT));
+	TpHandleSet *room_reffed = tp_handle_set_new(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_ROOM));
 
 	IDLE_DEBUG("message code %u", code);
 
@@ -340,7 +329,7 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 		if (*format == 'v') {
 			format++;
 			while (*iter != NULL) {
-				if (!_parse_atom(parser, args, *format, iter[0], contact_handles, room_handles)) {
+				if (!_parse_atom(parser, args, *format, iter[0], contact_reffed, room_reffed)) {
 					success = FALSE;
 					break;
 				}
@@ -360,7 +349,7 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 
 			IDLE_DEBUG("set string \"%s\"", iter[1] + 1);
 		} else {
-			if (!_parse_atom(parser, args, *format, iter[0], contact_handles, room_handles)) {
+			if (!_parse_atom(parser, args, *format, iter[0], contact_reffed, room_reffed)) {
 				success = FALSE;
 				break;
 			}
@@ -373,15 +362,13 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 	if (!success && (*format != '.')) {
 		IDLE_DEBUG("failed to parse \"%s\"", tokens[1]);
 
-		g_value_array_free(args);
-		return;
+		goto cleanup;
 	}
 
 	if (*format && (*format != '.')) {
 		IDLE_DEBUG("missing args in message \"%s\"", tokens[1]);
 
-		g_value_array_free(args);
-		return;
+		goto cleanup;
 	}
 
 	IDLE_DEBUG("succesfully parsed");
@@ -403,10 +390,15 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 		}
 	}
 
+cleanup:
+
 	g_value_array_free(args);
+
+	tp_handle_set_destroy(contact_reffed);
+	tp_handle_set_destroy(room_reffed);
 }
 
-static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, const gchar *token, GSList **contact_handles, GSList **room_handles) {
+static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, const gchar *token, TpHandleSet *contact_reffed, TpHandleSet *room_reffed) {
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
 	TpHandle handle;
 	GValue val = {0};
@@ -442,11 +434,15 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 				*bang = '\0';
 
 			if (atom == 'r') {
-				if ((handle = tp_handle_ensure(room_repo, id, NULL, NULL)))
-					*room_handles = g_slist_prepend(*room_handles, GUINT_TO_POINTER(handle));
+				if ((handle = tp_handle_ensure(room_repo, id, NULL, NULL))) {
+					tp_handle_set_add(room_reffed, handle);
+					tp_handle_unref(room_repo, handle);
+				}
 			} else {
-				if ((handle = tp_handle_ensure(contact_repo, id, NULL, NULL)))
-					*contact_handles = g_slist_prepend(*contact_handles, GUINT_TO_POINTER(handle));
+				if ((handle = tp_handle_ensure(contact_repo, id, NULL, NULL))) {
+					tp_handle_set_add(contact_reffed, handle);
+					tp_handle_unref(contact_repo, handle);
+				}
 			}
 
 			g_free(id);
