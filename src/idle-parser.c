@@ -31,6 +31,9 @@
 #undef __USE_GNU
 #include <stdio.h>
 
+#define IDLE_DEBUG_FLAG IDLE_DEBUG_PARSER
+#include "idle-debug.h"
+
 #define IDLE_PARSER_GET_PRIVATE(parser) (G_TYPE_INSTANCE_GET_PRIVATE((parser), IDLE_TYPE_PARSER, IdleParserPrivate))
 
 G_DEFINE_TYPE(IdleParser, idle_parser, G_TYPE_OBJECT);
@@ -292,7 +295,7 @@ static void _parse_message(IdleParser *parser, const gchar *split_msg) {
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
 	int i;
 	gchar **tokens = _tokenize(split_msg);
-	g_debug("%s: parsing \"%s\"", G_STRFUNC, split_msg);
+	IDLE_DEBUG("parsing \"%s\"", split_msg);
 
 	for (i = 0; i < IDLE_PARSER_LAST_MESSAGE_CODE; i++) {
 		GSList *contact_handles = NULL, *room_handles = NULL;
@@ -329,7 +332,7 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 	gboolean success = TRUE;
 	gchar **iter = tokens;
 
-	g_debug("%s: message code %u", G_STRFUNC, code);
+	IDLE_DEBUG("message code %u", code);
 
 	while ((*format != '\0') && success && (*iter != NULL)) {
 		GValue val = {0};
@@ -355,7 +358,7 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 			g_value_array_append(args, &val);
 			g_value_unset(&val);
 
-			g_debug("%s: set string \"%s\"", G_STRFUNC, iter[1] + 1);
+			IDLE_DEBUG("set string \"%s\"", iter[1] + 1);
 		} else {
 			if (!_parse_atom(parser, args, *format, iter[0], contact_handles, room_handles)) {
 				success = FALSE;
@@ -368,20 +371,20 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 	}
 
 	if (!success && (*format != '.')) {
-		g_debug("%s: failed to parse \"%s\"", G_STRFUNC, tokens[1]);
+		IDLE_DEBUG("failed to parse \"%s\"", tokens[1]);
 
 		g_value_array_free(args);
 		return;
 	}
 
 	if (*format && (*format != '.')) {
-		g_debug("%s: missing args in message \"%s\"", G_STRFUNC, tokens[1]);
+		IDLE_DEBUG("missing args in message \"%s\"", tokens[1]);
 
 		g_value_array_free(args);
 		return;
 	}
 
-	g_debug("%s: succesfully parsed", G_STRFUNC);
+	IDLE_DEBUG("succesfully parsed");
 
 	while (link) {
 		MessageHandlerClosure *closure = link->data;
@@ -413,11 +416,11 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 	if (token[0] == ':')
 		token++;
 
-	g_debug("%s: parsing atom \"%s\" as %c", G_STRFUNC, token, atom);
+	IDLE_DEBUG("parsing atom \"%s\" as %c", token, atom);
 
 	switch (atom) {
 		case 'I':
-			g_debug("%s: ignored token", G_STRFUNC);
+			IDLE_DEBUG("ignored token");
 			return TRUE;
 			break;
 
@@ -456,7 +459,7 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 			g_value_array_append(arr, &val);
 			g_value_unset(&val);
 
-			g_debug("%s: set handle %u", G_STRFUNC, handle);
+			IDLE_DEBUG("set handle %u", handle);
 
 			if (atom == 'C') {
 				g_value_init(&val, G_TYPE_CHAR);
@@ -464,7 +467,7 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 				g_value_array_append(arr, &val);
 				g_value_unset(&val);
 
-				g_debug("%s: set modechar %c", G_STRFUNC, modechar);
+				IDLE_DEBUG("set modechar %c", modechar);
 			}
 
 			return TRUE;
@@ -480,7 +483,7 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 				g_value_array_append(arr, &val);
 				g_value_unset(&val);
 
-				g_debug("%s: set int %d", G_STRFUNC, dval);
+				IDLE_DEBUG("set int %d", dval);
 
 				return TRUE;
 			} else {
@@ -494,13 +497,13 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 			g_value_set_string(&val, token);
 			g_value_array_append(arr, &val);
 			g_value_unset(&val);
-			g_debug("%s: set string \"%s\"", G_STRFUNC, token);
+			IDLE_DEBUG("set string \"%s\"", token);
 
 			return TRUE;
 			break;
 
 		default:
-			g_debug("%s: unknown atom %c", G_STRFUNC, atom);
+			IDLE_DEBUG("unknown atom %c", atom);
 			return FALSE;
 			break;
 	}
