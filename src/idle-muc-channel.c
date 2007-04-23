@@ -42,6 +42,9 @@
 #include "idle-handles.h"
 #include "text.h"
 
+#define IDLE_DEBUG_FLAG IDLE_DEBUG_MUC
+#include "idle-debug.h"
+
 static void channel_iface_init (gpointer, gpointer);
 static void password_iface_init (gpointer, gpointer);
 static void properties_iface_init (gpointer, gpointer);
@@ -361,7 +364,7 @@ static void idle_muc_channel_set_property(GObject *object, guint property_id, co
 		case PROP_HANDLE:
 		{
 			priv->handle = g_value_get_uint(value);
-			g_debug("%s: setting handle to %u", G_STRFUNC, priv->handle);
+			IDLE_DEBUG("setting handle to %u", priv->handle);
 		}
 		break;
 		case PROP_HANDLE_TYPE:
@@ -522,7 +525,7 @@ static gboolean g_value_compare(const GValue *v1, const GValue *v2)
 
 	if (t1 != t2)
 	{
-		g_debug("%s: different types %s and %s compared!", G_STRFUNC, g_type_name(t1), g_type_name(t2));
+		IDLE_DEBUG("different types %s and %s compared!", g_type_name(t1), g_type_name(t2));
 		return FALSE;
 	}
 
@@ -551,7 +554,7 @@ static gboolean g_value_compare(const GValue *v1, const GValue *v2)
 			return (strcmp(s1, s2) == 0);
 		}
 		default:
-			g_debug("%s: unknown type %s in comparison", G_STRFUNC, g_type_name(t1));
+			IDLE_DEBUG("unknown type %s in comparison", g_type_name(t1));
 			return FALSE;
 	}
 }
@@ -589,7 +592,7 @@ static void change_tp_properties(IdleMUCChannel *chan, const GPtrArray *props)
 
 		if (prop_id >= LAST_TP_PROPERTY_ENUM)
 		{
-			g_debug("%s: prop_id >= LAST_TP_PROPERTY_ENUM, corruption!11", G_STRFUNC);
+			IDLE_DEBUG("prop_id >= LAST_TP_PROPERTY_ENUM, corruption!11");
 			continue;
 		}
 		
@@ -602,7 +605,7 @@ static void change_tp_properties(IdleMUCChannel *chan, const GPtrArray *props)
 			g_ptr_array_add(changed_props, g_value_get_boxed(&prop));
 			g_array_append_val(flags, prop_id);
 
-			g_debug("%s: tp_property %u changed", G_STRFUNC, prop_id);
+			IDLE_DEBUG("tp_property %u changed", prop_id);
 		}
 
 		g_value_unset(&prop);
@@ -610,13 +613,13 @@ static void change_tp_properties(IdleMUCChannel *chan, const GPtrArray *props)
 
 	if (changed_props->len > 0)
 	{
-		g_debug("%s: emitting PROPERTIES_CHANGED with %u properties", G_STRFUNC, changed_props->len);
+		IDLE_DEBUG("emitting PROPERTIES_CHANGED with %u properties", changed_props->len);
 		tp_svc_properties_interface_emit_properties_changed((TpSvcPropertiesInterface *)(chan), changed_props);
 	}
 
 	if (flags->len > 0)
 	{
-		g_debug("%s: flagging properties as readable with %u props", G_STRFUNC, flags->len);
+		IDLE_DEBUG("flagging properties as readable with %u props", flags->len);
 		set_tp_property_flags(chan, flags, TP_PROPERTY_FLAG_READ, 0);
 	}
 
@@ -639,7 +642,7 @@ static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpP
 
 	if (props == NULL)
 	{
-		g_debug("%s: setting all flags with %u, %u", G_STRFUNC, add, remove);
+		IDLE_DEBUG("setting all flags with %u, %u", add, remove);
 
 		for (i=0; i<LAST_TP_PROPERTY_ENUM; i++)
 		{
@@ -693,7 +696,7 @@ static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpP
 	
 	if (changed_props->len > 0)
 	{
-		g_debug("%s: emitting PROPERTY_FLAGS_CHANGED with %u properties", G_STRFUNC, changed_props->len);
+		IDLE_DEBUG("emitting PROPERTY_FLAGS_CHANGED with %u properties", changed_props->len);
 		tp_svc_properties_interface_emit_property_flags_changed((TpSvcPropertiesInterface *)(chan), changed_props);
 	}
 
@@ -716,7 +719,7 @@ static void provide_password_reply(IdleMUCChannel *chan, gboolean success)
 	}
 	else
 	{
-		g_debug("%s: don't have a ProvidePassword context to return with! (channel handle %u)", G_STRFUNC, priv->handle);
+		IDLE_DEBUG("don't have a ProvidePassword context to return with! (channel handle %u)", priv->handle);
 	}
 
 	if (success)
@@ -758,7 +761,7 @@ static void change_state(IdleMUCChannel *obj, IdleMUCState state)
 
 	priv->state = state;
 
-	g_debug("%s: IdleMUCChannel %u changed to state %s", G_STRFUNC, priv->handle, ascii_muc_states[state]);
+	IDLE_DEBUG("IdleMUCChannel %u changed to state %s", priv->handle, ascii_muc_states[state]);
 }
 
 static IdleMUCChannelTPProperty to_prop_id(IRCChannelModeFlags flag)
@@ -801,12 +804,12 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove)
 
 	tp_props_to_change = g_ptr_array_new();
 
-	g_debug("%s: got %x, %x", G_STRFUNC, add, remove);
+	IDLE_DEBUG("got %x, %x", add, remove);
 
 	add &= ~flags;
 	remove &= flags;
 	
-	g_debug("%s: operation %x, %x", G_STRFUNC, add, remove);
+	IDLE_DEBUG("operation %x, %x", add, remove);
 
 	flags |= add;
 	flags &= ~remove;
@@ -893,7 +896,7 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove)
 
 				if (type != G_TYPE_BOOLEAN)
 				{
-					g_debug("%s: type != G_TYPE_BOOLEAN for %u (modeflag %u), ignoring", G_STRFUNC, tp_prop_id, i);
+					IDLE_DEBUG("type != G_TYPE_BOOLEAN for %u (modeflag %u), ignoring", tp_prop_id, i);
 					continue;
 				}
 
@@ -948,7 +951,7 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove)
 
 	priv->mode_state.flags = flags;
 
-	g_debug("%s: changed to %x", G_STRFUNC, flags);
+	IDLE_DEBUG("changed to %x", flags);
 }
 
 static void change_password_flags(IdleMUCChannel *obj, guint flag, gboolean state)
@@ -974,7 +977,7 @@ static void change_password_flags(IdleMUCChannel *obj, guint flag, gboolean stat
 
 	if (add | remove)
 	{
-		g_debug("%s: emitting PASSWORD_FLAGS_CHANGED with %u %u", G_STRFUNC, add, remove);
+		IDLE_DEBUG("emitting PASSWORD_FLAGS_CHANGED with %u %u", add, remove);
 		tp_svc_channel_interface_password_emit_password_flags_changed((TpSvcChannelInterfacePassword *)(obj), add, remove);
 	}
 }
@@ -1027,7 +1030,7 @@ void _idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner)
 		tp_group_mixin_change_members((GObject *)(chan), "New member joined the group", set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 	}
 
-	g_debug("%s: member joined with handle %u", G_STRFUNC, joiner);
+	IDLE_DEBUG("member joined with handle %u", joiner);
 
 	tp_intset_destroy(set);
 }
@@ -1168,7 +1171,7 @@ void _idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args) {
 						TpHandle handle = tp_handle_ensure(handles, g_value_get_string(g_value_array_get_nth(args, ++i)), NULL, NULL);
 
 						if (handle == priv->connection->parent.self_handle) {
-							g_debug("%s: got MODE '%c' concerning us", G_STRFUNC, *modes);
+							IDLE_DEBUG("got MODE '%c' concerning us", *modes);
 							mode_accum |= _modechar_to_modeflag(*modes);
 						}
 
@@ -1262,7 +1265,7 @@ void _idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args) {
 					break;
 
 				default:
-					g_debug("%s: did not understand mode identifier %c", G_STRFUNC, *modes);
+					IDLE_DEBUG("did not understand mode identifier %c", *modes);
 					break;
 			}
 		}
@@ -1439,7 +1442,7 @@ void _idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError 
 	}
 	else
 	{
-		g_debug("%s: already emitted JOIN_READY! (current err %u)", G_STRFUNC, err);
+		IDLE_DEBUG("already emitted JOIN_READY! (current err %u)", err);
 	}
 }
 
@@ -1512,7 +1515,7 @@ static gboolean send_invite_request(IdleMUCChannel *obj, TpHandle handle, GError
 
 	if ((nick == NULL) || (nick[0] == '\0'))
 	{
-		g_debug("%s: invalid handle %u passed", G_STRFUNC, handle);
+		IDLE_DEBUG("invalid handle %u passed", handle);
 		
 		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid handle %u passed", handle);
 
@@ -1541,7 +1544,7 @@ static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gc
 
 	if ((nick == NULL) || (nick[0] == '\0'))
 	{
-		g_debug("%s: invalid handle %u passed", G_STRFUNC, handle);
+		IDLE_DEBUG("invalid handle %u passed", handle);
 		
 		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid handle %u passed", handle);
 
@@ -1570,7 +1573,7 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 	{
 		if (tp_handle_set_is_member(obj->group.members, handle) || tp_handle_set_is_member(obj->group.remote_pending, handle))
 		{
-			g_debug("%s: we are already a member of or trying to join the channel with handle %u", G_STRFUNC, priv->handle);
+			IDLE_DEBUG("we are already a member of or trying to join the channel with handle %u", priv->handle);
 
 			*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "we are already a member of or trying to join the channel with handle %u", priv->handle);
 
@@ -1593,7 +1596,7 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 	{
 		if (tp_handle_set_is_member(obj->group.members, handle) || tp_handle_set_is_member(obj->group.remote_pending, handle))
 		{
-			g_debug("%s: the requested contact (handle %u) to be added to the room (handle %u) is already a member of or has already been invited to join the room", G_STRFUNC, handle, priv->handle);
+			IDLE_DEBUG("the requested contact (handle %u) to be added to the room (handle %u) is already a member of or has already been invited to join the room", handle, priv->handle);
 
 			*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "the requested contact (handle %u) to be added to the room (handle %u) is already a member of or has already been invited to join the room", handle, priv->handle);
 
@@ -1656,7 +1659,7 @@ static gboolean remove_member(GObject *gobj, TpHandle handle, const gchar *messa
 
 	if (!tp_handle_set_is_member(obj->group.members, handle))
 	{
-		g_debug("%s: handle %u not a current member!", G_STRFUNC, handle);
+		IDLE_DEBUG("handle %u not a current member!", handle);
 
 		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "handle %u is not a current member of the channel", handle);
 
@@ -1665,7 +1668,7 @@ static gboolean remove_member(GObject *gobj, TpHandle handle, const gchar *messa
 
 	if (!send_kick_request(obj, handle, message, &kick_error))
 	{
-		g_debug("%s: send_kick_request failed: %s", G_STRFUNC, kick_error->message);
+		IDLE_DEBUG("send_kick_request failed: %s", kick_error->message);
 
 		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, kick_error->message);
 
@@ -1712,7 +1715,7 @@ static void idle_muc_channel_close (TpSvcChannel *obj, DBusGMethodInvocation *co
 		}
 	}
 	
-	g_debug("%s: called on %p", G_STRFUNC, obj);
+	IDLE_DEBUG("called on %p", obj);
 
 	tp_svc_channel_return_from_close(context);
 }
@@ -1835,7 +1838,7 @@ static void idle_muc_channel_get_properties (TpSvcPropertiesInterface *iface, co
 
 		if (prop >= LAST_TP_PROPERTY_ENUM)
 		{
-			g_debug("%s: invalid property id %u", G_STRFUNC, prop);
+			IDLE_DEBUG("invalid property id %u", prop);
 
 			error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid property id %u", prop);
 			dbus_g_method_return_error(context, error);
@@ -1846,7 +1849,7 @@ static void idle_muc_channel_get_properties (TpSvcPropertiesInterface *iface, co
 		
 		if (!(priv->properties[prop].flags & TP_PROPERTY_FLAG_READ))
 		{
-			g_debug("%s: not allowed to read property %u", G_STRFUNC, prop);
+			IDLE_DEBUG("not allowed to read property %u", prop);
 
 			error = g_error_new(TP_ERRORS, TP_ERROR_PERMISSION_DENIED, "not allowed to read property %u", prop);
 			dbus_g_method_return_error(context, error);
@@ -1933,7 +1936,7 @@ static void idle_muc_channel_list_properties (TpSvcPropertiesInterface *iface, D
 			break;
 			default:
 			{
-				g_debug("%s: encountered unknown type %s", G_STRFUNC, g_type_name(property_signatures[i].type));
+				IDLE_DEBUG("encountered unknown type %s", g_type_name(property_signatures[i].type));
 				error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "internal error in %s", G_STRFUNC);
 				dbus_g_method_return_error(context, error);
 				g_error_free(error);
@@ -1992,7 +1995,7 @@ static void idle_muc_channel_provide_password (TpSvcChannelInterfacePassword *if
 
 	if (!(priv->password_flags & TP_CHANNEL_PASSWORD_FLAG_PROVIDE) || (priv->passwd_ctx != NULL))
 	{
-		g_debug("%s: don't need a password now or authentication already in process (handle %u)", G_STRFUNC, priv->handle);
+		IDLE_DEBUG("don't need a password now or authentication already in process (handle %u)", priv->handle);
 
 		error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "don't need a password now or authentication already in process (handle %u)", priv->handle);
 
@@ -2027,7 +2030,7 @@ static void idle_muc_channel_send (TpSvcChannelTypeText *iface, guint type, cons
 
 	if ((priv->mode_state.flags & MODE_FLAG_MODERATED) && !(priv->mode_state.flags & (MODE_FLAG_OPERATOR_PRIVILEGE|MODE_FLAG_HALFOP_PRIVILEGE|MODE_FLAG_VOICE_PRIVILEGE)))
 	{
-		g_debug("%s: emitting SEND_ERROR with (%u, %llu, %u, %s)", G_STRFUNC, TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED, (guint64)(timestamp), type, text);
+		IDLE_DEBUG("emitting SEND_ERROR with (%u, %llu, %u, %s)", TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED, (guint64)(timestamp), type, text);
 		tp_svc_channel_type_text_emit_send_error(iface, TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED, timestamp, type, text);
 		return;
 	}
@@ -2163,7 +2166,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 
 		if ((i != -1) && (j != -1) && (i < j))
 		{
-			g_debug("%s: swapping order of TP_PROPERTY_LIMIT and TP_PROPERTY_LIMITED", G_STRFUNC);
+			IDLE_DEBUG("swapping order of TP_PROPERTY_LIMIT and TP_PROPERTY_LIMITED");
 
 			tmp = g_ptr_array_index(waiting, i);
 			g_ptr_array_index(waiting, i) = g_ptr_array_index(waiting, j);
@@ -2175,7 +2178,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 
 		if ((i != -1) && (j != -1) && (i < j))
 		{
-			g_debug("%s: swapping order of TP_PROPERTY_PASSWORD and TP_PROPERTY_PASSWORD_REQUIRED", G_STRFUNC);
+			IDLE_DEBUG("swapping order of TP_PROPERTY_PASSWORD and TP_PROPERTY_PASSWORD_REQUIRED");
 
 			tmp = g_ptr_array_index(waiting, i);
 			g_ptr_array_index(waiting, i) = g_ptr_array_index(waiting, j);
@@ -2221,12 +2224,12 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 				}
 				else
 				{
-					g_debug("%s: %u", G_STRFUNC, __LINE__);
+					IDLE_DEBUG("%u", __LINE__);
 				}
 			}
 			else
 			{
-				g_debug("%s: %u", G_STRFUNC, __LINE__);
+				IDLE_DEBUG("%u", __LINE__);
 			}
 		}
 		else if (prop_id == TP_PROPERTY_LIMITED)
@@ -2241,7 +2244,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 				}
 				else
 				{
-					g_debug("%s: %u", G_STRFUNC, __LINE__);
+					IDLE_DEBUG("%u", __LINE__);
 				}
 			}
 			else
@@ -2261,7 +2264,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 				}
 				else
 				{
-					g_debug("%s: %u", G_STRFUNC, __LINE__);
+					IDLE_DEBUG("%u", __LINE__);
 				}
 			}
 			else
@@ -2271,7 +2274,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 		}
 		else
 		{
-			g_debug("%s: %u", G_STRFUNC, __LINE__);
+			IDLE_DEBUG("%u", __LINE__);
 		}
 
 		_idle_connection_send(priv->connection, cmd);
@@ -2305,7 +2308,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 			}
 			else
 			{
-				g_debug("%s: did not do anything with %u", G_STRFUNC, prop_id);
+				IDLE_DEBUG("did not do anything with %u", prop_id);
 				continue;
 			}
 		}
@@ -2358,7 +2361,7 @@ static void idle_muc_channel_set_properties (TpSvcPropertiesInterface *iface, co
 
 		if (prop_id >= LAST_TP_PROPERTY_ENUM)
 		{
-			g_debug("%s: invalid property id %u", G_STRFUNC, prop_id);
+			IDLE_DEBUG("invalid property id %u", prop_id);
 
 			error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid property id %u", prop_id);
 			dbus_g_method_return_error(context, error);
@@ -2370,7 +2373,7 @@ static void idle_muc_channel_set_properties (TpSvcPropertiesInterface *iface, co
 
 		if ((priv->properties[prop_id].flags & TP_PROPERTY_FLAG_WRITE) == 0)
 		{
-			g_debug("%s: not allowed to set property with id %u", G_STRFUNC, prop_id);
+			IDLE_DEBUG("not allowed to set property with id %u", prop_id);
 
 			error = g_error_new(TP_ERRORS, TP_ERROR_PERMISSION_DENIED, "not allowed to set property with id %u", prop_id);
 			dbus_g_method_return_error(context, error);
@@ -2382,7 +2385,7 @@ static void idle_muc_channel_set_properties (TpSvcPropertiesInterface *iface, co
 
 		if (!g_value_type_compatible(G_VALUE_TYPE(prop_val), property_signatures[prop_id].type))
 		{
-			g_debug("%s: incompatible value type %s for prop_id %u", G_STRFUNC, g_type_name(G_VALUE_TYPE(prop_val)), prop_id);
+			IDLE_DEBUG("incompatible value type %s for prop_id %u", g_type_name(G_VALUE_TYPE(prop_val)), prop_id);
 
 			error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "incompatible value type %s for prop_id %u", g_type_name(G_VALUE_TYPE(prop_val)), prop_id);
 			dbus_g_method_return_error(context, error);
