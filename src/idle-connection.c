@@ -66,6 +66,9 @@
 
 #include "idle-connection.h"
 
+#define IDLE_DEBUG_FLAG IDLE_DEBUG_CONNECTION
+#include "idle-debug.h"
+
 /* From RFC 2813 :
  * This in essence means that the client may send one (1) message every
  * two (2) seconds without being adversely affected.  Services MAY also
@@ -449,7 +452,7 @@ static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error) 
 		g_signal_connect(sconn, "status-changed", (GCallback)(sconn_status_changed_cb), conn);
 
 		if (!idle_server_connection_iface_connect(sconn, &conn_error)) {
-			g_debug("%s: server connection failed to connect: %s", G_STRFUNC, conn_error->message);
+			IDLE_DEBUG("server connection failed to connect: %s", conn_error->message);
 			g_set_error(error, TP_ERRORS, TP_ERROR_NETWORK_ERROR, "failed to open low-level network connection: %s", conn_error->message);
 
 			g_error_free(conn_error);
@@ -473,7 +476,7 @@ static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error) 
 
 		irc_handshakes(conn);
 	}	else {
-		g_debug("%s: conn already open!", G_STRFUNC);
+		IDLE_DEBUG("conn already open!");
 
 		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection already open!");
 
@@ -489,7 +492,7 @@ static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServer
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	TpConnectionStatusReason tp_reason;
 
-	g_debug("%s: called with state %u", G_STRFUNC, state);
+	IDLE_DEBUG("called with state %u", state);
 
 	switch (reason) {
 		case SERVER_CONNECTION_STATE_REASON_ERROR:
@@ -520,7 +523,7 @@ static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServer
 			break;
 		case SERVER_CONNECTION_STATE_CONNECTED:
 			if ((priv->msg_queue_timeout == 0) && (g_queue_get_length(priv->msg_queue) > 0)) {
-				g_debug("%s: we had messages in queue, start unloading them now", G_STRFUNC);
+				IDLE_DEBUG("we had messages in queue, start unloading them now");
 
 				priv->msg_queue_timeout = g_timeout_add(MSG_QUEUE_TIMEOUT, msg_queue_timeout_cb, conn);
 			}
@@ -556,10 +559,10 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 	gchar msg[IRC_MSG_MAXLEN+3];
 	GError *error;
 
-	g_debug("%s: called", G_STRFUNC);
+	IDLE_DEBUG("called");
 
 	if (priv->sconn_status != SERVER_CONNECTION_STATE_CONNECTED) {
-		g_debug("%s: connection was not connected!", G_STRFUNC);
+		IDLE_DEBUG("connection was not connected!");
 
 		priv->msg_queue_timeout = 0;
 
@@ -593,7 +596,7 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 		priv->last_msg_sent = time(NULL);
 	}
 	else {
-		g_debug("%s: low-level network connection failed to send: %s", G_STRFUNC, error->message);
+		IDLE_DEBUG("low-level network connection failed to send: %s", error->message);
 
 		g_error_free(error);		
 	}
@@ -629,7 +632,7 @@ static void send_irc_cmd_full(IdleConnection *conn, const gchar *msg, guint prio
 	cmd[len] = '\0';
 
 	if (!idle_connection_hton(conn, cmd, &converted, &convert_error)) {
-		g_debug("%s: hton: %s", G_STRFUNC, convert_error->message);
+		IDLE_DEBUG("hton: %s", convert_error->message);
 		g_error_free(convert_error);
 		converted = g_strdup(cmd);
 	}
@@ -638,7 +641,7 @@ static void send_irc_cmd_full(IdleConnection *conn, const gchar *msg, guint prio
 		priv->last_msg_sent = curr_time;
 
 		if (!idle_server_connection_iface_send(priv->conn, converted, &error)) {
-			g_debug("%s: server connection failed to send: %s", G_STRFUNC, error->message);
+			IDLE_DEBUG("server connection failed to send: %s", error->message);
 			g_error_free(error);
 		}	else {
 			g_free(converted);
@@ -801,7 +804,7 @@ static void idle_connection_request_rename(TpSvcConnectionInterfaceRenaming *ifa
 	handle = tp_handle_ensure(handles, nick, NULL, NULL);
 
 	if (handle == 0) {
-		g_debug("%s: failed to get handle for (%s)", G_STRFUNC, nick);
+		IDLE_DEBUG("failed to get handle for \"%s\"", nick);
 
 		error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "Failed to get handle for (%s)", nick);
 		dbus_g_method_return_error(context, error);
@@ -833,7 +836,7 @@ gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **o
 	ret = g_convert(input, -1, priv->charset, "UTF-8", NULL, &bytes_written, &error);
 
 	if (ret == NULL) {
-		g_debug("%s: g_convert failed: %s", G_STRFUNC, error->message);
+		IDLE_DEBUG("g_convert failed: %s", error->message);
 		g_set_error(_error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "character set conversion failed: %s", error->message);
 		g_error_free(error);
 		*output = NULL;
@@ -859,7 +862,7 @@ void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **outpu
 	ret = g_convert(input, -1, "UTF-8", priv->charset, NULL, &bytes_written, &error);
 
 	if (ret == NULL) {
-		g_debug("%s: charset conversion failed, falling back to US-ASCII: %s", G_STRFUNC, error->message);
+		IDLE_DEBUG("charset conversion failed, falling back to US-ASCII: %s", error->message);
 		g_error_free(error);
 
 		ret = g_strdup(input);
