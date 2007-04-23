@@ -41,6 +41,9 @@
 
 #include "idle-dns-resolver.h"
 
+#define IDLE_DEBUG_FLAG IDLE_DEBUG_NETWORK
+#include "idle-debug.h"
+
 static void idle_server_connection_iface_init(gpointer g_iface, gpointer iface_data);
 typedef struct _IdleServerConnectionPrivate IdleServerConnectionPrivate;
 
@@ -154,7 +157,7 @@ static void idle_server_connection_dispose(GObject *obj)
 		return;
 	}
 
-	g_debug("%s: dispose called", G_STRFUNC);
+	IDLE_DEBUG("dispose called");
 	priv->dispose_has_run = TRUE;
 
 	if (priv->state == SERVER_CONNECTION_STATE_CONNECTED)
@@ -289,7 +292,7 @@ static void change_state(IdleServerConnection *conn, IdleServerConnectionState s
 		return;
 	}
 
-	g_debug("%s: emitting status-changed, state %u, reason %u", G_STRFUNC, state, reason);
+	IDLE_DEBUG("emitting status-changed, state %u, reason %u", state, reason);
 
 	priv->state = state;
 	g_signal_emit_by_name(conn, "status-changed", state, reason);
@@ -303,7 +306,7 @@ static gboolean io_err_cleanup_func(gpointer data)
 	
 	if (!iface_disconnect_impl_full(IDLE_SERVER_CONNECTION_IFACE(data), &error, SERVER_CONNECTION_STATE_REASON_ERROR))
 	{
-		g_debug("%s: disconnect: %s", G_STRFUNC, error->message);
+		IDLE_DEBUG("disconnect: %s", error->message);
 		g_error_free(error);
 	}
 
@@ -320,7 +323,7 @@ static gboolean io_func(GIOChannel *src, GIOCondition cond, gpointer data)
 	
 	if (cond & (G_IO_ERR|G_IO_HUP))
 	{
-		g_debug("%s: got G_IO_ERR|G_IO_HUP", G_STRFUNC);
+		IDLE_DEBUG("got G_IO_ERR|G_IO_HUP");
 		g_idle_add(io_err_cleanup_func, data);
 		return FALSE;
 	}
@@ -330,7 +333,7 @@ static gboolean io_func(GIOChannel *src, GIOCondition cond, gpointer data)
 
 	if ((status != G_IO_STATUS_NORMAL) && (status != G_IO_STATUS_AGAIN))
 	{
-		g_debug("%s: status: %u, error: %s", G_STRFUNC, status, (error != NULL) ? (error->message != NULL) ? error->message : "(null)" : "(null)");
+		IDLE_DEBUG("status: %u, error: %s", status, (error != NULL) ? (error->message != NULL) ? error->message : "(null)" : "(null)");
 		
 		if (error)
 		{
@@ -355,28 +358,28 @@ static gboolean iface_connect_impl(IdleServerConnectionIface *iface, GError **er
 	
 	if (priv->state != SERVER_CONNECTION_STATE_NOT_CONNECTED)
 	{
-		g_debug("%s: already connecting or connected!", G_STRFUNC);
+		IDLE_DEBUG("already connecting or connected!");
 		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "already connecting or connected!");
 		return FALSE;
 	}
 
 	if ((priv->host == NULL) || (priv->host[0] == '\0'))
 	{
-		g_debug("%s: host not set!", G_STRFUNC);
+		IDLE_DEBUG("host not set!");
 		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "host not set!");
 		return FALSE;
 	}
 
 	if (priv->port == 0)
 	{
-		g_debug("%s: port not set!", G_STRFUNC);
+		IDLE_DEBUG("port not set!");
 		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "port not set!");
 		return FALSE;
 	}
 
 	if (!do_connect(conn))
 	{
-		g_debug("%s: do_connect failed", G_STRFUNC);
+		IDLE_DEBUG("do_connect failed");
 		*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "failed to connect");
 		return FALSE;
 	}
@@ -406,7 +409,7 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 	{
 		int opt;
 		
-		g_debug("%s: connected!", G_STRFUNC);
+		IDLE_DEBUG("connected!");
 
 		fd = connect_data->fd;
 		
@@ -441,11 +444,11 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 		return FALSE;
 	}
 	
-	g_debug("%s: connection failed", G_STRFUNC);
+	IDLE_DEBUG("connection failed");
 
 	if (next == NULL)
 	{
-		g_debug("%s: and this was the last address we can try, tough luck.", G_STRFUNC);
+		IDLE_DEBUG("and this was the last address we can try, tough luck.");
 		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
 		
 		return FALSE;
@@ -457,21 +460,21 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 	{
 		int i;
 		
-		g_debug("%s: re-using existing socket for trying again", G_STRFUNC);
+		IDLE_DEBUG("re-using existing socket for trying again");
 
     errno = 0;
 		connect(connect_data->fd, next->ai_addr, next->ai_addrlen);
 
 		for (i=0; i<5 && errno == ECONNABORTED; i++)
 		{
-			g_debug("%s: got ECONNABORTED for (%i+1)th time", G_STRFUNC, i);
+			IDLE_DEBUG("got ECONNABORTED for (%i+1)th time", i);
       errno = 0;
 			connect(connect_data->fd, next->ai_addr, next->ai_addrlen);
 		}
 
 		if (errno != EINPROGRESS)
 		{
-			g_debug("%s: connect() failed: %s", G_STRFUNC, g_strerror(errno));
+			IDLE_DEBUG("connect() failed: %s", g_strerror(errno));
 			change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
 			return FALSE;
 		}
@@ -481,7 +484,7 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 		return TRUE;
 	}
 
-	g_debug("%s: we'll have to create a new socket since the address family/socket type/protocol is different", G_STRFUNC);
+	IDLE_DEBUG("we'll have to create a new socket since the address family/socket type/protocol is different");
 	
 	for (cur = next; cur != NULL; cur = cur->ai_next)
 	{
@@ -494,7 +497,7 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 				continue;
 			}
 
-			g_debug("%s: socket() failed: %s", G_STRFUNC, g_strerror(errno));
+			IDLE_DEBUG("socket() failed: %s", g_strerror(errno));
 			return FALSE;
 		}
 		else
@@ -505,7 +508,7 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 
 	if (fd == -1)
 	{
-		g_debug("%s: could not socket(): %s", G_STRFUNC, g_strerror(errno));
+		IDLE_DEBUG("could not socket(): %s", g_strerror(errno));
 		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
 		return FALSE;
 	}
@@ -518,7 +521,7 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 
 	if (rc != 0)
 	{
-		g_debug("%s: failed to set socket to non-blocking mode: %s", G_STRFUNC, g_strerror(errno));
+		IDLE_DEBUG("failed to set socket to non-blocking mode: %s", g_strerror(errno));
 		g_io_channel_shutdown(io_chan, FALSE, NULL);
 		g_io_channel_unref(io_chan);
 		close(fd);
@@ -531,7 +534,7 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 
 	if (errno != EINPROGRESS)
 	{
-		g_debug("%s: initial connect() failed: %s", G_STRFUNC, g_strerror(errno));
+		IDLE_DEBUG("initial connect() failed: %s", g_strerror(errno));
 		g_io_channel_shutdown(io_chan, FALSE, NULL);
 		g_io_channel_unref(io_chan);
 		close(fd);
@@ -562,7 +565,7 @@ static void dns_result_callback(guint unused, IdleDNSResult *results, gpointer u
 
 	if (!results)
 	{
-	  g_debug("%s: no DNS results received", G_STRFUNC);
+	  IDLE_DEBUG("no DNS results received");
 	  change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
 	  return;
 	}
@@ -578,7 +581,7 @@ static void dns_result_callback(guint unused, IdleDNSResult *results, gpointer u
 				continue;
 			}
 
-			g_debug("%s: socket() failed: %s", G_STRFUNC, g_strerror(errno));
+			IDLE_DEBUG("socket() failed: %s", g_strerror(errno));
 			return;
 		}
 		else
@@ -589,7 +592,7 @@ static void dns_result_callback(guint unused, IdleDNSResult *results, gpointer u
 
 	if (fd == -1)
 	{
-		g_debug("%s: failed: %s", G_STRFUNC, g_strerror(errno));
+		IDLE_DEBUG("failed: %s", g_strerror(errno));
 		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
 		return;
 	}
@@ -598,7 +601,7 @@ static void dns_result_callback(guint unused, IdleDNSResult *results, gpointer u
 
 	if (rc != 0)
 	{
-		g_debug("%s: failed to set socket to non-blocking mode: %s", G_STRFUNC, g_strerror(errno));
+		IDLE_DEBUG("failed to set socket to non-blocking mode: %s", g_strerror(errno));
 		close(fd);
 		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
 		return;
@@ -610,7 +613,7 @@ static void dns_result_callback(guint unused, IdleDNSResult *results, gpointer u
 
 	if (errno != EINPROGRESS)
 	{
-		g_debug("%s: initial connect() failed: %s", G_STRFUNC, g_strerror(errno));
+		IDLE_DEBUG("initial connect() failed: %s", g_strerror(errno));
 		close(fd);
 		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
 		return;
@@ -660,7 +663,7 @@ static gboolean iface_disconnect_impl_full(IdleServerConnectionIface *iface, GEr
 
 	if (priv->state != SERVER_CONNECTION_STATE_CONNECTED)
 	{
-		g_debug("%s: the connection was not open", G_STRFUNC);
+		IDLE_DEBUG("the connection was not open");
 		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "the connection was not open");
 		return FALSE;
 	}
@@ -678,13 +681,13 @@ static gboolean iface_disconnect_impl_full(IdleServerConnectionIface *iface, GEr
 
 		if (status != G_IO_STATUS_NORMAL && io_error)
 		{
-			g_debug("%s: g_io_channel_shutdown failed: %s", G_STRFUNC, io_error->message);
+			IDLE_DEBUG("g_io_channel_shutdown failed: %s", io_error->message);
 			g_error_free(io_error);
 		}
 
 		if (close(fd))
 		{
-			g_debug("%s: unable to close fd: %s", G_STRFUNC, g_strerror(errno));
+			IDLE_DEBUG("unable to close fd: %s", g_strerror(errno));
 		}
 		
 		g_io_channel_unref(priv->io_chan);
@@ -706,7 +709,7 @@ static gboolean iface_send_impl(IdleServerConnectionIface *iface, const gchar *c
 
 	if (priv->state != SERVER_CONNECTION_STATE_CONNECTED)
 	{
-		g_debug("%s: connection was not open!", G_STRFUNC);
+		IDLE_DEBUG("connection was not open!");
 
 		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection was not open!");
 		
@@ -721,7 +724,7 @@ static gboolean iface_send_impl(IdleServerConnectionIface *iface, const gchar *c
 
 	if (local_error)
 	{
-		g_debug("%s: error: %s", G_STRFUNC, local_error->message);
+		IDLE_DEBUG("error: %s", local_error->message);
 		g_error_free(local_error);
 	}
 
@@ -729,7 +732,7 @@ static gboolean iface_send_impl(IdleServerConnectionIface *iface, const gchar *c
 	{
 		case G_IO_STATUS_ERROR:
 		{
-			g_debug("%s: got G_IO_STATUS_ERROR", G_STRFUNC);
+			IDLE_DEBUG("got G_IO_STATUS_ERROR");
 
 			if (iface_disconnect_impl_full(IDLE_SERVER_CONNECTION_IFACE(conn), &local_error, SERVER_CONNECTION_STATE_REASON_ERROR))
 			{
@@ -743,14 +746,14 @@ static gboolean iface_send_impl(IdleServerConnectionIface *iface, const gchar *c
 		break;
 		case G_IO_STATUS_NORMAL:
 		{
-			g_debug("%s: sent \"%s\"", G_STRFUNC, cmd);
+			IDLE_DEBUG("sent \"%s\"", cmd);
 			
 			return TRUE;
 		}
 		break;
 		case G_IO_STATUS_EOF:
 		{
-			g_debug("%s: got G_IO_STATUS_EOF", G_STRFUNC);
+			IDLE_DEBUG("got G_IO_STATUS_EOF");
 
 			if (iface_disconnect_impl_full(IDLE_SERVER_CONNECTION_IFACE(conn), &local_error, SERVER_CONNECTION_STATE_REASON_ERROR))
 			{
@@ -764,7 +767,7 @@ static gboolean iface_send_impl(IdleServerConnectionIface *iface, const gchar *c
 		break;
 		case G_IO_STATUS_AGAIN:
 		{
-			g_debug("%s: got G_IO_STATUS_AGAIN", G_STRFUNC);
+			IDLE_DEBUG("got G_IO_STATUS_AGAIN");
 
 			*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "got G_IO_STATUS_AGAIN");
 			
