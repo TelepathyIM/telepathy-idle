@@ -36,6 +36,9 @@
 
 #include "idle-im-channel.h"
 
+#define IDLE_DEBUG_FLAG IDLE_DEBUG_IM
+#include "idle-debug.h"
+
 static void channel_iface_init (gpointer, gpointer);
 static void text_iface_init (gpointer, gpointer);
 
@@ -299,7 +302,7 @@ void _idle_im_channel_rename(IdleIMChannel *chan, TpHandle new)
 	tp_handle_ref(handles, priv->handle);
 	g_assert(tp_handle_is_valid(handles, priv->handle, NULL));
 
-	g_debug("%s: changed to handle %u", G_STRFUNC, new);
+	IDLE_DEBUG("changed to handle %u", new);
 }
 
 /**
@@ -325,7 +328,7 @@ static void idle_im_channel_close (TpSvcChannel *iface, DBusGMethodInvocation *c
 	priv = IDLE_IM_CHANNEL_GET_PRIVATE(obj);
 	priv->closed = TRUE;
 
-	g_debug("%s called on %p", G_STRFUNC, obj);
+	IDLE_DEBUG("called on %p", obj);
 
 	tp_svc_channel_emit_closed(iface);
 
@@ -417,7 +420,7 @@ static void idle_im_channel_send (TpSvcChannelTypeText *iface, guint type, const
 
 	if ((recipient == NULL) || (recipient[0] == '\0'))
 	{
-		g_debug("%s: invalid recipient", G_STRFUNC);
+		IDLE_DEBUG("invalid recipient");
 
 		error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "invalid recipient");
 		dbus_g_method_return_error(context, error);
