@@ -50,6 +50,7 @@ struct _IdleIMFactoryPrivate {
 
 #define IDLE_IM_FACTORY_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), IDLE_TYPE_IM_FACTORY, IdleIMFactoryPrivate))
 
+static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 
 static void _iface_close_all(TpChannelFactoryIface *iface);
@@ -108,6 +109,18 @@ static void idle_im_factory_class_init(IdleIMFactoryClass *klass) {
   g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
 }
 
+static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleIMFactory *factory = IDLE_IM_FACTORY(user_data);
+	IdleIMFactoryPrivate *priv = IDLE_IM_FACTORY_GET_PRIVATE(factory);
+	TpHandle old_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+	TpHandle new_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
+
+	if (g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(old_handle)))
+		_create_channel(factory, new_handle, NULL);
+
+	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+}
+
 static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleIMFactory *factory = IDLE_IM_FACTORY(user_data);
 	IdleIMFactoryPrivate *priv = IDLE_IM_FACTORY_GET_PRIVATE(factory);
@@ -148,6 +161,7 @@ static void _iface_close_all(TpChannelFactoryIface *iface) {
 static void _iface_connecting(TpChannelFactoryIface *iface) {
 	IdleIMFactoryPrivate *priv = IDLE_IM_FACTORY_GET_PRIVATE(iface);
 
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_NICK, _nick_handler, iface);
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_NOTICE_USER, _notice_privmsg_handler, iface);
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_USER, _notice_privmsg_handler, iface);
 }
