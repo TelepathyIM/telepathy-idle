@@ -471,7 +471,7 @@ static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error) 
 
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
 
-		idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_NICK, _nick_handler, conn);
+		idle_parser_add_handler_with_priority(conn->parser, IDLE_PARSER_PREFIXCMD_NICK, _nick_handler, conn, IDLE_PARSER_HANDLER_PRIORITY_FIRST);
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_USER, _version_privmsg_handler, conn);
 
 		irc_handshakes(conn);
@@ -684,6 +684,8 @@ static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessa
 		conn->parent.self_handle = new_handle;
 		tp_handle_ref(handles, new_handle);
 	}
+
+	tp_svc_connection_interface_renaming_emit_renamed(TP_SVC_CONNECTION_INTERFACE_RENAMING(conn), old_handle, new_handle);
 
 	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 }

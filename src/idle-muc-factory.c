@@ -269,12 +269,9 @@ static void _channel_rename_foreach(TpChannelIface *iface, gpointer user_data) {
 
 static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	TpChannelFactoryIface *iface = TP_CHANNEL_FACTORY_IFACE(user_data);
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(iface);
 	TpHandle old_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle new_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	ChannelRenameForeachData data = {old_handle, new_handle};
-
-	tp_svc_connection_interface_renaming_emit_renamed(TP_SVC_CONNECTION_INTERFACE_RENAMING(priv->conn), old_handle, new_handle);
 
 	tp_channel_factory_iface_foreach(iface, _channel_rename_foreach, &data);
 
