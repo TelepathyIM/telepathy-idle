@@ -56,7 +56,6 @@ GType idle_im_channel_get_type(void);
   (G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_IM_CHANNEL, IdleIMChannelClass))
 
 gboolean _idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *msg); 
-void _idle_im_channel_rename(IdleIMChannel *chan, TpHandle new_handle);
 
 G_END_DECLS
 

@@ -284,27 +284,6 @@ gboolean _idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType 
   return tp_text_mixin_receive(G_OBJECT(chan), type, sender, stamp, text);
 }
 
-void _idle_im_channel_rename(IdleIMChannel *chan, TpHandle new)
-{
-	IdleIMChannelPrivate *priv;
-	TpHandleRepoIface *handles;
-
-	g_assert(chan != NULL);
-	g_assert(IDLE_IS_IM_CHANNEL(chan));
-
-	g_assert(new != 0);
-
-	priv = IDLE_IM_CHANNEL_GET_PRIVATE(chan);
-	handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
-
-	tp_handle_unref(handles, priv->handle);
-	priv->handle = new;
-	tp_handle_ref(handles, priv->handle);
-	g_assert(tp_handle_is_valid(handles, priv->handle, NULL));
-
-	IDLE_DEBUG("changed to handle %u", new);
-}
-
 /**
  * idle_im_channel_close
  *
