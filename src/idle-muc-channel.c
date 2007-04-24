@@ -1452,6 +1452,10 @@ void _idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old_handle, TpHandl
 	TpIntSet *local = tp_intset_new();
 	TpIntSet *remote = tp_intset_new();
 
+	/* FIXME when self renaming lands in TpGroupMixin, use that */
+	if (old_handle == chan->group.self_handle)
+		chan->group.self_handle = new_handle;
+
 	tp_intset_add(remove, old_handle);
 
 	if (tp_handle_set_is_member(chan->group.members, old_handle))
@@ -1463,7 +1467,7 @@ void _idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old_handle, TpHandl
 	else
 		goto cleanup;
 
-	tp_group_mixin_change_members((GObject *)(chan), "Member changed nick", add, remove, local, remote, new_handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+	tp_group_mixin_change_members((GObject *) chan, "Member changed nick", add, remove, local, remote, new_handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 
 cleanup:
 
