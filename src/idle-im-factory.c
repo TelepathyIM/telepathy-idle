@@ -22,7 +22,7 @@
 
 #include "idle-connection.h"
 #include "idle-parser.h"
-#include "text.h"
+#include "idle-text.h"
 
 #include <glib.h>
 

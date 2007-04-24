@@ -34,8 +34,8 @@ CORE_SOURCES = \
 	idle-server-connection-iface.h \
 	idle-ssl-server-connection.h \
 	idle-ssl-server-connection.c \
-	text.h \
-	text.c \
+	idle-text.h \
+	idle-text.c \
 	$(BUILT_SOURCES)
 
 libidle_convenience_la_SOURCES = \

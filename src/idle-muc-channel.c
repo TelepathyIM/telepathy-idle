@@ -40,7 +40,7 @@
 
 #include "idle-connection.h"
 #include "idle-handles.h"
-#include "text.h"
+#include "idle-text.h"
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_MUC
 #include "idle-debug.h"

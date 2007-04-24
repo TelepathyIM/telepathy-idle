@@ -32,7 +32,7 @@
 
 #include "idle-connection.h"
 #include "idle-handles.h"
-#include "text.h"
+#include "idle-text.h"
 
 #include "idle-im-channel.h"
 
