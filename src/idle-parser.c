@@ -246,7 +246,7 @@ void idle_parser_add_handler_with_priority(IdleParser *parser, IdleParserMessage
 	priv->handlers[code] = g_slist_insert_sorted(priv->handlers[code], _message_handler_closure_new(handler, user_data, priority), _message_handler_closure_priority_compare);
 }
 
-static gint _data_compare_func(gconstpointer a, gconstpointer b) {
+static gint _message_handler_closure_user_data_compare(gconstpointer a, gconstpointer b) {
 	const MessageHandlerClosure *_a = a, *_b = b;
 
 	return (_a->user_data == _b->user_data) ? 0 : 1;
@@ -259,7 +259,7 @@ void idle_parser_remove_handlers_by_data(IdleParser *parser, gpointer user_data)
 	for (i = 0; i < IDLE_PARSER_LAST_MESSAGE_CODE; i++) {
 		GSList *link;
 
-		while ((link = g_slist_find_custom(priv->handlers[i], user_data, _data_compare_func)))
+		while ((link = g_slist_find_custom(priv->handlers[i], user_data, _message_handler_closure_user_data_compare)))
 			priv->handlers[i] = g_slist_remove_link(priv->handlers[i], link);
 	}
 }
