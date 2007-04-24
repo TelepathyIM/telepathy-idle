@@ -102,13 +102,15 @@ typedef struct _MessageHandlerClosure MessageHandlerClosure;
 struct _MessageHandlerClosure {
 	IdleParserMessageHandler handler;
 	gpointer user_data;
+	guint priority;
 };
 
-static MessageHandlerClosure *_message_handler_closure_new(IdleParserMessageHandler handler, gpointer user_data) {
+static MessageHandlerClosure *_message_handler_closure_new(IdleParserMessageHandler handler, gpointer user_data, IdleParserHandlerPriority priority) {
 	MessageHandlerClosure *closure = g_slice_new(MessageHandlerClosure);
 
 	closure->handler = handler;
 	closure->user_data = user_data;
+	closure->priority = priority;
 
 	return closure;
 }
@@ -226,12 +228,22 @@ void idle_parser_receive(IdleParser *parser, const gchar *msg) {
 }
 
 void idle_parser_add_handler(IdleParser *parser, IdleParserMessageCode code, IdleParserMessageHandler handler, gpointer user_data) {
+	return idle_parser_add_handler_with_priority(parser, code, handler, user_data, IDLE_PARSER_HANDLER_PRIORITY_DEFAULT);
+}
+
+static gint _message_handler_closure_priority_compare(gconstpointer a, gconstpointer b) {
+	const MessageHandlerClosure *_a = a, *_b = b;
+
+	return (_a->priority == _b->priority) ? 0 : (_a->priority < _b->priority) ? -1 : 1;
+}
+
+void idle_parser_add_handler_with_priority(IdleParser *parser, IdleParserMessageCode code, IdleParserMessageHandler handler, gpointer user_data, IdleParserHandlerPriority priority) {
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
 
 	if (code >= IDLE_PARSER_LAST_MESSAGE_CODE)
 		return;
 
-	priv->handlers[code] = g_slist_append(priv->handlers[code], _message_handler_closure_new(handler, user_data));
+	priv->handlers[code] = g_slist_insert_sorted(priv->handlers[code], _message_handler_closure_new(handler, user_data, priority), _message_handler_closure_priority_compare);
 }
 
 static gint _data_compare_func(gconstpointer a, gconstpointer b) {

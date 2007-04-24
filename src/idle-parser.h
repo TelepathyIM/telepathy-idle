@@ -90,6 +90,13 @@ typedef enum {
 	IDLE_PARSER_HANDLER_RESULT_NO_MORE_PLEASE
 } IdleParserHandlerResult;
 
+typedef enum {
+	IDLE_PARSER_HANDLER_PRIORITY_FIRST = 0,
+	IDLE_PARSER_HANDLER_PRIORITY_DEFAULT = 300,
+	IDLE_PARSER_HANDLER_PRIORITY_LAST = 600,
+	IDLE_PARSER_HANDLER_PRIORITY_UNHANDLED = 1000
+} IdleParserHandlerPriority;
+
 typedef struct _IdleParser IdleParser;
 typedef struct _IdleParserClass IdleParserClass;
 
@@ -107,6 +114,7 @@ GType idle_parser_get_type(void);
 
 void idle_parser_receive(IdleParser *parser, const gchar *raw_msg);
 void idle_parser_add_handler(IdleParser *parser, IdleParserMessageCode code, IdleParserMessageHandler handler, gpointer user_data);
+void idle_parser_add_handler_with_priority(IdleParser *parser, IdleParserMessageCode code, IdleParserMessageHandler handler, gpointer user_data, IdleParserHandlerPriority priority);
 void idle_parser_remove_handlers_by_data(IdleParser *parser, gpointer user_data);
 
 G_END_DECLS
