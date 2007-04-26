@@ -677,6 +677,9 @@ static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessa
 	TpHandle old_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle new_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 
+	if (old_handle == new_handle)
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+
 	if (old_handle == conn->parent.self_handle) {
 		TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT);
 

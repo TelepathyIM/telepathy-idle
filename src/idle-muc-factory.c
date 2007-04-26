@@ -273,6 +273,9 @@ static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessa
 	TpHandle new_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	ChannelRenameForeachData data = {old_handle, new_handle};
 
+	if (old_handle == new_handle)
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+
 	tp_channel_factory_iface_foreach(iface, _channel_rename_foreach, &data);
 
 	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
