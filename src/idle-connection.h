@@ -26,6 +26,9 @@
 
 #include <telepathy-glib/base-connection.h>
 
+typedef struct _IdleConnection IdleConnection;
+typedef struct _IdleConnectionClass IdleConnectionClass;
+
 #include "idle-handles.h"
 #include "idle-parser.h"
 
@@ -33,12 +36,10 @@
 
 G_BEGIN_DECLS
 
-typedef struct _IdleConnection IdleConnection;
 struct _IdleConnectionClass {
 	TpBaseConnectionClass parent_class;
 };
 
-typedef struct _IdleConnectionClass IdleConnectionClass;
 struct _IdleConnection {
 	TpBaseConnection parent;
 	IdleParser *parser;
