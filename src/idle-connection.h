@@ -63,6 +63,9 @@ GType idle_connection_get_type(void);
 
 gboolean _idle_connection_send(IdleConnection *conn, const gchar *msg);
 
+void idle_connection_canon_nick_receive(IdleConnection *conn, TpHandle handle, const gchar *canon_nick);
+void idle_connection_emit_queued_aliases_changed(IdleConnection *conn);
+
 gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **error);
 void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **output);
 

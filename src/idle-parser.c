@@ -454,6 +454,8 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 				if ((handle = tp_handle_ensure(contact_repo, id, NULL, NULL))) {
 					tp_handle_set_add(contact_reffed, handle);
 					tp_handle_unref(contact_repo, handle);
+
+					idle_connection_canon_nick_receive(priv->conn, handle, id);
 				}
 			}
 

@@ -83,10 +83,16 @@
 #define SERVER_CMD_NORMAL_PRIORITY G_MAXUINT/2
 #define SERVER_CMD_MAX_PRIORITY G_MAXUINT
 
-static void renaming_iface_init(gpointer, gpointer);
+/* FIXME use this from telepathy-glib as soon as it gets there */
+#define IDLE_TP_ALIAS_PAIR_TYPE (dbus_g_type_get_struct ("GValueArray", \
+			G_TYPE_UINT, G_TYPE_STRING, G_TYPE_INVALID))
+
+static void _aliasing_iface_init(gpointer, gpointer);
+static void _renaming_iface_init(gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE(IdleConnection, idle_connection, TP_TYPE_BASE_CONNECTION,
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_RENAMING, renaming_iface_init));
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING, _aliasing_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_RENAMING, _renaming_iface_init));
 
 typedef struct _IdleOutputPendingMsg IdleOutputPendingMsg;
 struct _IdleOutputPendingMsg {
@@ -156,6 +162,10 @@ struct _IdleConnectionPrivate {
 
 	/* if we are quitting asynchronously */
 	gboolean quitting;
+
+	/* AliasChanged aggregation */
+	GPtrArray *queued_aliases;
+	TpHandleSet *queued_aliases_owners;
 
 	/* if idle_connection_dispose has already run once */
 	gboolean dispose_has_run;
@@ -321,7 +331,10 @@ static void idle_connection_class_init (IdleConnectionClass *klass) {
 	GObjectClass *object_class = G_OBJECT_CLASS(klass);
 	TpBaseConnectionClass *parent_class = TP_BASE_CONNECTION_CLASS(klass);
 	GParamSpec *param_spec;
-	static const gchar *interfaces_always_present[] = {TP_IFACE_CONNECTION_INTERFACE_RENAMING, NULL};
+	static const gchar *interfaces_always_present[] = {
+		TP_IFACE_CONNECTION_INTERFACE_ALIASING,
+		TP_IFACE_CONNECTION_INTERFACE_RENAMING,
+		NULL};
 
 	g_type_class_add_private(klass, sizeof(IdleConnectionPrivate));
 
@@ -799,6 +812,104 @@ static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusRea
 	}
 }
 
+void _queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *alias) {
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+
+	if (!priv->queued_aliases_owners) {
+		TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT);
+		priv->queued_aliases_owners = tp_handle_set_new(handles);
+	}
+
+	tp_handle_set_add(priv->queued_aliases_owners, handle);
+
+	if (!priv->queued_aliases)
+		priv->queued_aliases = g_ptr_array_new();
+
+	GValue value = {0, };
+
+	g_value_init(&value, IDLE_TP_ALIAS_PAIR_TYPE);
+	g_value_take_boxed(&value, dbus_g_type_specialized_construct(IDLE_TP_ALIAS_PAIR_TYPE));
+
+	dbus_g_type_struct_set(&value,
+			0, handle,
+			1, alias,
+			G_MAXUINT);
+
+	g_ptr_array_add(priv->queued_aliases, g_value_get_boxed(&value));
+
+	/* FIXME move this to suitable trigger points instead of doing on every queue */
+	idle_connection_emit_queued_aliases_changed(conn);
+}
+
+static GQuark _canon_nick_quark() {
+	static GQuark quark = 0;
+
+	if (!quark)
+		quark = g_quark_from_static_string("canon-nick");
+
+	return quark;
+}
+
+void idle_connection_canon_nick_receive(IdleConnection *conn, TpHandle handle, const gchar *canon_nick) {
+	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT);
+	const gchar *old_alias = tp_handle_get_qdata(handles, handle, _canon_nick_quark());
+
+	if (!old_alias)
+		old_alias = tp_handle_inspect(handles, handle);
+
+	if (!strcmp(old_alias, canon_nick))
+		return;
+
+	tp_handle_set_qdata(handles, handle, _canon_nick_quark(), g_strdup(canon_nick), g_free);
+
+	_queue_alias_changed(conn, handle, canon_nick);
+}
+
+void idle_connection_emit_queued_aliases_changed(IdleConnection *conn) {
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+
+	if (!priv->queued_aliases)
+		return;
+
+	tp_svc_connection_interface_aliasing_emit_aliases_changed(conn, priv->queued_aliases);
+
+	g_ptr_array_free(priv->queued_aliases, TRUE);
+	priv->queued_aliases = NULL;
+
+	tp_handle_set_destroy(priv->queued_aliases_owners);
+	priv->queued_aliases_owners = NULL;
+}
+
+static void idle_connection_get_alias_flags(TpSvcConnectionInterfaceAliasing *iface, DBusGMethodInvocation *context) {
+	tp_svc_connection_interface_aliasing_return_from_get_alias_flags(context, 0);
+}
+
+static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing *iface, const GArray *handles, DBusGMethodInvocation *context) {
+	TpHandleRepoIface *repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(iface), TP_HANDLE_TYPE_CONTACT);
+	GError *error = NULL;
+
+	if (!tp_handles_are_valid(repo, handles, FALSE, &error)) {
+		dbus_g_method_return_error(context, error);
+		g_error_free(error);
+		return;
+	}
+
+	const gchar **aliases = g_new0(const gchar *, handles->len + 1);
+	for (int i = 0; i < handles->len; i++) {
+		TpHandle handle = g_array_index(handles, TpHandle, i);
+
+		const gchar *alias = tp_handle_get_qdata(repo, handle, _canon_nick_quark());
+		if (!alias)
+			alias = tp_handle_inspect(repo, handle);
+
+		aliases[i] = alias;
+	}
+
+	tp_svc_connection_interface_aliasing_return_from_request_aliases(context, aliases);
+
+	g_free(aliases);
+}
+
 static void idle_connection_request_rename(TpSvcConnectionInterfaceRenaming *iface, const gchar *nick, DBusGMethodInvocation *context) {
 	TpBaseConnection *base = TP_BASE_CONNECTION(iface);
 	IdleConnection *obj = IDLE_CONNECTION(iface);
@@ -825,6 +936,12 @@ static void idle_connection_request_rename(TpSvcConnectionInterfaceRenaming *ifa
 	send_irc_cmd(obj, msg);
 
 	tp_svc_connection_interface_renaming_return_from_request_rename(context);
+}
+
+static void idle_connection_set_aliases(TpSvcConnectionInterfaceAliasing *iface, GHashTable *aliases, DBusGMethodInvocation *context) {
+	GError error = {TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "Setting aliases is not possible with IRC"};
+
+	dbus_g_method_return_error(context, &error);
 }
 
 gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **_error) {
@@ -883,9 +1000,19 @@ void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **outpu
 	return;
 }
 
-static void
-renaming_iface_init(gpointer g_iface, gpointer iface_data) {
-	TpSvcConnectionInterfaceRenamingClass *klass = (TpSvcConnectionInterfaceRenamingClass *)g_iface;
+static void _aliasing_iface_init(gpointer g_iface, gpointer iface_data) {
+	TpSvcConnectionInterfaceAliasingClass *klass = (TpSvcConnectionInterfaceAliasingClass *) g_iface;
+
+#define IMPLEMENT(x) tp_svc_connection_interface_aliasing_implement_##x (\
+		klass, idle_connection_##x)
+	IMPLEMENT(get_alias_flags);
+	IMPLEMENT(request_aliases);
+	IMPLEMENT(set_aliases);
+#undef IMPLEMENT
+}
+
+static void _renaming_iface_init(gpointer g_iface, gpointer iface_data) {
+	TpSvcConnectionInterfaceRenamingClass *klass = (TpSvcConnectionInterfaceRenamingClass *) g_iface;
 
 #define IMPLEMENT(x) tp_svc_connection_interface_renaming_implement_##x (\
 		klass, idle_connection_##x)
