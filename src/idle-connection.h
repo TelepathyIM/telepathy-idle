@@ -61,10 +61,7 @@ GType idle_connection_get_type(void);
 #define IDLE_CONNECTION_GET_CLASS(obj) \
   (G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_CONNECTION, IdleConnectionClass))
 
-gboolean _idle_connection_register(IdleConnection *conn, char **bus_name, char **object_path, GError **error);
 gboolean _idle_connection_send(IdleConnection *conn, const gchar *msg);
-void _idle_connection_client_hold_handle(IdleConnection *conn, gchar *client_name, TpHandle handle, TpHandleType type);
-gboolean _idle_connection_client_release_handle(IdleConnection *conn, gchar *client_name, TpHandle handle, TpHandleType type);
 
 gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **error);
 void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **output);
