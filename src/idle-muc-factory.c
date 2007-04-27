@@ -179,6 +179,8 @@ static IdleParserHandlerResult _numeric_topic_stamp_handler(IdleParser *parser, 
 	time_t touched = g_value_get_uint(g_value_array_get_nth(args, 2));
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
+	idle_connection_emit_queued_aliases_changed(priv->conn);
+
 	if (chan)
 		_idle_muc_channel_topic_touch(chan, toucher_handle, touched);
 
