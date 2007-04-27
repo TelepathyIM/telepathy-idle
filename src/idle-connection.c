@@ -838,9 +838,6 @@ void _queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *al
 			G_MAXUINT);
 
 	g_ptr_array_add(priv->queued_aliases, g_value_get_boxed(&value));
-
-	/* FIXME move this to suitable trigger points instead of doing on every queue */
-	idle_connection_emit_queued_aliases_changed(conn);
 }
 
 static GQuark _canon_nick_quark() {
