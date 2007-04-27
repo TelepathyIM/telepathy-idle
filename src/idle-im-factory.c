@@ -51,6 +51,7 @@ struct _IdleIMFactoryPrivate {
 
 #define IDLE_IM_FACTORY_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), IDLE_TYPE_IM_FACTORY, IdleIMFactoryPrivate))
 
+static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 
 static void _iface_close_all(TpChannelFactoryIface *iface);
@@ -126,6 +127,8 @@ static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleP
 
 	if (type == -1)
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+
+	idle_connection_emit_queued_aliases_changed(priv->conn);
 
 	if (!(chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(handle))))
 		chan = _create_channel(factory, handle, NULL);
