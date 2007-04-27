@@ -213,6 +213,8 @@ static IdleParserHandlerResult _join_handler(IdleParser *parser, IdleParserMessa
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
+	idle_connection_emit_queued_aliases_changed(priv->conn);
+
 	if (!chan)
 		chan = _create_channel(factory, room_handle);
 
