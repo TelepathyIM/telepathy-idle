@@ -302,6 +302,12 @@ static void idle_connection_dispose (GObject *object) {
 		priv->conn = NULL;
 	}
 
+	if (priv->queued_aliases_owners)
+		tp_handle_set_destroy(priv->queued_aliases_owners);
+
+	if (priv->queued_aliases)
+		g_ptr_array_free(priv->queued_aliases, TRUE);
+
 	g_object_unref(self->parser);
 
 	if (G_OBJECT_CLASS (idle_connection_parent_class)->dispose)
