@@ -197,6 +197,8 @@ static IdleParserHandlerResult _invite_handler(IdleParser *parser, IdleParserMes
 
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
+	idle_connection_emit_queued_aliases_changed(priv->conn);
+
 	if (!chan) {
 		chan = _create_channel(factory, room_handle);
 		tp_channel_factory_iface_emit_new_channel(TP_CHANNEL_FACTORY_IFACE(user_data), (TpChannelIface *) chan, NULL);
