@@ -226,6 +226,9 @@ struct _IdleMUCChannelPrivate
 
 	DBusGMethodInvocation *passwd_ctx;
 
+	/* NAMEREPLY MembersChanged aggregation */
+	TpIntSet *namereply_set;
+
 	gboolean join_ready;
 	gboolean closed;
 
@@ -252,6 +255,8 @@ idle_muc_channel_init (IdleMUCChannel *obj)
 
   priv->properties = g_new0(TPProperty, LAST_TP_PROPERTY_ENUM);
   muc_channel_tp_properties_init(obj);
+
+	priv->namereply_set = tp_intset_new();
 
   priv->dispose_has_run = FALSE;
 }
@@ -461,6 +466,8 @@ idle_muc_channel_finalize (GObject *object)
 
   muc_channel_tp_properties_destroy(self);
   g_free(priv->properties);
+
+	tp_intset_destroy(priv->namereply_set);
 
 	tp_text_mixin_finalize(object);
 	tp_group_mixin_finalize(object);
@@ -1082,7 +1089,6 @@ void _idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter) {
 
 void _idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
-	TpIntSet *handles_to_add = tp_intset_new();
 
 	for (int i = 1; (i + 1) < args->n_values; i += 2) {
 		TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, i));
@@ -1113,10 +1119,16 @@ void _idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
 			change_mode_state(chan, add, remove);
 		}
 
-		tp_intset_add(handles_to_add, handle);
+		tp_intset_add(priv->namereply_set, handle);
 	}
+}
 
-	tp_group_mixin_change_members((GObject *)(chan), "The channel member listing arrived", handles_to_add, NULL, NULL, NULL, 0, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+void _idle_muc_channel_namereply_end(IdleMUCChannel *chan) {
+	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+
+	idle_connection_emit_queued_aliases_changed(priv->connection);
+
+	tp_group_mixin_change_members((GObject *) chan, "The channel member listing arrived", priv->namereply_set, NULL, NULL, NULL, 0, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 }
 
 static guint _modechar_to_modeflag(gchar modechar) {

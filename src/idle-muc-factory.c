@@ -56,6 +56,7 @@ struct _IdleMUCFactoryPrivate {
 
 static IdleParserHandlerResult _numeric_error_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _numeric_namereply_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
+static IdleParserHandlerResult _numeric_namereply_end_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _numeric_topic_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _numeric_topic_stamp_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 
@@ -245,6 +246,17 @@ static IdleParserHandlerResult _numeric_namereply_handler(IdleParser *parser, Id
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
 
+static IdleParserHandlerResult _numeric_namereply_end_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+
+	if (chan)
+		_idle_muc_channel_namereply_end(chan);
+
+	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
+}
+
 static IdleParserHandlerResult _mode_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
@@ -384,6 +396,7 @@ static void _iface_connecting(TpChannelFactoryIface *iface) {
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_INVITEONLYCHAN, _numeric_error_handler, iface);
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_MODEREPLY, _mode_handler, iface);
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_NAMEREPLY, _numeric_namereply_handler, iface);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_NAMEREPLY_END, _numeric_namereply_end_handler, iface);
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_TOPIC, _numeric_topic_handler, iface);
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_TOPIC_STAMP, _numeric_topic_stamp_handler, iface);
 
