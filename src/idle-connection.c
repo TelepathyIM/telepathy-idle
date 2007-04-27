@@ -704,6 +704,8 @@ static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessa
 
 	tp_svc_connection_interface_renaming_emit_renamed(TP_SVC_CONNECTION_INTERFACE_RENAMING(conn), old_handle, new_handle);
 
+	idle_connection_emit_queued_aliases_changed(conn);
+
 	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 }
 
