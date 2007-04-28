@@ -57,6 +57,7 @@
 #include "idle-handles.h"
 #include "idle-muc-channel.h"
 
+#include "idle-ctcp.h"
 #include "idle-parser.h"
 #include "idle-server-connection.h"
 #include "idle-ssl-server-connection.h"
@@ -721,9 +722,9 @@ static IdleParserHandlerResult _version_privmsg_handler(IdleParser *parser, Idle
 
 	TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	const gchar *nick = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT), handle);
-	gchar *reply = g_strdup_printf("NOTICE %s :\001VERSION telepathy-idle %s Telepathy IM/VoIP Framework http://telepathy.freedesktop.org\001", nick, VERSION);
+	gchar *reply = g_strdup_printf("VERSION telepathy-idle %s Telepathy IM/VoIP Framework http://telepathy.freedesktop.org", VERSION);
 
-	send_irc_cmd_full(conn, reply, SERVER_CMD_MIN_PRIORITY);
+	idle_ctcp_notice(nick, reply, conn);
 
 	g_free(reply);
 
