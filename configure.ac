@@ -87,7 +87,8 @@ AC_SUBST(DBUS_SERVICES_DIR)
 AC_DEFINE_UNQUOTED(DBUS_SERVICES_DIR, "$DBUS_SERVICES_DIR", [DBus services directory])
 
 AC_OUTPUT( Makefile \
-           src/Makefile \
+					 data/Makefile \
            m4/Makefile \
-           data/Makefile \
+           src/Makefile \
+					 tests/Makefile \
 )
