@@ -31,6 +31,15 @@ G_BEGIN_DECLS
 void idle_ctcp_privmsg(const gchar *target, const gchar *ctcp, IdleConnection *conn);
 void idle_ctcp_notice(const gchar *target, const gchar *ctcp, IdleConnection *conn);
 
+/* De-escape, deframe and tokenize a CTCP message
+ *
+ * The return value will be a dynamically allocated array of pointers to dynamically allocated strings which represent the tokens.
+ *
+ * A NULL return occurs if the given message is not a valid CTCP message.
+ *
+ * Free with g_strfreev(). */
+gchar **idle_ctcp_decode(const gchar *msg);
+
 G_END_DECLS
 
 #endif
