@@ -915,38 +915,48 @@ static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing *if
 	g_free(aliases);
 }
 
-static void idle_connection_request_rename(TpSvcConnectionInterfaceRenaming *iface, const gchar *nick, DBusGMethodInvocation *context) {
-	TpBaseConnection *base = TP_BASE_CONNECTION(iface);
-	IdleConnection *obj = IDLE_CONNECTION(iface);
-	TpHandleRepoIface *handles = tp_base_connection_get_handles(base, TP_HANDLE_TYPE_CONTACT);
-	TpHandle handle;
-	gchar msg[IRC_MSG_MAXLEN + 1];
-	GError *error;
-
-	handle = tp_handle_ensure(handles, nick, NULL, NULL);
+static gboolean _send_rename_request(IdleConnection *obj, const gchar *nick, DBusGMethodInvocation *context) {
+	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(obj), TP_HANDLE_TYPE_CONTACT);
+	TpHandle handle = tp_handle_ensure(handles, nick, NULL, NULL);
 
 	if (handle == 0) {
 		IDLE_DEBUG("failed to get handle for \"%s\"", nick);
 
-		error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "Failed to get handle for (%s)", nick);
-		dbus_g_method_return_error(context, error);
-		g_error_free(error);
+		GError error = {TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "Invalid nickname requested"};
+		dbus_g_method_return_error(context, &error);
 
-		return;
+		return FALSE;
 	}
 
 	tp_handle_unref(handles, handle);
 
+	gchar msg[IRC_MSG_MAXLEN + 1];
 	g_snprintf(msg, IRC_MSG_MAXLEN + 1, "NICK %s", nick);
 	send_irc_cmd(obj, msg);
 
-	tp_svc_connection_interface_renaming_return_from_request_rename(context);
+	return TRUE;
+}
+
+static void idle_connection_request_rename(TpSvcConnectionInterfaceRenaming *iface, const gchar *nick, DBusGMethodInvocation *context) {
+	IdleConnection *conn = IDLE_CONNECTION(iface);
+
+	if (_send_rename_request(conn, nick, context))
+		tp_svc_connection_interface_renaming_return_from_request_rename(context);
 }
 
 static void idle_connection_set_aliases(TpSvcConnectionInterfaceAliasing *iface, GHashTable *aliases, DBusGMethodInvocation *context) {
-	GError error = {TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "Setting aliases is not possible with IRC"};
+	IdleConnection *conn = IDLE_CONNECTION(iface);
+	const gchar *requested_alias = g_hash_table_lookup(aliases, GUINT_TO_POINTER(conn->parent.self_handle));
 
-	dbus_g_method_return_error(context, &error);
+	if ((g_hash_table_size(aliases) != 1) || !requested_alias) {
+		GError error = {TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "You can only set your own alias in IRC"};
+		dbus_g_method_return_error(context, &error);
+
+		return;
+	}
+
+	if (_send_rename_request(conn, requested_alias, context))
+		tp_svc_connection_interface_aliasing_return_from_set_aliases(context);
 }
 
 gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **_error) {
