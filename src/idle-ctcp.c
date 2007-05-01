@@ -83,6 +83,47 @@ const gchar *idle_ctcp_notice(const gchar *target, const gchar *ctcp, IdleConnec
 	return _ctcp_send("NOTICE", target, ctcp, conn);
 }
 
+gchar *idle_ctcp_kill_blingbling(const gchar *msg) {
+	if (msg == NULL)
+		return NULL;
+
+	gchar *killed = g_malloc0(strlen(msg) + 1);
+	gchar *killed_iter = killed;
+
+	for (const gchar *iter = msg; *iter != '\0';) {
+		switch (*iter) {
+			case '\x03': /* ^C */
+				iter++;
+
+				while (isdigit(*iter))
+					iter++;
+
+				if (*iter == ',') {
+					iter++;
+
+					while (isdigit(*iter))
+						iter++;
+				}
+				break;
+
+			case '\x02':
+			case '\x0f':
+			case '\x11':
+			case '\x12':
+			case '\x16':
+			case '\x1d':
+			case '\x1f':
+				iter++;
+				break;
+
+			default:
+				*killed_iter++ = *iter++;
+		}
+	}
+
+	return killed;
+}
+
 gchar **idle_ctcp_decode(const gchar *msg) {
 	if (!msg || (msg[0] != '\001') || !msg[1] || (msg[1] == '\001'))
 		return NULL;
