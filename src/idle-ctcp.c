@@ -25,23 +25,62 @@
 #include <stdio.h>
 #include <string.h>
 
-/* FIXME add escaping */
-static void _ctcp_send(const gchar *send_cmd, const gchar *target, const gchar *ctcp, IdleConnection *conn) {
-	gchar buf[IRC_MSG_MAXLEN + 1] = {0};
-	gsize len = snprintf(buf, IRC_MSG_MAXLEN, "%s %s :\001%s", send_cmd, target, ctcp);
+static const gchar *_ctcp_send(const gchar *send_cmd, const gchar *target, const gchar *ctcp, IdleConnection *conn) {
+	gchar buf[IRC_MSG_MAXLEN + 1] = {'\0'};
+	int out_index = snprintf(buf, IRC_MSG_MAXLEN, "%s %s :\001", send_cmd, target);
 
-	buf[len] = '\001';
-	buf[len + 1] = '\000';
+	const gchar *iter;
+	for (iter = ctcp; *iter != '\0'; iter++) {
+		switch (*iter) {
+			case '\r':
+			case '\n':
+			case '\001':
+				if ((out_index + 4) < IRC_MSG_MAXLEN) {
+					snprintf(buf + out_index, 5, "\\%03o", (unsigned int) *iter);
+					out_index += 4;
+				} else {
+					goto out;
+				}
+				break;
+
+			case '\\':
+				if ((out_index + 2) < IRC_MSG_MAXLEN) {
+					buf[out_index++] = '\\';
+					buf[out_index++] = '\\';
+				} else {
+					 goto out;
+				}
+				break;
+
+			default:
+				buf[out_index++] = *iter;
+		}
+
+		if (out_index >= (IRC_MSG_MAXLEN - 1)) {
+			iter++;
+			break;
+		}
+	}
+
+out:
+
+	buf[out_index++] = '\001';
+	buf[out_index++] = '\000';
 
 	_idle_connection_send(conn, buf);
+
+	if (*iter == '\0')
+		return NULL;
+	else
+		return iter;
 }
 
-void idle_ctcp_privmsg(const gchar *target, const gchar *ctcp, IdleConnection *conn) {
-	_ctcp_send("PRIVMSG", target, ctcp, conn);
+const gchar *idle_ctcp_privmsg(const gchar *target, const gchar *ctcp, IdleConnection *conn) {
+	return _ctcp_send("PRIVMSG", target, ctcp, conn);
 }
 
-void idle_ctcp_notice(const gchar *target, const gchar *ctcp, IdleConnection *conn) {
-	_ctcp_send("NOTICE", target, ctcp, conn);
+const gchar *idle_ctcp_notice(const gchar *target, const gchar *ctcp, IdleConnection *conn) {
+	return _ctcp_send("NOTICE", target, ctcp, conn);
 }
 
 gchar **idle_ctcp_decode(const gchar *msg) {

@@ -27,9 +27,12 @@
 
 G_BEGIN_DECLS
 
-/* escape, frame and send a CTCP message */
-void idle_ctcp_privmsg(const gchar *target, const gchar *ctcp, IdleConnection *conn);
-void idle_ctcp_notice(const gchar *target, const gchar *ctcp, IdleConnection *conn);
+/* Escape, frame and send a CTCP message
+ *
+ * The return value is a pointer to the first char in the original string which was not sent due to the message getting truncated, or NULL if the whole message was sent.
+ */
+const gchar *idle_ctcp_privmsg(const gchar *target, const gchar *ctcp, IdleConnection *conn);
+const gchar *idle_ctcp_notice(const gchar *target, const gchar *ctcp, IdleConnection *conn);
 
 /* De-escape, deframe and tokenize a CTCP message
  *
