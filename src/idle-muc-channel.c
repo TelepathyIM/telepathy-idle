@@ -1024,7 +1024,7 @@ void _idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner)
 	if (joiner == priv->connection->parent.self_handle) {
 		/* woot we managed to get into a channel, great */
 		change_state(chan, MUC_STATE_JOINED);
-		tp_group_mixin_change_members((GObject *)(chan), "We joined the group", set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+		tp_group_mixin_change_members((GObject *)(chan), NULL, set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 		tp_group_mixin_change_flags((GObject *)(chan), TP_CHANNEL_GROUP_FLAG_CAN_ADD, 0);
 
 		send_mode_query_request(chan);
@@ -1033,7 +1033,7 @@ void _idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner)
 			/* according to IRC specs, PLUS channels do not support channel modes and alway have only +t set, so we work with that. */
 			change_mode_state(chan, MODE_FLAG_TOPIC_ONLY_SETTABLE_BY_OPS, 0);
 	}	else {
-		tp_group_mixin_change_members((GObject *)(chan), "New member joined the group", set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+		tp_group_mixin_change_members((GObject *)(chan), NULL, set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 	}
 
 	IDLE_DEBUG("member joined with handle %u", joiner);
@@ -1080,7 +1080,7 @@ void _idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter) {
 	tp_intset_add(add, inviter);
 	tp_intset_add(local, priv->connection->parent.self_handle);
 
-	tp_group_mixin_change_members((GObject *)(chan), "We were invited to join a channel", add, NULL, local, NULL, inviter, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
+	tp_group_mixin_change_members((GObject *)(chan), NULL, add, NULL, local, NULL, inviter, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 
 	tp_intset_destroy(add);
 	tp_intset_destroy(local);
@@ -1135,7 +1135,7 @@ void _idle_muc_channel_namereply_end(IdleMUCChannel *chan) {
 
 	idle_connection_emit_queued_aliases_changed(priv->connection);
 
-	tp_group_mixin_change_members((GObject *) chan, "The channel member listing arrived", tp_handle_set_peek(priv->namereply_set), NULL, NULL, NULL, 0, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+	tp_group_mixin_change_members((GObject *) chan, NULL, tp_handle_set_peek(priv->namereply_set), NULL, NULL, NULL, 0, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 
 	tp_handle_set_destroy(priv->namereply_set);
 	priv->namereply_set = NULL;
@@ -1489,7 +1489,8 @@ void _idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old_handle, TpHandl
 	else
 		goto cleanup;
 
-	tp_group_mixin_change_members((GObject *) chan, "Member changed nick", add, remove, local, remote, new_handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+	/* FIXME use REASON_RENAMED when it gets in telepathy-glib */
+	tp_group_mixin_change_members((GObject *) chan, NULL, add, remove, local, remote, new_handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 
 cleanup:
 
@@ -1642,7 +1643,7 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 
 			tp_intset_add(add_set, handle);
 
-			tp_group_mixin_change_members(gobj, "We invited a contact to the group", NULL, NULL, NULL, add_set, priv->connection->parent.self_handle, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
+			tp_group_mixin_change_members(gobj, NULL, NULL, NULL, NULL, add_set, priv->connection->parent.self_handle, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 		}
 	}
 
