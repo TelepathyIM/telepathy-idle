@@ -21,6 +21,7 @@
 #include "idle-im-factory.h"
 
 #include "idle-connection.h"
+#include "idle-ctcp.h"
 #include "idle-parser.h"
 #include "idle-text.h"
 
@@ -118,7 +119,7 @@ static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleP
 
 	if (code == IDLE_PARSER_PREFIXCMD_NOTICE_USER) {
 		type = TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE;
-		body = g_value_dup_string(g_value_array_get_nth(args, 2));
+		body = idle_ctcp_kill_blingbling(g_value_get_string(g_value_array_get_nth(args, 2)));
 	} else {
 		idle_text_decode(g_value_get_string(g_value_array_get_nth(args, 2)), &type, &body);
 	}
