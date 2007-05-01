@@ -1,7 +1,12 @@
 check_PROGRAMS = \
-	test-ctcp-tokenize
+	test-ctcp-tokenize \
+	test-ctcp-kill-blingbling
 
 test_ctcp_tokenize_LDADD = \
+	$(top_builddir)/src/libidle-convenience.la \
+	@TELEPATHY_LIBS@
+
+test_ctcp_kill_blingbling_LDADD = \
 	$(top_builddir)/src/libidle-convenience.la \
 	@TELEPATHY_LIBS@
 
