@@ -25,23 +25,30 @@
 #include <time.h>
 #include <string.h>
 
+#include "idle-ctcp.h"
+
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_TEXT
 #include "idle-debug.h"
 
 void idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gchar **body) {
+	gchar *tmp = NULL;
+
 	if (text[0] != '\001') {
 		*type = TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL;
-		*body = g_strdup(text);
+		tmp = g_strdup(text);
 	} else {
 		size_t actionlen = strlen("\001ACTION ");
 		if (!g_ascii_strncasecmp(text, "\001ACTION ", actionlen)) {
 			*type = TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION;
-			*body = g_strndup(text + actionlen, strlen(text + actionlen) - 1);
+			tmp = g_strndup(text + actionlen, strlen(text + actionlen) - 1);
 		} else {
 			*type = -1;
-			*body = NULL;
+			tmp = NULL;
 		}
 	}
+
+	*body = idle_ctcp_kill_blingbling(tmp);
+	g_free(tmp);
 }
 
 void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *context)
