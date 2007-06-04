@@ -33,6 +33,9 @@
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-unstable.h>
 
+#define IDLE_DEBUG_FLAG IDLE_DEBUG_MUC
+#include "idle-debug.h"
+
 static void _channel_factory_iface_init(gpointer g_iface, gpointer iface_data);
 
 G_DEFINE_TYPE_WITH_CODE(IdleMUCFactory, idle_muc_factory, G_TYPE_OBJECT,
@@ -130,6 +133,12 @@ static void idle_muc_factory_class_init(IdleMUCFactoryClass *klass) {
 static IdleParserHandlerResult _numeric_error_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, ignoring...");
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+	}
+
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (!chan)
@@ -164,6 +173,12 @@ static IdleParserHandlerResult _numeric_topic_handler(IdleParser *parser, IdlePa
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	const gchar *topic = g_value_get_string(g_value_array_get_nth(args, 1));
+
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, ignoring...");
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+	}
+
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
@@ -177,6 +192,12 @@ static IdleParserHandlerResult _numeric_topic_stamp_handler(IdleParser *parser, 
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle toucher_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	time_t touched = g_value_get_uint(g_value_array_get_nth(args, 2));
+
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, ignoring...");
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+	}
+
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	idle_connection_emit_queued_aliases_changed(priv->conn);
@@ -197,6 +218,11 @@ static IdleParserHandlerResult _invite_handler(IdleParser *parser, IdleParserMes
 	if (invited_handle != priv->conn->parent.self_handle)
 		return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, ignoring...");
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+	}
+
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	idle_connection_emit_queued_aliases_changed(priv->conn);
@@ -215,9 +241,15 @@ static IdleParserHandlerResult _join_handler(IdleParser *parser, IdleParserMessa
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(factory);
 	TpHandle joiner_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
-	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	idle_connection_emit_queued_aliases_changed(priv->conn);
+
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, ignoring...");
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+	}
+
+	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (!chan)
 		chan = _create_channel(factory, room_handle);
@@ -233,6 +265,12 @@ static IdleParserHandlerResult _kick_handler(IdleParser *parser, IdleParserMessa
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	TpHandle kicked_handle = g_value_get_uint(g_value_array_get_nth(args, 2));
 	const gchar *message = (args->n_values == 4) ? g_value_get_string(g_value_array_get_nth(args, 3)) : NULL;
+
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, ignoring...");
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+	}
+
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
@@ -244,6 +282,12 @@ static IdleParserHandlerResult _kick_handler(IdleParser *parser, IdleParserMessa
 static IdleParserHandlerResult _numeric_namereply_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, ignoring...");
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+	}
+
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
@@ -255,6 +299,12 @@ static IdleParserHandlerResult _numeric_namereply_handler(IdleParser *parser, Id
 static IdleParserHandlerResult _numeric_namereply_end_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, ignoring...");
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+	}
+
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
@@ -266,6 +316,12 @@ static IdleParserHandlerResult _numeric_namereply_end_handler(IdleParser *parser
 static IdleParserHandlerResult _mode_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, ignoring...");
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+	}
+
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
@@ -305,6 +361,12 @@ static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleP
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(factory);
 	TpHandle sender_handle = (TpHandle) g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle room_handle = (TpHandle) g_value_get_uint(g_value_array_get_nth(args, 1));
+
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, ignoring...");
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+	}
+
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	TpChannelTextMessageType type;
@@ -334,6 +396,12 @@ static IdleParserHandlerResult _part_handler(IdleParser *parser, IdleParserMessa
 	TpHandle leaver_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	const gchar *message = (args->n_values == 3) ? g_value_get_string(g_value_array_get_nth(args, 2)) : NULL;
+
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, ignoring...");
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+	}
+
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
@@ -372,6 +440,12 @@ static IdleParserHandlerResult _topic_handler(IdleParser *parser, IdleParserMess
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	const gchar *topic = (args->n_values == 3) ? g_value_get_string(g_value_array_get_nth(args, 2)) : NULL;
 	time_t stamp = time(NULL);
+
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, ignoring...");
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+	}
+
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan) {
@@ -386,9 +460,13 @@ static IdleParserHandlerResult _topic_handler(IdleParser *parser, IdleParserMess
 
 static void _iface_close_all(TpChannelFactoryIface *iface) {
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(iface);
-	GHashTable *tmp;
 
-	tmp = priv->channels;
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels already closed, ignoring...");
+		return;
+	}
+
+	GHashTable *tmp = priv->channels;
 	priv->channels = NULL;
 	g_hash_table_destroy(tmp);
 }
@@ -438,6 +516,11 @@ static void _iface_foreach(TpChannelFactoryIface *iface, TpChannelFunc func, gpo
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(iface);
 	struct _ForeachHelperData data = {func, user_data};
 
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, ignoring...");
+		return;
+	}
+
 	g_hash_table_foreach(priv->channels, _foreach_helper, &data);
 }
 
@@ -453,6 +536,11 @@ static TpChannelFactoryRequestStatus _iface_request(TpChannelFactoryIface *iface
 
   if (!tp_handle_is_valid(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_ROOM), handle, error))
     return TP_CHANNEL_FACTORY_REQUEST_STATUS_INVALID_HANDLE;
+
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, failing request...");
+		return TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
+	}
 
 	if ((*new_chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(handle)))) {
 		return TP_CHANNEL_FACTORY_REQUEST_STATUS_EXISTING;
@@ -529,7 +617,8 @@ static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer use
 
 	tp_channel_factory_iface_emit_channel_error(iface, (TpChannelIface *) chan, &error, NULL);
 
-	g_hash_table_remove(priv->channels, GUINT_TO_POINTER(handle));
+	if (priv->channels)
+		g_hash_table_remove(priv->channels, GUINT_TO_POINTER(handle));
 }
 
 static void _channel_factory_iface_init(gpointer iface, gpointer data) {

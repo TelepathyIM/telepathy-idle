@@ -30,6 +30,9 @@
 #include <telepathy-glib/channel-factory-iface.h>
 #include <telepathy-glib/interfaces.h>
 
+#define IDLE_DEBUG_FLAG IDLE_DEBUG_IM
+#include "idle-debug.h"
+
 static void _im_factory_iface_init(gpointer g_iface, gpointer iface_data);
 
 G_DEFINE_TYPE_WITH_CODE(IdleIMFactory, idle_im_factory, G_TYPE_OBJECT,
@@ -129,6 +132,11 @@ static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleP
 
 	idle_connection_emit_queued_aliases_changed(priv->conn);
 
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, ignoring...");
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+	}
+
 	if (!(chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(handle))))
 		chan = _create_channel(factory, handle, NULL);
 
@@ -141,9 +149,13 @@ static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleP
 
 static void _iface_close_all(TpChannelFactoryIface *iface) {
 	IdleIMFactoryPrivate *priv = IDLE_IM_FACTORY_GET_PRIVATE(iface);
-	GHashTable *tmp;
 
-	tmp = priv->channels;
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels already closed, ignoring...");
+		return;
+	}
+
+	GHashTable *tmp = priv->channels;
 	priv->channels = NULL;
 	g_hash_table_destroy(tmp);
 }
@@ -175,6 +187,11 @@ static void _iface_foreach(TpChannelFactoryIface *iface, TpChannelFunc func, gpo
 	IdleIMFactoryPrivate *priv = IDLE_IM_FACTORY_GET_PRIVATE(iface);
 	struct _ForeachHelperData data = {func, user_data};
 
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, ignoring...");
+		return;
+	}
+
 	g_hash_table_foreach(priv->channels, _foreach_helper, &data);
 }
 
@@ -189,7 +206,12 @@ static TpChannelFactoryRequestStatus _iface_request(TpChannelFactoryIface *iface
     return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_AVAILABLE;
 
   if (!tp_handle_is_valid(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_CONTACT), handle, error))
+		return TP_CHANNEL_FACTORY_REQUEST_STATUS_INVALID_HANDLE;
+
+	if (!priv->channels) {
+		IDLE_DEBUG("Channels hash table missing, failing request...");
     return TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
+	}
 
 	if ((*new_chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(handle)))) {
 		return TP_CHANNEL_FACTORY_REQUEST_STATUS_EXISTING;
