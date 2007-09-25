@@ -66,11 +66,7 @@ dnl ])
 AC_SUBST(SOFIA_CFLAGS)
 AC_SUBST(SOFIA_LIBS)
 
-dnl Check for telepathy-glib. Use -unstable to get the Renaming interface,
-dnl if telepathy-glib is a version where that's necessary.
-PKG_CHECK_EXISTS([telepathy-glib > 0.5.9],
-    [PKG_CHECK_MODULES(TELEPATHY, [telepathy-glib telepathy-glib-unstable])],
-    [PKG_CHECK_MODULES(TELEPATHY, [telepathy-glib >= 0.5.8])])
+PKG_CHECK_MODULES(TELEPATHY, [telepathy-glib >= 0.5.8])
 
 AC_SUBST(TELEPATHY_CFLAGS)
 AC_SUBST(TELEPATHY_LIBS)
@@ -81,6 +77,23 @@ PKG_CHECK_MODULES(OPENSSL, [openssl >= 0.9.7])
 AC_SUBST(OPENSSL_CFLAGS)
 AC_SUBST(OPENSSL_LIBS)
 
+dnl Check for code generation tools
+XSLTPROC=
+AC_CHECK_PROGS([XSLTPROC], [xsltproc])
+if test -z "$XSLTPROC"; then
+  AC_MSG_ERROR([xsltproc (from the libxslt source package) is required])
+fi
+DBUS_BINDING_TOOL=
+AC_CHECK_PROGS([DBUS_BINDING_TOOL], [dbus-binding-tool])
+if test -z "$DBUS_BINDING_TOOL"; then
+  AC_MSG_ERROR([dbus-binding-tool (from dbus-glib) is required])
+fi
+PYTHON=
+AC_CHECK_PROGS([PYTHON], [python2.3 python2.4 python2.5 python])
+if test -z "$PYTHON"; then
+  AC_MSG_ERROR([Python is required to compile this package])
+fi
+
 AS_AC_EXPAND(DATADIR, $datadir)
 DBUS_SERVICES_DIR="$DATADIR/dbus-1/services"
 AC_SUBST(DBUS_SERVICES_DIR)
@@ -88,6 +101,8 @@ AC_DEFINE_UNQUOTED(DBUS_SERVICES_DIR, "$DBUS_SERVICES_DIR", [DBus services direc
 
 AC_OUTPUT( Makefile \
 					 data/Makefile \
+					 extensions/Makefile \
+					 extensions/tools/Makefile \
            m4/Makefile \
            src/Makefile \
 					 tests/Makefile \

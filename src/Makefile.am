@@ -46,7 +46,10 @@ libidle_convenience_la_SOURCES = \
 telepathy_idle_SOURCES = \
 	idle.c
 
-telepathy_idle_LDADD = libidle-convenience.la @TELEPATHY_LIBS@
+telepathy_idle_LDADD = \
+	libidle-convenience.la \
+	../extensions/libidle-extensions.la \
+	@TELEPATHY_LIBS@
 
 noinst_LTLIBRARIES = libidle-convenience.la
 
