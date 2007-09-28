@@ -4,14 +4,26 @@ check_PROGRAMS = \
 
 test_ctcp_tokenize_LDADD = \
 	$(top_builddir)/src/libidle-convenience.la \
-	@TELEPATHY_LIBS@
+	$(ALL_LIBS)
 
 test_ctcp_kill_blingbling_LDADD = \
 	$(top_builddir)/src/libidle-convenience.la \
-	@TELEPATHY_LIBS@
+	$(ALL_LIBS)
 
-AM_CFLAGS = $(ERROR_CFLAGS) -I $(top_srcdir)/src -I $(top_builddir)/src @DBUS_CFLAGS@ @GLIB_CFLAGS@ @TELEPATHY_CFLAGS@
-AM_LDFLAGS = @DBUS_LIBS@ @GLIB_LIBS@ @TELEPATHY_LIBS@
+AM_CFLAGS = \
+	$(ERROR_CFLAGS) \
+	-I $(top_srcdir)/src \
+	-I $(top_builddir)/src \
+	@DBUS_CFLAGS@ \
+	@GLIB_CFLAGS@ \
+	@TELEPATHY_CFLAGS@ \
+	@OPENSSL_CFLAGS@
+
+ALL_LIBS = \
+	@DBUS_LIBS@ \
+	@GLIB_LIBS@ \
+	@TELEPATHY_LIBS@ \
+	@OPENSSL_LIBS@
 
 TESTS = $(check_PROGRAMS)
 
