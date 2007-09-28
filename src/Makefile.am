@@ -7,7 +7,7 @@ CLEANFILES = $(BUILT_SOURCES)
 
 bin_PROGRAMS=telepathy-idle
 
-CORE_SOURCES = \
+libidle_convenience_la_SOURCES = \
 	idle-connection.c \
 	idle-connection.h \
 	idle-connection-manager.c \
@@ -38,23 +38,40 @@ CORE_SOURCES = \
 	idle-ssl-server-connection.c \
 	idle-text.h \
 	idle-text.c \
+	idle-server-connection-iface-signals-marshal.list
+
+nodist_libidle_convenience_la_SOURCES = \
 	$(BUILT_SOURCES)
 
-libidle_convenience_la_SOURCES = \
-    $(CORE_SOURCES)
+libidle_convenience_la_LIBADD = \
+	$(top_builddir)/extensions/libidle-extensions.la
 
 telepathy_idle_SOURCES = \
 	idle.c
 
 telepathy_idle_LDADD = \
 	libidle-convenience.la \
-	../extensions/libidle-extensions.la \
-	@TELEPATHY_LIBS@
+	$(ALL_LIBS)
 
 noinst_LTLIBRARIES = libidle-convenience.la
 
-AM_CFLAGS = $(ERROR_CFLAGS) @DBUS_CFLAGS@ @GLIB_CFLAGS@ @SOFIA_CFLAGS@ @OPENSSL_CFLAGS@ @TELEPATHY_CFLAGS@ -std=c99
-AM_LDFLAGS = @DBUS_LIBS@ @GLIB_LIBS@ @SOFIA_LIBS@ @OPENSSL_LIBS@ @TELEPATHY_LIBS@
+AM_CFLAGS = \
+	-I$(top_srcdir) \
+	-I$(top_builddir) \
+	$(ERROR_CFLAGS) \
+	@DBUS_CFLAGS@ \
+	@GLIB_CFLAGS@ \
+	@SOFIA_CFLAGS@ \
+	@OPENSSL_CFLAGS@ \
+	@TELEPATHY_CFLAGS@ \
+	-std=c99
+
+ALL_LIBS = \
+	@DBUS_LIBS@ \
+	@GLIB_LIBS@ \
+	@SOFIA_LIBS@ \
+	@OPENSSL_LIBS@ \
+	@TELEPATHY_LIBS@
 
 %-signals-marshal.h: %-signals-marshal.list Makefile
 	glib-genmarshal --header --prefix=$(subst -,_,$*)_marshal $< > $*-signals-marshal.h
