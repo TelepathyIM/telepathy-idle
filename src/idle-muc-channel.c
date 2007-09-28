@@ -27,7 +27,6 @@
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/channel-iface.h>
 #include <telepathy-glib/svc-channel.h>
-#include <telepathy-glib/svc-unstable.h>
 #include <telepathy-glib/svc-properties-interface.h>
 
 #define _GNU_SOURCE

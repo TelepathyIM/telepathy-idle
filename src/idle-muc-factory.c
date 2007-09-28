@@ -31,7 +31,6 @@
 
 #include <telepathy-glib/channel-factory-iface.h>
 #include <telepathy-glib/interfaces.h>
-#include <telepathy-glib/svc-unstable.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_MUC
 #include "idle-debug.h"
