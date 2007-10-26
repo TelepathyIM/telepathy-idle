@@ -10,9 +10,9 @@ service_in_files = org.freedesktop.Telepathy.ConnectionManager.idle.service.in
 service_DATA = $(BUILT_FILES)
 CLEANFILES = $(BUILT_FILES)
 
-# Rule to make the service file with bindir expanded
+# Rule to make the service file with libexecdir expanded
 $(service_DATA): $(service_in_files) Makefile
-	@sed -e "s|\@bindir\@|$(bindir)|" $< > $@
+	@sed -e "s|\@libexecdir\@|$(libexecdir)|" $< > $@
 
 EXTRA_DIST= \
 	${service_in_files} \

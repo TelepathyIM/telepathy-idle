@@ -5,7 +5,7 @@ BUILT_SOURCES = \
 # correctly clean the generated source files
 CLEANFILES = $(BUILT_SOURCES)
 
-bin_PROGRAMS=telepathy-idle
+libexec_PROGRAMS=telepathy-idle
 
 libidle_convenience_la_SOURCES = \
 	idle-connection.c \
