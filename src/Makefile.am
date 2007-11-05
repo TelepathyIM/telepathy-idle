@@ -3,7 +3,7 @@ BUILT_SOURCES = \
 		idle-server-connection-iface-signals-marshal.c
 
 # correctly clean the generated source files
-CLEANFILES = $(BUILT_SOURCES)
+CLEANFILES = $(BUILT_SOURCES) $(man_MANS)
 
 libexec_PROGRAMS=telepathy-idle
 
@@ -85,3 +85,9 @@ ALL_LIBS = \
 %-marshal.c: %-marshal.list Makefile
 	glib-genmarshal --body --prefix=$(subst -,_,$*)_marshal $< > $*-marshal.c
 
+man_MANS = telepathy-idle.8
+
+EXTRA_DIST = telepathy-idle.8.in
+
+%.8: %.8.in Makefile
+	sed -e 's,[@]libexecdir[@],@libexecdir@,' < $< > $@

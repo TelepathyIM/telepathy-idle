@@ -72,3 +72,4 @@
 ^extensions/_gen($|/)
 ^extensions/extensions\.html$
 ^src/telepathy-idle$
+^src/telepathy-idle\.8$
