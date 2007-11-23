@@ -1,16 +1,8 @@
-SUBDIRS = tools
+tools_dir = $(top_srcdir)/tools
 
-tools_dir = $(srcdir)/tools
-
-include _gen/spec-gen.am
-
-EXTRA_DIST = $(SPEC_INTERFACE_XMLS) all.xml
-
-SPEC_GENERATED_SOURCES = \
-    $(SPEC_GENERATED_CS) \
-    $(SPEC_GENERATED_HS) \
-    $(SPEC_GENERATED_LISTS) \
-    $(SPEC_GLUE_HS)
+EXTRA_DIST = \
+    all.xml \
+    Connection_Interface_Renaming.xml
 
 noinst_LTLIBRARIES = libidle-extensions.la
 
@@ -24,7 +16,10 @@ nodist_libidle_extensions_la_SOURCES = \
     _gen/enums.h \
     _gen/interfaces.h \
     _gen/svc.h \
-    $(SPEC_GENERATED_SOURCES)
+    _gen/svc-Connection_Interface_Renaming.c \
+    _gen/svc-Connection_Interface_Renaming.h \
+    _gen/svc-Connection_Interface_Renaming-signals-marshal.list \
+    _gen/svc-Connection_Interface_Renaming-glue.h
 
 BUILT_SOURCES = $(nodist_libidle_extensions_la_SOURCES) extensions.html
 
@@ -67,7 +62,7 @@ _gen/svc-%.c _gen/svc-%.h _gen/svc-%-signals-marshal.list: %.xml $(tools_dir)/ge
 		--not-implemented-func='tp_dbus_g_method_return_not_implemented' \
 		$< IdleSvc`echo $* | tr -d _`
 
-_gen/signals-marshal.list: $(SPEC_GENERATED_LISTS)
+_gen/signals-marshal.list: _gen/svc-Connection_Interface_Renaming-signals-marshal.list
 	sort $^ /dev/null | uniq > $@
 
 _gen/signals-marshal.h: _gen/signals-marshal.list
@@ -77,19 +72,19 @@ _gen/signals-marshal.c: _gen/signals-marshal.list
 	$(GLIB_GENMARSHAL) --body --prefix=_idle_ext_marshal $< > $@
 
 _gen/svc.h: Makefile.in _gen/.exists
-	for i in $(SPEC_INTERFACES); \
+	for i in Connection_Interface_Renaming; \
 	do \
 		echo "#include \"extensions/_gen/svc-$$i.h\""; \
 	done > $@
 
-_gen/enums.h: all.xml $(SPEC_INTERFACE_XMLS) tools/c-constants-generator.xsl _gen/.exists
+_gen/enums.h: all.xml $(wildcard *.xml) $(tools_dir)/c-constants-generator.xsl _gen/.exists
 	$(XSLTPROC) --xinclude $(XSLTPROCFLAGS) \
 		--stringparam mixed-case-prefix Idle \
-		$(srcdir)/tools/c-constants-generator.xsl \
+		$(tools_dir)/c-constants-generator.xsl \
 		$(srcdir)/all.xml > $@
 
-_gen/interfaces.h: all.xml $(SPEC_INTERFACE_XMLS) tools/c-interfaces-generator.xsl _gen/.exists
+_gen/interfaces.h: all.xml $(wildcard *.xml) $(tools_dir)/c-interfaces-generator.xsl _gen/.exists
 	$(XSLTPROC) --xinclude $(XSLTPROCFLAGS) \
 		--stringparam mixed-case-prefix Idle \
-		$(srcdir)/tools/c-interfaces-generator.xsl \
+		$(tools_dir)/c-interfaces-generator.xsl \
 		$(srcdir)/all.xml > $@

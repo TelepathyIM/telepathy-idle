@@ -102,8 +102,8 @@ AC_DEFINE_UNQUOTED(DBUS_SERVICES_DIR, "$DBUS_SERVICES_DIR", [DBus services direc
 AC_OUTPUT( Makefile \
 					 data/Makefile \
 					 extensions/Makefile \
-					 extensions/tools/Makefile \
            m4/Makefile \
            src/Makefile \
 					 tests/Makefile \
+					 tools/Makefile \
 )
