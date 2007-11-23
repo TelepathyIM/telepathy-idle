@@ -21,7 +21,7 @@ nodist_libidle_extensions_la_SOURCES = \
 
 BUILT_SOURCES = $(nodist_libidle_extensions_la_SOURCES) extensions.html
 
-CLEANFILES = $(BUILT_SOURCES) _gen/.exists
+CLEANFILES = $(BUILT_SOURCES)
 
 AM_CFLAGS = $(ERROR_CFLAGS) @DBUS_CFLAGS@ @GLIB_CFLAGS@ @TELEPATHY_CFLAGS@
 AM_LDFLAGS = @DBUS_LIBS@ @GLIB_LIBS@ @TELEPATHY_LIBS@
@@ -31,11 +31,8 @@ AM_LDFLAGS = @DBUS_LIBS@ @GLIB_LIBS@ @TELEPATHY_LIBS@
 DROP_NAMESPACE = sed -e 's@xmlns:tp="http://telepathy\.freedesktop\.org/wiki/DbusSpec.extensions-v0"@@g'
 XSLTPROCFLAGS = --nonet --novalid
 
-_gen/.exists:
-	$(mkdir_p) _gen
-	touch $@
-
 _gen/all.xml: all.xml $(wildcard *.xml)
+	$(mkdir_p) _gen
 	$(XSLTPROC) $(XSLTPROCFLAGS) --xinclude $(tools_dir)/identity.xsl \
 		$< > $@
 
@@ -45,7 +42,8 @@ extensions.html: _gen/all.xml \
 		$(tools_dir)/doc-generator.xsl \
 		$< > $@
 
-_gen/introspect-%.xml: %.xml $(tools_dir)/spec-to-introspect.xsl _gen/.exists
+_gen/introspect-%.xml: %.xml $(tools_dir)/spec-to-introspect.xsl
+	$(mkdir_p) _gen
 	$(XSLTPROC) $(XSLTPROCFLAGS) \
 		$(tools_dir)/spec-to-introspect.xsl $< \
 		| $(DROP_NAMESPACE) > $@
@@ -59,8 +57,7 @@ _gen/svc-%-glue.h: _gen/async-%.xml
 
 _gen/svc.c _gen/svc.h: _gen/all.xml \
 	$(tools_dir)/glib-ginterface-gen.py \
-	_gen/svc-Connection_Interface_Renaming-glue.h \
-	_gen/.exists
+	_gen/svc-Connection_Interface_Renaming-glue.h
 	$(PYTHON) $(tools_dir)/glib-ginterface-gen.py \
 		--filename=_gen/svc --signal-marshal-prefix=_idle_ext \
 		--include='<telepathy-glib/dbus.h>' \
@@ -78,13 +75,13 @@ _gen/signals-marshal.h: _gen/signals-marshal.list
 _gen/signals-marshal.c: _gen/signals-marshal.list
 	$(GLIB_GENMARSHAL) --body --prefix=_idle_ext_marshal $< > $@
 
-_gen/enums.h: _gen/all.xml $(tools_dir)/c-constants-generator.xsl _gen/.exists
+_gen/enums.h: _gen/all.xml $(tools_dir)/c-constants-generator.xsl
 	$(XSLTPROC) $(XSLTPROCFLAGS) \
 		--stringparam mixed-case-prefix Idle \
 		$(tools_dir)/c-constants-generator.xsl \
 		$< > $@
 
-_gen/interfaces.h: _gen/all.xml $(tools_dir)/c-interfaces-generator.xsl _gen/.exists
+_gen/interfaces.h: _gen/all.xml $(tools_dir)/c-interfaces-generator.xsl
 	$(XSLTPROC) $(XSLTPROCFLAGS) \
 		--stringparam mixed-case-prefix Idle \
 		$(tools_dir)/c-interfaces-generator.xsl \
