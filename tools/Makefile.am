@@ -5,5 +5,4 @@ EXTRA_DIST = \
     genginterface.py \
     ls-interfaces.xsl \
     make-all-async.xsl \
-    spec-to-introspect.xsl \
-    update-spec-gen-am.sh
+    spec-to-introspect.xsl
