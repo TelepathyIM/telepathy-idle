@@ -34,7 +34,7 @@ DROP_NAMESPACE = sed -e 's@xmlns:tp="http://telepathy\.freedesktop\.org/wiki/Dbu
 XSLTPROCFLAGS = --nonet --novalid
 
 _gen/.exists:
-	$(INSTALL) -d _gen
+	$(mkdir_p) _gen
 	touch $@
 
 extensions.html: all.xml $(SPEC_INTERFACE_XMLS) $(tools_dir)/doc-generator.xsl
