@@ -24,4 +24,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA</p>
 
 <xi:include href="Connection_Interface_Renaming.xml"/>
 
+<tp:generic-types>
+  <tp:external-type name="Contact_Handle" type="u"
+    from="Telepathy specification"/>
+</tp:generic-types>
+
 </tp:spec>
