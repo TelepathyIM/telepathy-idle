@@ -19,7 +19,10 @@ nodist_libidle_extensions_la_SOURCES = \
     _gen/svc.c \
     _gen/svc-Connection_Interface_Renaming-glue.h
 
-BUILT_SOURCES = $(nodist_libidle_extensions_la_SOURCES) extensions.html
+BUILT_SOURCES = \
+    _gen/all.xml \
+    $(nodist_libidle_extensions_la_SOURCES) \
+    extensions.html
 
 CLEANFILES = $(BUILT_SOURCES)
 
