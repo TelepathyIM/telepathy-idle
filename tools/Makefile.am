@@ -5,7 +5,12 @@ EXTRA_DIST = \
     glib-ginterface-gen.py \
     glib-signals-marshal-gen.py \
     identity.xsl \
-    libglibcodegen.py \
-    ls-interfaces.xsl \
-    make-all-async.xsl \
-    spec-to-introspect.xsl
+    libglibcodegen.py
+
+CLEANFILES = libglibcodegen.pyc libglibcodegen.pyo
+
+glib-ginterface-gen.py: libglibcodegen.py
+	touch $@
+
+glib-signals-marshal-gen.py: libglibcodegen.py
+	touch $@
