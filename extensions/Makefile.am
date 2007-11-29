@@ -16,8 +16,7 @@ nodist_libidle_extensions_la_SOURCES = \
     _gen/enums.h \
     _gen/interfaces.h \
     _gen/svc.h \
-    _gen/svc.c \
-    _gen/svc-Connection_Interface_Renaming-glue.h
+    _gen/svc.c
 
 BUILT_SOURCES = \
     _gen/all.xml \
@@ -45,27 +44,12 @@ extensions.html: _gen/all.xml \
 		$(tools_dir)/doc-generator.xsl \
 		$< > $@
 
-_gen/introspect-%.xml: %.xml $(tools_dir)/spec-to-introspect.xsl
-	$(mkdir_p) _gen
-	$(XSLTPROC) $(XSLTPROCFLAGS) \
-		$(tools_dir)/spec-to-introspect.xsl $< \
-		| $(DROP_NAMESPACE) > $@
-
-_gen/async-%.xml: _gen/introspect-%.xml $(tools_dir)/make-all-async.xsl
-	$(XSLTPROC) $(XSLTPROCFLAGS) $(tools_dir)/make-all-async.xsl $< > $@
-
-_gen/svc-%-glue.h: _gen/async-%.xml
-	$(DBUS_BINDING_TOOL) --mode=glib-server --output=$@ \
-		--prefix=idle_svc_`echo $* | tr '[:upper:]' '[:lower:]'` $<
-
 _gen/svc.c _gen/svc.h: _gen/all.xml \
-	$(tools_dir)/glib-ginterface-gen.py \
-	_gen/svc-Connection_Interface_Renaming-glue.h
+	$(tools_dir)/glib-ginterface-gen.py
 	$(PYTHON) $(tools_dir)/glib-ginterface-gen.py \
 		--filename=_gen/svc --signal-marshal-prefix=_idle_ext \
 		--include='<telepathy-glib/dbus.h>' \
 		--include='"_gen/signals-marshal.h"' \
-		--include-end='"_gen/svc-Connection_Interface_Renaming-glue.h"' \
 		--not-implemented-func='tp_dbus_g_method_return_not_implemented' \
 		$< Idle_Svc_
 
