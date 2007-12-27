@@ -88,7 +88,7 @@ static gboolean _channelname_is_valid(const gchar *channel) {
 		}
 	}
 
-	const gchar *tmp = strchr(channel+1, ':');
+	const gchar *tmp = strchr(channel + 1, ':');
 	if (tmp != NULL) {
 		for (const gchar *tmp2 = channel + 1; tmp2 != tmp; tmp2++) {
 			if (strchr(not_allowed_chars, *tmp2))
@@ -100,7 +100,7 @@ static gboolean _channelname_is_valid(const gchar *channel) {
 				return FALSE;
 		}
 	} else {
-		for (const gchar *tmp2 = channel+1; tmp2 != channel + len; tmp2++) {
+		for (const gchar *tmp2 = channel + 1; tmp2 != channel + len; tmp2++) {
 			if (strchr(not_allowed_chars, *tmp2))
 				return FALSE;
 		}

@@ -278,19 +278,19 @@ static gboolean io_err_cleanup_func(gpointer data) {
 
 static gboolean io_func(GIOChannel *src, GIOCondition cond, gpointer data) {
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(data);
-	gchar buf[IRC_MSG_MAXLEN+3];
+	gchar buf[IRC_MSG_MAXLEN + 3];
 	GIOStatus status;
 	gsize len;
 	GError *error = NULL;
 
-	if (cond & (G_IO_ERR|G_IO_HUP)) {
-		IDLE_DEBUG("got G_IO_ERR|G_IO_HUP");
+	if (cond & (G_IO_ERR | G_IO_HUP)) {
+		IDLE_DEBUG("got G_IO_ERR | G_IO_HUP");
 		g_idle_add(io_err_cleanup_func, data);
 		return FALSE;
 	}
 
-	memset(buf, 0, IRC_MSG_MAXLEN+3);
-	status = g_io_channel_read_chars(src, buf, IRC_MSG_MAXLEN+2, &len, &error);
+	memset(buf, 0, IRC_MSG_MAXLEN + 3);
+	status = g_io_channel_read_chars(src, buf, IRC_MSG_MAXLEN + 2, &len, &error);
 
 	if ((status != G_IO_STATUS_NORMAL) && (status != G_IO_STATUS_AGAIN)) {
 		IDLE_DEBUG("status: %u, error: %s", status, (error != NULL) ? (error->message != NULL) ? error->message : "(null)" : "(null)");
@@ -370,7 +370,7 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 		g_assert(priv->io_chan == NULL);
 		g_assert(priv->read_watch_id == 0);
 
-		priv->read_watch_id = g_io_add_watch(connect_data->io_chan, G_IO_IN|G_IO_PRI|G_IO_ERR|G_IO_HUP, io_func, data);
+		priv->read_watch_id = g_io_add_watch(connect_data->io_chan, G_IO_IN | G_IO_PRI | G_IO_ERR | G_IO_HUP, io_func, data);
 		priv->io_chan = connect_data->io_chan;
 
 		connect_data->io_chan = NULL;
@@ -406,15 +406,13 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 	if ((next->ai_family == cur->ai_family) &&
 			(next->ai_socktype == cur->ai_socktype) &&
 			(next->ai_protocol == cur->ai_protocol)) {
-		int i;
-
 		IDLE_DEBUG("re-using existing socket for trying again");
 
 		errno = 0;
 		connect(connect_data->fd, next->ai_addr, next->ai_addrlen);
 
-		for (i=0; i<5 && errno == ECONNABORTED; i++) {
-			IDLE_DEBUG("got ECONNABORTED for (%i+1)th time", i);
+		for (int i = 0; i < 5 && errno == ECONNABORTED; i++) {
+			IDLE_DEBUG("got ECONNABORTED for %ith time", i + 1);
 			errno = 0;
 			connect(connect_data->fd, next->ai_addr, next->ai_addrlen);
 		}
@@ -488,7 +486,7 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 	close(connect_data->fd);
 	connect_data->fd = fd;
 
-	connect_data->watch_id = g_io_add_watch(io_chan, G_IO_OUT|G_IO_ERR, connect_io_func, conn);
+	connect_data->watch_id = g_io_add_watch(io_chan, G_IO_OUT | G_IO_ERR, connect_io_func, conn);
 
 	return FALSE;
 }
@@ -561,7 +559,7 @@ static void dns_result_callback(guint unused, IdleDNSResult *results, gpointer u
 	priv->connect_data->io_chan = io_chan;
 	priv->connect_data->res = results;
 	priv->connect_data->cur = cur;
-	priv->connect_data->watch_id = g_io_add_watch(io_chan, G_IO_OUT|G_IO_ERR, connect_io_func, conn);
+	priv->connect_data->watch_id = g_io_add_watch(io_chan, G_IO_OUT | G_IO_ERR, connect_io_func, conn);
 }
 
 static gboolean do_connect(IdleServerConnection *conn) {

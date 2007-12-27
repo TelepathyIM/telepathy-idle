@@ -122,7 +122,7 @@ struct _IdleParserPrivate {
 	IdleConnection *conn;
 
 	/* continuation line buffer */
-	gchar split_buf[IRC_MSG_MAXLEN+3];
+	gchar split_buf[IRC_MSG_MAXLEN + 3];
 
 	/* message handlers */
 	GSList *handlers[IDLE_PARSER_LAST_MESSAGE_CODE];
@@ -215,7 +215,7 @@ void idle_parser_receive(IdleParser *parser, const gchar *msg) {
 					g_free(tmp);
 			}
 
-			lasti = i+1;
+			lasti = i + 1;
 			line_ends = TRUE;
 		} else {
 			line_ends = FALSE;

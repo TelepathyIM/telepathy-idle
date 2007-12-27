@@ -52,7 +52,7 @@ void idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gchar *
 }
 
 void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *context) {
-	gchar msg[IRC_MSG_MAXLEN+1];
+	gchar msg[IRC_MSG_MAXLEN + 1];
 	time_t timestamp;
 	const gchar *final_text = text;
 	gsize len;
@@ -74,11 +74,11 @@ void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gch
 	part = (gchar*)final_text;
 
 	if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL)
-		g_snprintf(msg, IRC_MSG_MAXLEN+1, "PRIVMSG %s :", recipient);
+		g_snprintf(msg, IRC_MSG_MAXLEN + 1, "PRIVMSG %s :", recipient);
 	else if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION)
-		g_snprintf(msg, IRC_MSG_MAXLEN+1, "PRIVMSG %s :\001ACTION ", recipient);
+		g_snprintf(msg, IRC_MSG_MAXLEN + 1, "PRIVMSG %s :\001ACTION ", recipient);
 	else if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE)
-		g_snprintf(msg, IRC_MSG_MAXLEN+1, "NOTICE %s :", recipient);
+		g_snprintf(msg, IRC_MSG_MAXLEN + 1, "NOTICE %s :", recipient);
 	else {
 		IDLE_DEBUG("invalid message type %u", type);
 
@@ -91,18 +91,18 @@ void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gch
 
 	headerlen = strlen(msg);
 
-	while (part < final_text+len) {
+	while (part < final_text + len) {
 		char *br = strchr (part, '\n');
-		size_t len = IRC_MSG_MAXLEN-headerlen;
+		size_t len = IRC_MSG_MAXLEN - headerlen;
 		if (br) {
 			len = (len < br - part) ? len : br - part;
 		}
 
 		if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION) {
-			g_snprintf(msg+headerlen, len + 1, "%s\001", part);
+			g_snprintf(msg + headerlen, len + 1, "%s\001", part);
 			len -= 1;
 		} else {
-			g_strlcpy(msg+headerlen, part, len + 1);
+			g_strlcpy(msg + headerlen, part, len + 1);
 		}
 
 		part += len;

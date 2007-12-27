@@ -428,7 +428,7 @@ static void muc_channel_tp_properties_init(IdleMUCChannel *chan) {
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 	props = priv->properties;
 
-	for (i=0; i<LAST_TP_PROPERTY_ENUM; i++) {
+	for (i = 0; i < LAST_TP_PROPERTY_ENUM; i++) {
 		GValue *value;
 		props[i].value = value = g_new0(GValue, 1);
 
@@ -441,7 +441,6 @@ static void muc_channel_tp_properties_init(IdleMUCChannel *chan) {
 static void muc_channel_tp_properties_destroy(IdleMUCChannel *chan) {
 	IdleMUCChannelPrivate *priv;
 	TPProperty *props;
-	int i;
 
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
@@ -449,7 +448,7 @@ static void muc_channel_tp_properties_destroy(IdleMUCChannel *chan) {
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 	props = priv->properties;
 
-	for (i=0; i<LAST_TP_PROPERTY_ENUM; i++) {
+	for (int i = 0; i < LAST_TP_PROPERTY_ENUM; i++) {
 		g_value_unset(props[i].value);
 		g_free(props[i].value);
 	}
@@ -563,7 +562,6 @@ static void change_tp_properties(IdleMUCChannel *chan, const GPtrArray *props) {
 
 static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpPropertyFlags add, TpPropertyFlags remove) {
 	IdleMUCChannelPrivate *priv;
-	int i;
 	GPtrArray *changed_props;
 
 	g_assert(chan != NULL);
@@ -576,7 +574,7 @@ static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpP
 	if (props == NULL) {
 		IDLE_DEBUG("setting all flags with %u, %u", add, remove);
 
-		for (i=0; i<LAST_TP_PROPERTY_ENUM; i++) {
+		for (int i = 0; i < LAST_TP_PROPERTY_ENUM; i++) {
 			guint curr_flags = priv->properties[i].flags;
 			guint flags = (curr_flags | add) & (~remove);
 
@@ -597,7 +595,7 @@ static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpP
 			}
 		}
 	} else {
-		for (i=0; i<props->len; i++) {
+		for (int i = 0; i < props->len; i++) {
 			guint prop_id = g_array_index(props, guint, i);
 			guint curr_flags = priv->properties[prop_id].flags;
 			guint flags = (curr_flags | add) & (~remove);
@@ -709,7 +707,6 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 	GPtrArray *tp_props_to_change;
 	guint prop_flags = 0;
 	guint combined;
-	int i;
 
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
@@ -731,10 +728,10 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 	flags |= add;
 	flags &= ~remove;
 
-	combined = add|remove;
+	combined = add | remove;
 
 	if (add & MODE_FLAG_INVITE_ONLY) {
-		if (!(flags & (MODE_FLAG_OPERATOR_PRIVILEGE|MODE_FLAG_HALFOP_PRIVILEGE)))
+		if (!(flags & (MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE)))
 			group_remove |= TP_CHANNEL_GROUP_FLAG_CAN_ADD;
 	} else if (remove & MODE_FLAG_INVITE_ONLY) {
 		group_add |= TP_CHANNEL_GROUP_FLAG_CAN_ADD;
@@ -757,19 +754,19 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 
 		flags_to_change = g_array_new(FALSE, FALSE, sizeof(guint));
 
-		for (i=0; flags_helper[i] != LAST_TP_PROPERTY_ENUM; i++) {
+		for (int i = 0; flags_helper[i] != LAST_TP_PROPERTY_ENUM; i++) {
 			guint prop_id = flags_helper[i];
 			g_array_append_val(flags_to_change, prop_id);
 		}
 
 		prop_flags = TP_PROPERTY_FLAG_WRITE;
 
-		if (add & (MODE_FLAG_OPERATOR_PRIVILEGE|MODE_FLAG_HALFOP_PRIVILEGE)) {
-			group_add |= TP_CHANNEL_GROUP_FLAG_CAN_ADD|TP_CHANNEL_GROUP_FLAG_CAN_REMOVE|TP_CHANNEL_GROUP_FLAG_MESSAGE_REMOVE;
+		if (add & (MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE)) {
+			group_add |= TP_CHANNEL_GROUP_FLAG_CAN_ADD | TP_CHANNEL_GROUP_FLAG_CAN_REMOVE | TP_CHANNEL_GROUP_FLAG_MESSAGE_REMOVE;
 
 			set_tp_property_flags(obj, flags_to_change, prop_flags, 0);
-		} else if (remove & (MODE_FLAG_OPERATOR_PRIVILEGE|MODE_FLAG_HALFOP_PRIVILEGE)) {
-			group_remove |= TP_CHANNEL_GROUP_FLAG_CAN_REMOVE|TP_CHANNEL_GROUP_FLAG_MESSAGE_REMOVE;
+		} else if (remove & (MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE)) {
+			group_remove |= TP_CHANNEL_GROUP_FLAG_CAN_REMOVE | TP_CHANNEL_GROUP_FLAG_MESSAGE_REMOVE;
 
 			if (flags & MODE_FLAG_INVITE_ONLY)
 				group_remove |= TP_CHANNEL_GROUP_FLAG_CAN_ADD;
@@ -778,7 +775,7 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 		}
 	}
 
-	for (i = 1; i<LAST_MODE_FLAG_ENUM; i = (i << 1)) {
+	for (int i = 1; i < LAST_MODE_FLAG_ENUM; i <<= 1) {
 		if (combined & i) {
 			IdleMUCChannelTPProperty tp_prop_id;
 
@@ -882,14 +879,14 @@ gboolean _idle_muc_channel_receive(IdleMUCChannel *chan, TpChannelTextMessageTyp
 
 static void send_mode_query_request(IdleMUCChannel *chan) {
 	IdleMUCChannelPrivate *priv;
-	gchar cmd[IRC_MSG_MAXLEN+2];
+	gchar cmd[IRC_MSG_MAXLEN + 2];
 
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 
-	g_snprintf(cmd, IRC_MSG_MAXLEN+2, "MODE %s", priv->channel_name);
+	g_snprintf(cmd, IRC_MSG_MAXLEN + 2, "MODE %s", priv->channel_name);
 
 	_idle_connection_send(priv->connection, cmd);
 }
@@ -1364,7 +1361,7 @@ cleanup:
 
 static void send_join_request(IdleMUCChannel *obj, const gchar *password) {
 	IdleMUCChannelPrivate *priv;
-	gchar cmd[IRC_MSG_MAXLEN+1];
+	gchar cmd[IRC_MSG_MAXLEN + 1];
 
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
@@ -1372,9 +1369,9 @@ static void send_join_request(IdleMUCChannel *obj, const gchar *password) {
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
 	if (password)
-		g_snprintf(cmd, IRC_MSG_MAXLEN+1, "JOIN %s %s", priv->channel_name, password);
+		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "JOIN %s %s", priv->channel_name, password);
 	else
-		g_snprintf(cmd, IRC_MSG_MAXLEN+1, "JOIN %s", priv->channel_name);
+		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "JOIN %s", priv->channel_name);
 
 	_idle_connection_send(priv->connection, cmd);
 }
@@ -1385,7 +1382,7 @@ void _idle_muc_channel_join_attempt(IdleMUCChannel *obj) {
 
 static gboolean send_invite_request(IdleMUCChannel *obj, TpHandle handle, GError **error) {
 	IdleMUCChannelPrivate *priv;
-	gchar cmd[IRC_MSG_MAXLEN+1];
+	gchar cmd[IRC_MSG_MAXLEN + 1];
 	const gchar *nick;
 
 	g_assert(obj != NULL);
@@ -1403,7 +1400,7 @@ static gboolean send_invite_request(IdleMUCChannel *obj, TpHandle handle, GError
 		return FALSE;
 	}
 
-	g_snprintf(cmd, IRC_MSG_MAXLEN+1, "INVITE %s %s", nick, priv->channel_name);
+	g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "INVITE %s %s", nick, priv->channel_name);
 
 	_idle_connection_send(priv->connection, cmd);
 
@@ -1412,7 +1409,7 @@ static gboolean send_invite_request(IdleMUCChannel *obj, TpHandle handle, GError
 
 static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gchar *msg, GError **error) {
 	IdleMUCChannelPrivate *priv;
-	gchar cmd[IRC_MSG_MAXLEN+1];
+	gchar cmd[IRC_MSG_MAXLEN + 1];
 	const gchar *nick;
 
 	g_assert(obj != NULL);
@@ -1431,9 +1428,9 @@ static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gc
 	}
 
 	if (msg != NULL) {
-		g_snprintf(cmd, IRC_MSG_MAXLEN+1, "KICK %s %s %s", priv->channel_name, nick, msg);
+		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "KICK %s %s %s", priv->channel_name, nick, msg);
 	} else {
-		g_snprintf(cmd, IRC_MSG_MAXLEN+1, "KICK %s %s", priv->channel_name, nick);
+		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "KICK %s %s", priv->channel_name, nick);
 	}
 
 	_idle_connection_send(priv->connection, cmd);
@@ -1491,7 +1488,7 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 
 static void part_from_channel(IdleMUCChannel *obj, const gchar *msg) {
 	IdleMUCChannelPrivate *priv;
-	gchar cmd[IRC_MSG_MAXLEN+1];
+	gchar cmd[IRC_MSG_MAXLEN + 1];
 
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
@@ -1499,9 +1496,9 @@ static void part_from_channel(IdleMUCChannel *obj, const gchar *msg) {
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
 	if (msg != NULL) {
-		g_snprintf(cmd, IRC_MSG_MAXLEN+1, "PART %s %s", priv->channel_name, msg);
+		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "PART %s %s", priv->channel_name, msg);
 	} else {
-		g_snprintf(cmd, IRC_MSG_MAXLEN+1, "PART %s", priv->channel_name);
+		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "PART %s", priv->channel_name);
 	}
 
 	_idle_connection_send(priv->connection, cmd);
@@ -1677,14 +1674,13 @@ static void idle_muc_channel_get_properties (TpSvcPropertiesInterface *iface, co
 	IdleMUCChannelPrivate *priv;
 	GError *error;
 	GPtrArray *ret;
-	int i;
 
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	for (i=0; i<properties->len; i++) {
+	for (int i = 0; i < properties->len; i++) {
 		IdleMUCChannelTPProperty prop = g_array_index(properties, guint, i);
 
 		if (prop >= LAST_TP_PROPERTY_ENUM) {
@@ -1710,7 +1706,7 @@ static void idle_muc_channel_get_properties (TpSvcPropertiesInterface *iface, co
 
 	ret = g_ptr_array_sized_new(properties->len);
 
-	for (i=0; i<properties->len; i++) {
+	for (int i = 0; i < properties->len; i++) {
 		IdleMUCChannelTPProperty prop = g_array_index(properties, guint, i);
 		GValue prop_val = {0, };
 
@@ -1748,7 +1744,6 @@ static void idle_muc_channel_list_properties (TpSvcPropertiesInterface *iface, D
 	IdleMUCChannelPrivate *priv;
 	GError *error;
 	GPtrArray *ret;
-	guint i;
 
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
@@ -1757,7 +1752,7 @@ static void idle_muc_channel_list_properties (TpSvcPropertiesInterface *iface, D
 
 	ret = g_ptr_array_sized_new(LAST_TP_PROPERTY_ENUM);
 
-	for (i=0; i<LAST_TP_PROPERTY_ENUM; i++) {
+	for (int i = 0; i < LAST_TP_PROPERTY_ENUM; i++) {
 		GValue prop = {0, };
 		const gchar *dbus_sig;
 		const gchar *name;
@@ -1864,7 +1859,7 @@ static void idle_muc_channel_send (TpSvcChannelTypeText *iface, guint type, cons
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 	time_t timestamp = time(NULL);
 
-	if ((priv->mode_state.flags & MODE_FLAG_MODERATED) && !(priv->mode_state.flags & (MODE_FLAG_OPERATOR_PRIVILEGE|MODE_FLAG_HALFOP_PRIVILEGE|MODE_FLAG_VOICE_PRIVILEGE))) {
+	if ((priv->mode_state.flags & MODE_FLAG_MODERATED) && !(priv->mode_state.flags & (MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE | MODE_FLAG_VOICE_PRIVILEGE))) {
 		IDLE_DEBUG("emitting SEND_ERROR with (%u, %llu, %u, %s)", TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED, (guint64)(timestamp), type, text);
 		tp_svc_channel_type_text_emit_send_error(iface, TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED, timestamp, type, text);
 		return;
@@ -1887,9 +1882,7 @@ static char to_irc_mode(IdleMUCChannelTPProperty prop_id) {
 }
 
 static int prop_arr_find(const GPtrArray *props, IdleMUCChannelTPProperty needle) {
-	int i;
-
-	for (i=0; i<props->len; i++) {
+	for (int i = 0; i < props->len; i++) {
 		GValue prop = {0, };
 		guint prop_id;
 
@@ -1910,9 +1903,8 @@ static int prop_arr_find(const GPtrArray *props, IdleMUCChannelTPProperty needle
 
 static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *properties) {
 	IdleMUCChannelPrivate *priv;
-	int i;
 	GPtrArray *waiting;
-	gchar cmd[IRC_MSG_MAXLEN+2];
+	gchar cmd[IRC_MSG_MAXLEN + 2];
 	size_t len;
 	gchar *body;
 
@@ -1924,11 +1916,11 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 
 	waiting = g_ptr_array_new();
 
-	g_snprintf(cmd, IRC_MSG_MAXLEN+2, "MODE %s ", priv->channel_name);
+	g_snprintf(cmd, IRC_MSG_MAXLEN + 2, "MODE %s ", priv->channel_name);
 	len = strlen(cmd);
-	body = cmd+len;
+	body = cmd + len;
 
-	for (i=0; i<properties->len; i++) {
+	for (int i = 0; i < properties->len; i++) {
 		GValue prop = {0, };
 		IdleMUCChannelTPProperty prop_id;
 		GValue *prop_val;
@@ -1960,9 +1952,9 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 		} else {
 			if (prop_id == TP_PROPERTY_SUBJECT) {
 				const gchar *subject = g_value_get_string(prop_val);
-				gchar cmd[IRC_MSG_MAXLEN+2];
+				gchar cmd[IRC_MSG_MAXLEN + 2];
 
-				g_snprintf(cmd, IRC_MSG_MAXLEN+2, "TOPIC %s :%s", priv->channel_name, subject);
+				g_snprintf(cmd, IRC_MSG_MAXLEN + 2, "TOPIC %s :%s", priv->channel_name, subject);
 
 				_idle_connection_send(priv->connection, cmd);
 			} else {
@@ -2000,7 +1992,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 
 	/* okay now the data is ALWAYS before the boolean */
 
-	for (i=0; i<waiting->len; i++) {
+	for (int i = 0; i < waiting->len; i++) {
 		GValue prop = {0, };
 		IdleMUCChannelTPProperty prop_id;
 		GValue *prop_val;
@@ -2020,13 +2012,13 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 
 			g_value_copy(prop_val, priv->properties[prop_id].value);
 
-			j = prop_arr_find(waiting, prop_id+1);
+			j = prop_arr_find(waiting, prop_id + 1);
 
 			if (j == -1) {
 				if (prop_id == TP_PROPERTY_LIMIT && priv->mode_state.flags & MODE_FLAG_USER_LIMIT)
-					g_snprintf(body, IRC_MSG_MAXLEN-len, "+l %u", g_value_get_uint(prop_val));
+					g_snprintf(body, IRC_MSG_MAXLEN - len, "+l %u", g_value_get_uint(prop_val));
 				else if (prop_id == TP_PROPERTY_PASSWORD && priv->mode_state.flags & MODE_FLAG_KEY)
-					g_snprintf(body, IRC_MSG_MAXLEN-len, "+k %s", g_value_get_string(prop_val));
+					g_snprintf(body, IRC_MSG_MAXLEN - len, "+k %s", g_value_get_string(prop_val));
 				else
 					IDLE_DEBUG("%u", __LINE__);
 			}
@@ -2035,18 +2027,18 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 
 			if (g_value_get_boolean(prop_val)) {
 				if (limit != 0)
-					g_snprintf(body, IRC_MSG_MAXLEN-len, "+l %u", limit);
+					g_snprintf(body, IRC_MSG_MAXLEN - len, "+l %u", limit);
 			} else {
-				g_snprintf(body, IRC_MSG_MAXLEN-len, "-l");
+				g_snprintf(body, IRC_MSG_MAXLEN - len, "-l");
 			}
 		} else if (prop_id == TP_PROPERTY_PASSWORD_REQUIRED) {
 			const gchar *key = g_value_get_string(priv->properties[TP_PROPERTY_PASSWORD].value);
 
 			if (g_value_get_boolean(prop_val)) {
 				if (key != NULL)
-					g_snprintf(body, IRC_MSG_MAXLEN-len, "+k %s", key);
+					g_snprintf(body, IRC_MSG_MAXLEN - len, "+k %s", key);
 			} else {
-				g_snprintf(body, IRC_MSG_MAXLEN-len, "-k");
+				g_snprintf(body, IRC_MSG_MAXLEN - len, "-k");
 			}
 		}
 
@@ -2073,7 +2065,6 @@ static void idle_muc_channel_set_properties (TpSvcPropertiesInterface *iface, co
 	IdleMUCChannelPrivate *priv;
 	GPtrArray *to_change;
 	GError *error;
-	int i;
 
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
@@ -2082,7 +2073,7 @@ static void idle_muc_channel_set_properties (TpSvcPropertiesInterface *iface, co
 
 	to_change = g_ptr_array_new();
 
-	for (i=0; i<properties->len; i++) {
+	for (int i = 0; i < properties->len; i++) {
 		GValue prop = {0, };
 		IdleMUCChannelTPProperty prop_id;
 		GValue *prop_val;

@@ -320,7 +320,7 @@ static gboolean ssl_io_err_cleanup_func(gpointer user_data) {
 static gboolean ssl_io_func(GIOChannel *src, GIOCondition cond, gpointer data) {
 	IdleSSLServerConnection *conn = IDLE_SSL_SERVER_CONNECTION(data);
 	IdleSSLServerConnectionPrivate *priv = IDLE_SSL_SERVER_CONNECTION_GET_PRIVATE(data);
-	gchar buf[IRC_MSG_MAXLEN+3];
+	gchar buf[IRC_MSG_MAXLEN + 3];
 	int err;
 
 	if ((cond == G_IO_ERR) || (cond == G_IO_HUP)) {
@@ -331,10 +331,10 @@ static gboolean ssl_io_func(GIOChannel *src, GIOCondition cond, gpointer data) {
 		return FALSE;
 	}
 
-	memset(buf, 0, IRC_MSG_MAXLEN+3);
+	memset(buf, 0, IRC_MSG_MAXLEN + 3);
 
 	do {
-		err = SSL_read(priv->ssl, buf, IRC_MSG_MAXLEN+2);
+		err = SSL_read(priv->ssl, buf, IRC_MSG_MAXLEN + 2);
 	} while ((err <= 0) && (SSL_get_error(priv->ssl, err) == SSL_ERROR_WANT_READ));
 
 	if (err <= 0) {
@@ -372,7 +372,7 @@ static void ssl_async_connecting_finished_cb(IdleSSLServerConnection *conn, gboo
 		priv->connect_data->watch_id = 0;
 	}
 
-	priv->read_watch_id = g_io_add_watch(priv->io_chan, G_IO_IN|G_IO_PRI|G_IO_ERR|G_IO_HUP, ssl_io_func, conn);
+	priv->read_watch_id = g_io_add_watch(priv->io_chan, G_IO_IN | G_IO_PRI | G_IO_ERR | G_IO_HUP, ssl_io_func, conn);
 
 	if (fcntl(priv->fd, F_SETFL, 0))
 		IDLE_DEBUG("failed to set socket back to blocking mode");
@@ -494,7 +494,7 @@ static void ssl_do_connect(AsyncConnectData *data) {
 
 	data->fd = fd;
 	data->io_chan = io_chan;
-	data->watch_id = g_io_add_watch(io_chan, G_IO_OUT|G_IO_ERR, ssl_connect_io_func, data);
+	data->watch_id = g_io_add_watch(io_chan, G_IO_OUT | G_IO_ERR, ssl_connect_io_func, data);
 }
 
 static void ssl_dns_result_cb(guint unused, IdleDNSResult *results, gpointer user_data) {
