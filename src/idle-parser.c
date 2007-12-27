@@ -204,7 +204,7 @@ void idle_parser_receive(IdleParser *parser, const gchar *msg) {
 					g_strlcpy(g_stpcpy(concat_buf, priv->split_buf), msg, i + 1);
 					tmp = concat_buf;
 					memset(priv->split_buf, '\0', IRC_MSG_MAXLEN + 3);
-				}	else {
+				} else {
 					tmp = g_strndup(msg + lasti, i - lasti);
 				}
 
@@ -217,7 +217,7 @@ void idle_parser_receive(IdleParser *parser, const gchar *msg) {
 
 			lasti = i+1;
 			line_ends = TRUE;
-		}	else {
+		} else {
 			line_ends = FALSE;
 		}
 	}

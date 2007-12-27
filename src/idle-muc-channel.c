@@ -600,7 +600,7 @@ static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpP
 				g_ptr_array_add(changed_props, g_value_get_boxed(&prop));
 			}
 		}
-	}	else {
+	} else {
 		for (i=0; i<props->len; i++) {
 			guint prop_id = g_array_index(props, guint, i);
 			guint curr_flags = priv->properties[prop_id].flags;
@@ -643,7 +643,7 @@ static void provide_password_reply(IdleMUCChannel *chan, gboolean success) {
 	if (priv->passwd_ctx != NULL) {
 		tp_svc_channel_interface_password_return_from_provide_password(priv->passwd_ctx, success);
 		priv->passwd_ctx = NULL;
-	}	else {
+	} else {
 		IDLE_DEBUG("don't have a ProvidePassword context to return with! (channel handle %u)", priv->handle);
 	}
 
@@ -740,7 +740,7 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 	if (add & MODE_FLAG_INVITE_ONLY) {
 		if (!(flags & (MODE_FLAG_OPERATOR_PRIVILEGE|MODE_FLAG_HALFOP_PRIVILEGE)))
 			group_remove |= TP_CHANNEL_GROUP_FLAG_CAN_ADD;
-	}	else if (remove & MODE_FLAG_INVITE_ONLY) {
+	} else if (remove & MODE_FLAG_INVITE_ONLY) {
 		group_add |= TP_CHANNEL_GROUP_FLAG_CAN_ADD;
 	}
 
@@ -829,7 +829,7 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 						g_value_init(val, G_TYPE_STRING);
 						g_value_set_string(val, priv->mode_state.key);
 						tp_prop_id = TP_PROPERTY_PASSWORD;
-					}	else {
+					} else {
 						continue;
 					}
 
@@ -864,7 +864,7 @@ static void change_password_flags(IdleMUCChannel *obj, guint flag, gboolean stat
 	if (state) {
 		add = (~(priv->password_flags)) & flag;
 		priv->password_flags |= flag;
-	}	else {
+	} else {
 		remove = priv->password_flags & flag;
 		priv->password_flags &= ~flag;
 	}
@@ -916,7 +916,7 @@ void _idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner) {
 		if (priv->channel_name[0] == '+')
 			/* according to IRC specs, PLUS channels do not support channel modes and alway have only +t set, so we work with that. */
 			change_mode_state(chan, MODE_FLAG_TOPIC_ONLY_SETTABLE_BY_OPS, 0);
-	}	else {
+	} else {
 		tp_group_mixin_change_members((GObject *)(chan), NULL, set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 	}
 
@@ -1329,7 +1329,7 @@ void _idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError 
 		priv->join_ready = TRUE;
 
 		g_signal_emit(chan, signals[JOIN_READY], 0, err);
-	}	else {
+	} else {
 		IDLE_DEBUG("already emitted JOIN_READY! (current err %u)", err);
 	}
 }
@@ -1436,7 +1436,7 @@ static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gc
 
 	if (msg != NULL) {
 		g_snprintf(cmd, IRC_MSG_MAXLEN+1, "KICK %s %s %s", priv->channel_name, nick, msg);
-	}	else {
+	} else {
 		g_snprintf(cmd, IRC_MSG_MAXLEN+1, "KICK %s %s", priv->channel_name, nick);
 	}
 
@@ -1456,7 +1456,7 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 			*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "we are already a member of or trying to join the channel with handle %u", priv->handle);
 
 			return FALSE;
-		}	else {
+		} else {
 			TpIntSet *add_set = tp_intset_new();
 
 			send_join_request(obj, NULL);
@@ -1467,14 +1467,14 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 
 			tp_group_mixin_change_members(gobj, message, NULL, NULL, NULL, add_set, handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 		}
-	}	else {
+	} else {
 		if (tp_handle_set_is_member(obj->group.members, handle) || tp_handle_set_is_member(obj->group.remote_pending, handle)) {
 			IDLE_DEBUG("the requested contact (handle %u) to be added to the room (handle %u) is already a member of or has already been invited to join the room", handle, priv->handle);
 
 			*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "the requested contact (handle %u) to be added to the room (handle %u) is already a member of or has already been invited to join the room", handle, priv->handle);
 
 			return FALSE;
-		}	else {
+		} else {
 			GError *invite_error;
 			TpIntSet *add_set = tp_intset_new();
 
@@ -1504,7 +1504,7 @@ static void part_from_channel(IdleMUCChannel *obj, const gchar *msg) {
 
 	if (msg != NULL) {
 		g_snprintf(cmd, IRC_MSG_MAXLEN+1, "PART %s %s", priv->channel_name, msg);
-	}	else {
+	} else {
 		g_snprintf(cmd, IRC_MSG_MAXLEN+1, "PART %s", priv->channel_name);
 	}
 
@@ -1961,7 +1961,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 			body[seq++] = '\0';
 
 			_idle_connection_send(priv->connection, cmd);
-		}	else {
+		} else {
 			if (prop_id == TP_PROPERTY_SUBJECT) {
 				const gchar *subject = g_value_get_string(prop_val);
 				gchar cmd[IRC_MSG_MAXLEN+2];
@@ -2049,7 +2049,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 			if (g_value_get_boolean(prop_val)) {
 				if (key != NULL)
 					g_snprintf(body, IRC_MSG_MAXLEN-len, "+k %s", key);
-			}	else {
+			} else {
 				g_snprintf(body, IRC_MSG_MAXLEN-len, "-k");
 			}
 		}

@@ -496,7 +496,7 @@ static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error) 
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_USER, _version_privmsg_handler, conn);
 
 		irc_handshakes(conn);
-	}	else {
+	} else {
 		IDLE_DEBUG("conn already open!");
 
 		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection already open!");
@@ -663,7 +663,7 @@ static void send_irc_cmd_full(IdleConnection *conn, const gchar *msg, guint prio
 		if (!idle_server_connection_iface_send(priv->conn, converted, &error)) {
 			IDLE_DEBUG("server connection failed to send: %s", error->message);
 			g_error_free(error);
-		}	else {
+		} else {
 			g_free(converted);
 			return;
 		}

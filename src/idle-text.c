@@ -101,7 +101,7 @@ void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gch
 		if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION) {
 			g_snprintf(msg+headerlen, len + 1, "%s\001", part);
 			len -= 1;
-		}	else {
+		} else {
 			g_strlcpy(msg+headerlen, part, len + 1);
 		}
 

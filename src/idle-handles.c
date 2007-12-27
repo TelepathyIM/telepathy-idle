@@ -97,7 +97,7 @@ static gboolean _channelname_is_valid(const gchar *channel) {
 			if (strchr(not_allowed_chars, *tmp2))
 				return FALSE;
 		}
-	}	else {
+	} else {
 		for (const gchar *tmp2 = channel+1; tmp2 != channel + len; tmp2++) {
 			if (strchr(not_allowed_chars, *tmp2))
 				return FALSE;
