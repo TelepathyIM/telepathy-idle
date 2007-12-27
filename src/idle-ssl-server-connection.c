@@ -1,11 +1,11 @@
 /*
  * This file is part of telepathy-idle
- * 
+ *
  * Copyright (C) 2006-2007 Collabora Limited
  * Copyright (C) 2006-2007 Nokia Corporation
  *
  * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License 
+ * modify it under the terms of the GNU Lesser General Public License
  * version 2.1 as published by the Free Software Foundation.
  *
  * This library is distributed in the hope that it will be useful,
@@ -67,7 +67,7 @@ typedef void (*async_connecting_finished_cb)(IdleSSLServerConnection *conn, gboo
 typedef struct _AsyncConnectData AsyncConnectData;
 struct _AsyncConnectData {
 	IdleSSLServerConnection *conn;
-	
+
 	guint watch_id;
 	GIOChannel *io_chan;
 	guint fd;
@@ -94,7 +94,7 @@ static void async_connect_data_destroy(AsyncConnectData *data) {
 		g_io_channel_unref(data->io_chan);
 		data->io_chan = NULL;
 	}
-	
+
 	if (data->fd) {
 		close(data->fd);
 		data->fd = 0;
@@ -112,7 +112,7 @@ static void async_connect_data_destroy(AsyncConnectData *data) {
 struct _IdleSSLServerConnectionPrivate {
 	gchar *host;
 	guint port;
-	
+
 	GIOChannel *io_chan;
 	int fd;
 	SSL *ssl;
@@ -133,7 +133,7 @@ static GObject *idle_ssl_server_connection_constructor(GType type, guint n_props
 
 static void idle_ssl_server_connection_init(IdleSSLServerConnection *conn) {
 	IdleSSLServerConnectionPrivate *priv = IDLE_SSL_SERVER_CONNECTION_GET_PRIVATE(conn);
-	
+
 	priv->host = NULL;
 	priv->port = 0;
 
@@ -179,7 +179,7 @@ static void idle_ssl_server_connection_dispose(GObject *obj) {
 			g_error_free(error);
 		}
 	}
-	
+
 	if (priv->ssl)
 		SSL_free(priv->ssl);
 
@@ -195,7 +195,7 @@ static void idle_ssl_server_connection_finalize(GObject *obj) {
 	IdleSSLServerConnectionPrivate *priv = IDLE_SSL_SERVER_CONNECTION_GET_PRIVATE(conn);
 
 	g_free(priv->host);
-	
+
 	idle_dns_resolver_destroy(priv->resolver);
 
 	if (priv->connect_data)
@@ -326,7 +326,7 @@ static gboolean ssl_io_func(GIOChannel *src, GIOCondition cond, gpointer data) {
 	if ((cond == G_IO_ERR) || (cond == G_IO_HUP)) {
 		IDLE_DEBUG("got G_IO_ERR || G_IO_HUP");
 		ssl_conn_change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
-		
+
 		priv->read_watch_id = 0;
 		return FALSE;
 	}
@@ -357,7 +357,7 @@ static void ssl_async_connecting_finished_cb(IdleSSLServerConnection *conn, gboo
 	X509 *cert;
 	int status;
 	int opt;
-	
+
 	if (!success)
 		return ssl_conn_change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
 
@@ -419,7 +419,7 @@ static void ssl_async_connecting_finished_cb(IdleSSLServerConnection *conn, gboo
 	}
 
 	/* TODO sometime in the future implement certificate verification */
-	
+
 	X509_free(cert);
 
 	ssl_conn_change_state(conn, SERVER_CONNECTION_STATE_CONNECTED, SERVER_CONNECTION_STATE_REASON_REQUESTED);
@@ -445,7 +445,7 @@ static gboolean ssl_connect_io_func(GIOChannel *src, GIOCondition cond, gpointer
 
 		close(data->fd);
 		data->fd = 0;
-		
+
 		ssl_do_connect(data);
 	}
 
@@ -547,7 +547,7 @@ static gboolean iface_ssl_connect_impl(IdleServerConnectionIface *iface, GError 
 	idle_dns_resolver_query(priv->resolver, priv->host, priv->port, ssl_dns_result_cb, conn);
 
 	ssl_conn_change_state(conn, SERVER_CONNECTION_STATE_CONNECTING, SERVER_CONNECTION_STATE_REASON_REQUESTED);
-	
+
 	return TRUE;
 }
 
@@ -570,7 +570,7 @@ static gboolean iface_ssl_disconnect_impl_full(IdleServerConnectionIface *iface,
 
 	if (priv->io_chan) {
 		GError *io_error = NULL;
-		
+
 		g_io_channel_shutdown(priv->io_chan, FALSE, &io_error);
 
 		if (io_error) {
@@ -590,7 +590,7 @@ static gboolean iface_ssl_disconnect_impl_full(IdleServerConnectionIface *iface,
 	}
 
 	ssl_conn_change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, reason);
-	
+
 	return TRUE;
 }
 
@@ -624,15 +624,15 @@ static gboolean iface_ssl_send_impl(IdleServerConnectionIface *iface, const gcha
 
 	if (rc <= 0) {
 		GError *local_error;
-		
+
 		IDLE_DEBUG("SSL_write failed with status %i (error %i)", rc, SSL_get_error(priv->ssl, rc));
-		
+
 		if (!iface_ssl_disconnect_impl_full(IDLE_SERVER_CONNECTION_IFACE(conn), SERVER_CONNECTION_STATE_REASON_ERROR, &local_error)) {
 			g_error_free(local_error);
 		}
-		
+
 		*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "SSL_write failed");
-		
+
 		return FALSE;
 	}
 

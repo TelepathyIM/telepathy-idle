@@ -1,11 +1,11 @@
 /*
  * This file is part of telepathy-idle
- * 
+ *
  * Copyright (C) 2006-2007 Collabora Limited
  * Copyright (C) 2006-2007 Nokia Corporation
  *
  * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License 
+ * modify it under the terms of the GNU Lesser General Public License
  * version 2.1 as published by the Free Software Foundation.
  *
  * This library is distributed in the hope that it will be useful,
@@ -104,13 +104,13 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 	return obj;
 }
 
-static void idle_im_channel_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec) {	
+static void idle_im_channel_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec) {
 	IdleIMChannel *chan;
 	IdleIMChannelPrivate *priv;
 
 	g_assert(object != NULL);
 	g_assert(IDLE_IS_IM_CHANNEL(object));
-	
+
 	chan = IDLE_IM_CHANNEL(object);
 	priv = IDLE_IM_CHANNEL_GET_PRIVATE(chan);
 
@@ -147,7 +147,7 @@ static void idle_im_channel_set_property(GObject *object, guint property_id, con
 
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_IM_CHANNEL(chan));
-		
+
 	priv = IDLE_IM_CHANNEL_GET_PRIVATE(chan);
 
 	switch (property_id) {

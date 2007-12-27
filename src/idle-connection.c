@@ -1,11 +1,11 @@
 /*
  * This file is part of telepathy-idle
- * 
+ *
  * Copyright (C) 2006-2007 Collabora Limited
  * Copyright (C) 2006-2007 Nokia Corporation
  *
  * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License 
+ * modify it under the terms of the GNU Lesser General Public License
  * version 2.1 as published by the Free Software Foundation.
  *
  * This library is distributed in the hope that it will be useful,
@@ -618,7 +618,7 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 	} else {
 		IDLE_DEBUG("low-level network connection failed to send: %s", error->message);
 
-		g_error_free(error);		
+		g_error_free(error);
 	}
 
 	return TRUE;
@@ -680,7 +680,7 @@ static void send_irc_cmd_full(IdleConnection *conn, const gchar *msg, guint prio
 }
 
 static void send_irc_cmd(IdleConnection *conn, const gchar *msg) {
-	return send_irc_cmd_full(conn, msg, SERVER_CMD_NORMAL_PRIORITY);	
+	return send_irc_cmd_full(conn, msg, SERVER_CMD_NORMAL_PRIORITY);
 }
 
 static IdleParserHandlerResult _erroneous_nickname_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
@@ -756,7 +756,7 @@ static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMe
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT);
-	
+
 	conn->parent.self_handle = handle;
 	tp_handle_ref(handles, handle);
 	g_assert(tp_handle_is_valid(handles, handle, NULL));

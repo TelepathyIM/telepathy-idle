@@ -1,11 +1,11 @@
 /*
  * This file is part of telepathy-idle
- * 
+ *
  * Copyright (C) 2006-2007 Collabora Limited
  * Copyright (C) 2006-2007 Nokia Corporation
  *
  * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License 
+ * modify it under the terms of the GNU Lesser General Public License
  * version 2.1 as published by the Free Software Foundation.
  *
  * This library is distributed in the hope that it will be useful,
@@ -46,7 +46,7 @@ void idle_dns_result_destroy(IdleDNSResult *result) {
 
   if (real->addrinfo)
     freeaddrinfo(real->addrinfo);
-	
+
 	g_slice_free(IdleDNSResult, result);
 }
 
@@ -179,7 +179,7 @@ guint idle_dns_resolver_query(IdleDNSResolver *res, const gchar *name, guint por
 	data->source_id = g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, (GSourceFunc)(_resolve_idle_func), helper, (GDestroyNotify)(_idle_helper_destroy));
 
 	g_hash_table_insert(res->queries, GUINT_TO_POINTER(ret), data);
-	
+
 	return ret;
 }
 

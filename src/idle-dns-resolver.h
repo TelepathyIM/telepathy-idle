@@ -1,11 +1,11 @@
 /*
  * This file is part of telepathy-idle
- * 
+ *
  * Copyright (C) 2006-2007 Collabora Limited
  * Copyright (C) 2006-2007 Nokia Corporation
  *
  * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License 
+ * modify it under the terms of the GNU Lesser General Public License
  * version 2.1 as published by the Free Software Foundation.
  *
  * This library is distributed in the hope that it will be useful,
@@ -34,7 +34,7 @@ struct _IdleDNSResult {
 	int ai_family;
 	int ai_socktype;
 	int ai_protocol;
-	
+
 	/* as passed to connect() */
 	struct sockaddr *ai_addr;
 	socklen_t ai_addrlen;
