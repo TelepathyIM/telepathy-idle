@@ -29,8 +29,7 @@ G_BEGIN_DECLS
 typedef struct _IdleDNSResolver IdleDNSResolver;
 typedef struct _IdleDNSResult IdleDNSResult;
 
-struct _IdleDNSResult
-{
+struct _IdleDNSResult {
 	/* as passed to socket() */
 	int ai_family;
 	int ai_socktype;
@@ -41,7 +40,7 @@ struct _IdleDNSResult
 	socklen_t ai_addrlen;
 
 	/* pointer to the next list member or NULL if this is the last one */
-	struct _IdleDNSResult *ai_next;
+	IdleDNSResult *ai_next;
 };
 
 void idle_dns_result_destroy(IdleDNSResult *result);

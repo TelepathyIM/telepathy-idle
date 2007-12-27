@@ -51,8 +51,7 @@ void idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gchar *
 	g_free(tmp);
 }
 
-void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *context)
-{
+void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *context) {
 	gchar msg[IRC_MSG_MAXLEN+1];
 	time_t timestamp;
 	const gchar *final_text = text;
@@ -61,8 +60,7 @@ void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gch
 	gsize headerlen;
 	GError *error;
 
-	if ((recipient == NULL) || (strlen(recipient) == 0))
-	{
+	if ((recipient == NULL) || (strlen(recipient) == 0)) {
 		IDLE_DEBUG("invalid recipient");
 
 		error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "invalid recipient");
@@ -76,19 +74,12 @@ void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gch
 	part = (gchar*)final_text;
 
 	if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL)
-	{
 		g_snprintf(msg, IRC_MSG_MAXLEN+1, "PRIVMSG %s :", recipient);
-	}
 	else if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION)
-	{
 		g_snprintf(msg, IRC_MSG_MAXLEN+1, "PRIVMSG %s :\001ACTION ", recipient);
-	}
 	else if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE)
-	{
 		g_snprintf(msg, IRC_MSG_MAXLEN+1, "NOTICE %s :", recipient);
-	}
-	else
-	{
+	else {
 		IDLE_DEBUG("invalid message type %u", type);
 
 		error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid message type %u", type);
@@ -100,29 +91,24 @@ void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gch
 
 	headerlen = strlen(msg);
 
-	while (part < final_text+len)
-	{
+	while (part < final_text+len) {
 		char *br = strchr (part, '\n');
 		size_t len = IRC_MSG_MAXLEN-headerlen;
-		if (br)
-		{
+		if (br) {
 			len = (len < br - part) ? len : br - part;
 		}
 
-		if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION)
-		{
+		if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION) {
 			g_snprintf(msg+headerlen, len + 1, "%s\001", part);
 			len -= 1;
-		}
-		else
-		{
+		}	else {
 			g_strlcpy(msg+headerlen, part, len + 1);
 		}
+
 		part += len;
+
 		if (br)
-		{
 			part++;
-		}
 
 		_idle_connection_send(conn, msg);
 	}

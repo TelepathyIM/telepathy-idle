@@ -615,8 +615,7 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 		}
 
 		priv->last_msg_sent = time(NULL);
-	}
-	else {
+	} else {
 		IDLE_DEBUG("low-level network connection failed to send: %s", error->message);
 
 		g_error_free(error);		
@@ -966,8 +965,7 @@ gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **o
 	gsize bytes_written;
 	gchar *ret;
 
-	if (input == NULL)
-	{
+	if (input == NULL) {
 		*output = NULL;
 		return TRUE;
 	}

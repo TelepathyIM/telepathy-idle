@@ -28,8 +28,7 @@
 
 typedef struct _IdleDNSResultReal IdleDNSResultReal;
 
-struct _IdleDNSResultReal
-{
+struct _IdleDNSResultReal {
   IdleDNSResult result;
   struct addrinfo *addrinfo;
 };
@@ -39,19 +38,14 @@ struct _IdleDNSResultReal
 #define idle_dns_result_real_new0() \
 	(g_slice_new0(IdleDNSResultReal))
 
-void idle_dns_result_destroy(IdleDNSResult *result)
-{
+void idle_dns_result_destroy(IdleDNSResult *result) {
   IdleDNSResultReal *real = (IdleDNSResultReal *)(result);
 
 	if (result->ai_next)
-	{
 		idle_dns_result_destroy(result->ai_next);
-	}
 
   if (real->addrinfo)
-  {
     freeaddrinfo(real->addrinfo);
-  }
 	
 	g_slice_free(IdleDNSResult, result);
 }
@@ -404,8 +398,7 @@ void idle_dns_resolver_cancel_query(IdleDNSResolver *resolver, guint query_id)
 
 typedef struct _IdleDNSQueryData IdleDNSQueryData;
 
-struct _IdleDNSQueryData
-{
+struct _IdleDNSQueryData {
 	gchar *name;
 	guint port;
 	IdleDNSResultCallback cb;
@@ -418,41 +411,31 @@ struct _IdleDNSQueryData
 #define idle_dns_query_data_new0() \
 	(g_slice_new0(IdleDNSQueryData))
 
-static void idle_dns_query_data_destroy(IdleDNSQueryData *data)
-{
+static void idle_dns_query_data_destroy(IdleDNSQueryData *data) {
 	g_free(data->name);
 	g_slice_free(IdleDNSQueryData, data);
 }
 
-struct _IdleDNSResolver
-{
+struct _IdleDNSResolver {
 	GHashTable *queries;
 	guint serial;
 };
 
-IdleDNSResolver *
-idle_dns_resolver_new()
-{
+IdleDNSResolver *idle_dns_resolver_new() {
 	IdleDNSResolver *ret = g_slice_new(IdleDNSResolver);
 
-	ret->queries = g_hash_table_new_full(g_direct_hash,
-										 g_direct_equal,
-										 NULL,
-										 (GDestroyNotify)(idle_dns_query_data_destroy));
+	ret->queries = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify)(idle_dns_query_data_destroy));
 	ret->serial = 0;
 
 	return ret;
 }
 
-void
-idle_dns_resolver_destroy(IdleDNSResolver *res)
-{
+void idle_dns_resolver_destroy(IdleDNSResolver *res) {
 	g_hash_table_destroy(res->queries);
 	g_slice_free(IdleDNSResolver, res);
 }
 
-struct _idle_helper
-{
+struct _idle_helper {
 	IdleDNSResolver *res;
 	guint serial;
 };
@@ -462,17 +445,12 @@ struct _idle_helper
 #define _idle_helper_new0() \
 	(g_slice_new0(struct _idle_helper))
 
-static void
-_idle_helper_destroy(struct _idle_helper *helper)
-{
+static void _idle_helper_destroy(struct _idle_helper *helper) {
 	g_slice_free(struct _idle_helper, helper);
 }
 
-static gboolean
-_resolve_idle_func(struct _idle_helper *helper)
-{
-	IdleDNSQueryData *data = g_hash_table_lookup(helper->res->queries,
-			GUINT_TO_POINTER(helper->serial));
+static gboolean _resolve_idle_func(struct _idle_helper *helper) {
+	IdleDNSQueryData *data = g_hash_table_lookup(helper->res->queries, GUINT_TO_POINTER(helper->serial));
 	struct addrinfo *info = NULL;
 	struct addrinfo *cur;
 	int rc;
@@ -486,14 +464,12 @@ _resolve_idle_func(struct _idle_helper *helper)
 
 	rc = getaddrinfo(data->name, service, NULL, &info);
 
-	if (rc)
-	{
+	if (rc) {
 		IDLE_DEBUG("getaddrinfo(): %s", gai_strerror(rc));
 		return FALSE;
 	}
 
-	for (cur = info; cur != NULL; cur = cur->ai_next)
-	{
+	for (cur = info; cur != NULL; cur = cur->ai_next) {
 		IdleDNSResultReal *real = idle_dns_result_real_new();
     IdleDNSResult *result = &(real->result);
 
@@ -507,12 +483,9 @@ _resolve_idle_func(struct _idle_helper *helper)
     real->addrinfo = NULL;
 
 		if (tail)
-		{
 			tail->result.ai_next = (IdleDNSResult *)(real);
-		}
 
-		if (!results)
-		{
+		if (!results) {
 			results = real;
       real->addrinfo = info;
 		}
@@ -527,9 +500,7 @@ _resolve_idle_func(struct _idle_helper *helper)
 	return FALSE;
 }
 
-guint
-idle_dns_resolver_query(IdleDNSResolver *res, const gchar *name, guint port, IdleDNSResultCallback cb, gpointer user_data)
-{
+guint idle_dns_resolver_query(IdleDNSResolver *res, const gchar *name, guint port, IdleDNSResultCallback cb, gpointer user_data) {
 	IdleDNSQueryData *data;
 	struct _idle_helper *helper;
 	guint ret;
@@ -551,27 +522,21 @@ idle_dns_resolver_query(IdleDNSResolver *res, const gchar *name, guint port, Idl
 	data->port = port;
 	data->cb = cb;
 	data->user_data = user_data;
-	data->source_id = g_idle_add_full(G_PRIORITY_DEFAULT_IDLE,
-									  (GSourceFunc)(_resolve_idle_func),
-									  helper,
-									  (GDestroyNotify)(_idle_helper_destroy));
+	data->source_id = g_idle_add_full(G_PRIORITY_DEFAULT_IDLE, (GSourceFunc)(_resolve_idle_func), helper, (GDestroyNotify)(_idle_helper_destroy));
 
 	g_hash_table_insert(res->queries, GUINT_TO_POINTER(ret), data);
 	
 	return ret;
 }
 
-void
-idle_dns_resolver_cancel_query(IdleDNSResolver *res, guint id)
-{
+void idle_dns_resolver_cancel_query(IdleDNSResolver *res, guint id) {
 	IdleDNSQueryData *data;
 
 	g_assert(res);
 
 	data = g_hash_table_lookup(res->queries, GUINT_TO_POINTER(id));
 
-	if (!data)
-	{
+	if (!data) {
 		IDLE_DEBUG("query %u not found!", id);
 		return;
 	}

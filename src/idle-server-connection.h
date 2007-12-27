@@ -28,13 +28,11 @@ G_BEGIN_DECLS
 typedef struct _IdleServerConnection IdleServerConnection;
 typedef struct _IdleServerConnectionClass IdleServerConnectionClass;
 
-struct _IdleServerConnection
-{
+struct _IdleServerConnection {
 	GObject parent;
 };
 
-struct _IdleServerConnectionClass
-{
+struct _IdleServerConnectionClass {
 	GObjectClass parent;
 };
 

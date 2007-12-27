@@ -48,21 +48,18 @@ G_BEGIN_DECLS
 typedef struct _IdleServerConnectionIface IdleServerConnectionIface;
 typedef struct _IdleServerConnectionIfaceClass IdleServerConnectionIfaceClass;
 
-typedef enum
-{
+typedef enum {
 	SERVER_CONNECTION_STATE_NOT_CONNECTED,
 	SERVER_CONNECTION_STATE_CONNECTING,
 	SERVER_CONNECTION_STATE_CONNECTED,
 } IdleServerConnectionState;
 
-typedef enum
-{
+typedef enum {
 	SERVER_CONNECTION_STATE_REASON_ERROR,
 	SERVER_CONNECTION_STATE_REASON_REQUESTED
 } IdleServerConnectionStateReason;
 
-struct _IdleServerConnectionIfaceClass
-{
+struct _IdleServerConnectionIfaceClass {
 	GTypeInterface parent_class;
 
 	gboolean (*connect) (IdleServerConnectionIface *, GError **error);

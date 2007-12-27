@@ -45,8 +45,7 @@ struct _IdleMUCChannel {
 	TpTextMixin text;
 };
 
-typedef enum
-{
+typedef enum {
 	MUC_CHANNEL_JOIN_ERROR_NONE,
 	MUC_CHANNEL_JOIN_ERROR_BANNED,
 	MUC_CHANNEL_JOIN_ERROR_INVITE_ONLY,

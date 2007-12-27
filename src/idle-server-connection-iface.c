@@ -24,12 +24,10 @@
 
 #include "idle-server-connection-iface-signals-marshal.h"
 
-static void idle_server_connection_iface_base_init(gpointer klass)
-{
+static void idle_server_connection_iface_base_init(gpointer klass) {
 	static gboolean initialized = FALSE;
 
-	if (!initialized)
-	{
+	if (!initialized) {
 		initialized = TRUE;
 
 		g_signal_new("status-changed",
@@ -50,14 +48,11 @@ static void idle_server_connection_iface_base_init(gpointer klass)
 	}
 }
 
-GType idle_server_connection_iface_get_type(void)
-{
+GType idle_server_connection_iface_get_type(void) {
 	static GType type = 0;
 
-	if (type == 0)
-	{
-		static const GTypeInfo info =
-		{
+	if (type == 0) {
+		static const GTypeInfo info = {
 			sizeof (IdleServerConnectionIfaceClass),
 			idle_server_connection_iface_base_init,
 			NULL,
@@ -76,23 +71,19 @@ GType idle_server_connection_iface_get_type(void)
 	return type;
 }
 
-gboolean idle_server_connection_iface_connect(IdleServerConnectionIface *iface, GError **error)
-{
+gboolean idle_server_connection_iface_connect(IdleServerConnectionIface *iface, GError **error) {
 	return IDLE_SERVER_CONNECTION_IFACE_GET_CLASS(iface)->connect(iface, error);
 }
 
-gboolean idle_server_connection_iface_disconnect(IdleServerConnectionIface *iface, GError **error)
-{
+gboolean idle_server_connection_iface_disconnect(IdleServerConnectionIface *iface, GError **error) {
 	return IDLE_SERVER_CONNECTION_IFACE_GET_CLASS(iface)->disconnect(iface, error);
 }
 
-gboolean idle_server_connection_iface_send(IdleServerConnectionIface *iface, const gchar *cmd, GError **error)
-{
+gboolean idle_server_connection_iface_send(IdleServerConnectionIface *iface, const gchar *cmd, GError **error) {
 	return IDLE_SERVER_CONNECTION_IFACE_GET_CLASS(iface)->send(iface, cmd, error);
 }
 
-IdleServerConnectionState idle_server_connection_get_state(IdleServerConnectionIface *iface)
-{
+IdleServerConnectionState idle_server_connection_get_state(IdleServerConnectionIface *iface) {
 	return IDLE_SERVER_CONNECTION_IFACE_GET_CLASS(iface)->get_state(iface);
 }
 
