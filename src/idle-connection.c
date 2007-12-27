@@ -353,13 +353,13 @@ static void idle_connection_class_init (IdleConnectionClass *klass) {
 
 	parent_class->create_handle_repos = _iface_create_handle_repos;
 	parent_class->get_unique_connection_name = _iface_get_unique_connection_name;
-  parent_class->create_channel_factories = _iface_create_channel_factories;
-  parent_class->connecting = NULL;
+	parent_class->create_channel_factories = _iface_create_channel_factories;
+	parent_class->connecting = NULL;
 	parent_class->connected = NULL;
-  parent_class->disconnected = _iface_disconnected;
-  parent_class->shut_down = _iface_shut_down;
-  parent_class->start_connecting = _iface_start_connecting;
-  parent_class->interfaces_always_present = interfaces_always_present;
+	parent_class->disconnected = _iface_disconnected;
+	parent_class->shut_down = _iface_shut_down;
+	parent_class->start_connecting = _iface_start_connecting;
+	parent_class->interfaces_always_present = interfaces_always_present;
 
 	param_spec = g_param_spec_string("nickname", "IRC nickname", "The nickname to be visible to others in IRC.", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB);
 	g_object_class_install_property(object_class, PROP_NICKNAME, param_spec);

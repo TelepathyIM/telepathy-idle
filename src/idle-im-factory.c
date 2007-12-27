@@ -72,44 +72,46 @@ static void idle_im_factory_init(IdleIMFactory *obj) {
 }
 
 static void idle_im_factory_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec) {
-  IdleIMFactory *fac = IDLE_IM_FACTORY(object);
-  IdleIMFactoryPrivate *priv = IDLE_IM_FACTORY_GET_PRIVATE(fac);
+	IdleIMFactory *fac = IDLE_IM_FACTORY(object);
+	IdleIMFactoryPrivate *priv = IDLE_IM_FACTORY_GET_PRIVATE(fac);
 
-  switch(property_id) {
-    case PROP_CONNECTION:
-      g_value_set_object(value, priv->conn);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-      break;
-  }
+	switch(property_id) {
+		case PROP_CONNECTION:
+			g_value_set_object(value, priv->conn);
+			break;
+
+		default:
+			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+			break;
+	}
 }
 
 static void idle_im_factory_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec) {
-  IdleIMFactory *fac = IDLE_IM_FACTORY(object);
-  IdleIMFactoryPrivate *priv = IDLE_IM_FACTORY_GET_PRIVATE(fac);
+	IdleIMFactory *fac = IDLE_IM_FACTORY(object);
+	IdleIMFactoryPrivate *priv = IDLE_IM_FACTORY_GET_PRIVATE(fac);
 
-  switch(property_id) {
-    case PROP_CONNECTION:
-      priv->conn = g_value_get_object(value);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-      break;
-  }
+	switch(property_id) {
+		case PROP_CONNECTION:
+			priv->conn = g_value_get_object(value);
+			break;
+
+		default:
+			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+			break;
+	}
 }
 
 static void idle_im_factory_class_init(IdleIMFactoryClass *klass) {
-  GObjectClass *object_class = G_OBJECT_CLASS(klass);
-  GParamSpec *param_spec;
+	GObjectClass *object_class = G_OBJECT_CLASS(klass);
+	GParamSpec *param_spec;
 
-  g_type_class_add_private(klass, sizeof(IdleIMFactoryPrivate));
+	g_type_class_add_private(klass, sizeof(IdleIMFactoryPrivate));
 
-  object_class->get_property = idle_im_factory_get_property;
-  object_class->set_property = idle_im_factory_set_property;
+	object_class->get_property = idle_im_factory_get_property;
+	object_class->set_property = idle_im_factory_set_property;
 
-  param_spec = g_param_spec_object("connection", "IdleConnection object", "The IdleConnection object that owns this IM channel factory object.", IDLE_TYPE_CONNECTION, G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
-  g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
+	param_spec = g_param_spec_object("connection", "IdleConnection object", "The IdleConnection object that owns this IM channel factory object.", IDLE_TYPE_CONNECTION, G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
+	g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
 }
 
 static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
@@ -200,17 +202,17 @@ static TpChannelFactoryRequestStatus _iface_request(TpChannelFactoryIface *iface
 	IdleIMFactoryPrivate *priv = IDLE_IM_FACTORY_GET_PRIVATE(factory);
 
 	if (!g_str_equal(chan_type, TP_IFACE_CHANNEL_TYPE_TEXT))
-    return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_IMPLEMENTED;
+		return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_IMPLEMENTED;
 
-  if (handle_type != TP_HANDLE_TYPE_CONTACT)
-    return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_AVAILABLE;
+	if (handle_type != TP_HANDLE_TYPE_CONTACT)
+		return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_AVAILABLE;
 
-  if (!tp_handle_is_valid(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_CONTACT), handle, error))
+	if (!tp_handle_is_valid(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_CONTACT), handle, error))
 		return TP_CHANNEL_FACTORY_REQUEST_STATUS_INVALID_HANDLE;
 
 	if (!priv->channels) {
 		IDLE_DEBUG("Channels hash table missing, failing request...");
-    return TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
+		return TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
 	}
 
 	if ((*new_chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(handle)))) {

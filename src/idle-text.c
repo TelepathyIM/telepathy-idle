@@ -114,7 +114,7 @@ void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gch
 	}
 
 	timestamp = time(NULL);
-  tp_svc_channel_type_text_emit_sent(obj, timestamp, type, text);
+	tp_svc_channel_type_text_emit_sent(obj, timestamp, type, text);
 
 	tp_svc_channel_type_text_return_from_send(context);
 }

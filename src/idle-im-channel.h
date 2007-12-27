@@ -30,30 +30,30 @@ typedef struct _IdleIMChannel IdleIMChannel;
 typedef struct _IdleIMChannelClass IdleIMChannelClass;
 
 struct _IdleIMChannelClass {
-    GObjectClass parent_class;
-    TpTextMixinClass text_class;
+	GObjectClass parent_class;
+	TpTextMixinClass text_class;
 };
 
 struct _IdleIMChannel {
-    GObject parent;
-    TpTextMixin text;
+	GObject parent;
+	TpTextMixin text;
 };
 
 GType idle_im_channel_get_type(void);
 
 /* TYPE MACROS */
 #define IDLE_TYPE_IM_CHANNEL \
-  (idle_im_channel_get_type())
+	(idle_im_channel_get_type())
 #define IDLE_IM_CHANNEL(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), IDLE_TYPE_IM_CHANNEL, IdleIMChannel))
+	(G_TYPE_CHECK_INSTANCE_CAST((obj), IDLE_TYPE_IM_CHANNEL, IdleIMChannel))
 #define IDLE_IM_CHANNEL_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), IDLE_TYPE_IM_CHANNEL, IdleIMChannelClass))
+	(G_TYPE_CHECK_CLASS_CAST((klass), IDLE_TYPE_IM_CHANNEL, IdleIMChannelClass))
 #define IDLE_IS_IM_CHANNEL(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), IDLE_TYPE_IM_CHANNEL))
+	(G_TYPE_CHECK_INSTANCE_TYPE((obj), IDLE_TYPE_IM_CHANNEL))
 #define IDLE_IS_IM_CHANNEL_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), IDLE_TYPE_IM_CHANNEL))
+	(G_TYPE_CHECK_CLASS_TYPE((klass), IDLE_TYPE_IM_CHANNEL))
 #define IDLE_IM_CHANNEL_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_IM_CHANNEL, IdleIMChannelClass))
+	(G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_IM_CHANNEL, IdleIMChannelClass))
 
 gboolean _idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *msg);
 

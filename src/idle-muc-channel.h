@@ -56,17 +56,17 @@ GType idle_muc_channel_get_type(void);
 
 /* TYPE MACROS */
 #define IDLE_TYPE_MUC_CHANNEL \
-  (idle_muc_channel_get_type())
+	(idle_muc_channel_get_type())
 #define IDLE_MUC_CHANNEL(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannel))
+	(G_TYPE_CHECK_INSTANCE_CAST((obj), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannel))
 #define IDLE_MUC_CHANNEL_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelClass))
+	(G_TYPE_CHECK_CLASS_CAST((klass), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelClass))
 #define IDLE_IS_MUC_CHANNEL(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), IDLE_TYPE_MUC_CHANNEL))
+	(G_TYPE_CHECK_INSTANCE_TYPE((obj), IDLE_TYPE_MUC_CHANNEL))
 #define IDLE_IS_MUC_CHANNEL_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), IDLE_TYPE_MUC_CHANNEL))
+	(G_TYPE_CHECK_CLASS_TYPE((klass), IDLE_TYPE_MUC_CHANNEL))
 #define IDLE_MUC_CHANNEL_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelClass))
+	(G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelClass))
 
 void _idle_muc_channel_join_attempt(IdleMUCChannel *chan);
 

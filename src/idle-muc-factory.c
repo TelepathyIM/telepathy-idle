@@ -89,44 +89,46 @@ static void idle_muc_factory_init(IdleMUCFactory *obj) {
 }
 
 static void idle_muc_factory_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec) {
-  IdleMUCFactory *fac = IDLE_MUC_FACTORY(object);
-  IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(fac);
+	IdleMUCFactory *fac = IDLE_MUC_FACTORY(object);
+	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(fac);
 
-  switch(property_id) {
-    case PROP_CONNECTION:
-      g_value_set_object(value, priv->conn);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-      break;
-  }
+	switch(property_id) {
+		case PROP_CONNECTION:
+			g_value_set_object(value, priv->conn);
+			break;
+
+		default:
+			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+			break;
+	}
 }
 
 static void idle_muc_factory_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec) {
-  IdleMUCFactory *fac = IDLE_MUC_FACTORY(object);
-  IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(fac);
+	IdleMUCFactory *fac = IDLE_MUC_FACTORY(object);
+	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(fac);
 
-  switch(property_id) {
-    case PROP_CONNECTION:
-      priv->conn = g_value_get_object(value);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-      break;
-  }
+	switch(property_id) {
+		case PROP_CONNECTION:
+			priv->conn = g_value_get_object(value);
+			break;
+
+		default:
+			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+			break;
+	}
 }
 
 static void idle_muc_factory_class_init(IdleMUCFactoryClass *klass) {
-  GObjectClass *object_class = G_OBJECT_CLASS(klass);
-  GParamSpec *param_spec;
+	GObjectClass *object_class = G_OBJECT_CLASS(klass);
+	GParamSpec *param_spec;
 
-  g_type_class_add_private(klass, sizeof(IdleMUCFactoryPrivate));
+	g_type_class_add_private(klass, sizeof(IdleMUCFactoryPrivate));
 
-  object_class->get_property = idle_muc_factory_get_property;
-  object_class->set_property = idle_muc_factory_set_property;
+	object_class->get_property = idle_muc_factory_get_property;
+	object_class->set_property = idle_muc_factory_set_property;
 
-  param_spec = g_param_spec_object("connection", "IdleConnection object", "The IdleConnection object that owns this IM channel factory object.", IDLE_TYPE_CONNECTION, G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
-  g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
+	param_spec = g_param_spec_object("connection", "IdleConnection object", "The IdleConnection object that owns this IM channel factory object.", IDLE_TYPE_CONNECTION, G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
+	g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
 }
 
 static IdleParserHandlerResult _numeric_error_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
@@ -528,13 +530,13 @@ static TpChannelFactoryRequestStatus _iface_request(TpChannelFactoryIface *iface
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(factory);
 
 	if (!g_str_equal(chan_type, TP_IFACE_CHANNEL_TYPE_TEXT))
-    return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_IMPLEMENTED;
+		return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_IMPLEMENTED;
 
-  if (handle_type != TP_HANDLE_TYPE_ROOM)
-    return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_AVAILABLE;
+	if (handle_type != TP_HANDLE_TYPE_ROOM)
+		return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_AVAILABLE;
 
-  if (!tp_handle_is_valid(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_ROOM), handle, error))
-    return TP_CHANNEL_FACTORY_REQUEST_STATUS_INVALID_HANDLE;
+	if (!tp_handle_is_valid(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_ROOM), handle, error))
+		return TP_CHANNEL_FACTORY_REQUEST_STATUS_INVALID_HANDLE;
 
 	if (!priv->channels) {
 		IDLE_DEBUG("Channels hash table missing, failing request...");

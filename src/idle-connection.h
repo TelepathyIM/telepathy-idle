@@ -49,17 +49,17 @@ GType idle_connection_get_type(void);
 
 /* TYPE MACROS */
 #define IDLE_TYPE_CONNECTION \
-  (idle_connection_get_type())
+	(idle_connection_get_type())
 #define IDLE_CONNECTION(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), IDLE_TYPE_CONNECTION, IdleConnection))
+	(G_TYPE_CHECK_INSTANCE_CAST((obj), IDLE_TYPE_CONNECTION, IdleConnection))
 #define IDLE_CONNECTION_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), IDLE_TYPE_CONNECTION, IdleConnectionClass))
+	(G_TYPE_CHECK_CLASS_CAST((klass), IDLE_TYPE_CONNECTION, IdleConnectionClass))
 #define IDLE_IS_CONNECTION(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), IDLE_TYPE_CONNECTION))
+	(G_TYPE_CHECK_INSTANCE_TYPE((obj), IDLE_TYPE_CONNECTION))
 #define IDLE_IS_CONNECTION_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), IDLE_TYPE_CONNECTION))
+	(G_TYPE_CHECK_CLASS_TYPE((klass), IDLE_TYPE_CONNECTION))
 #define IDLE_CONNECTION_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_CONNECTION, IdleConnectionClass))
+	(G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_CONNECTION, IdleConnectionClass))
 
 gboolean _idle_connection_send(IdleConnection *conn, const gchar *msg);
 

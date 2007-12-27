@@ -29,8 +29,8 @@
 typedef struct _IdleDNSResultReal IdleDNSResultReal;
 
 struct _IdleDNSResultReal {
-  IdleDNSResult result;
-  struct addrinfo *addrinfo;
+	IdleDNSResult result;
+	struct addrinfo *addrinfo;
 };
 
 #define idle_dns_result_real_new() \
@@ -39,13 +39,13 @@ struct _IdleDNSResultReal {
 	(g_slice_new0(IdleDNSResultReal))
 
 void idle_dns_result_destroy(IdleDNSResult *result) {
-  IdleDNSResultReal *real = (IdleDNSResultReal *)(result);
+	IdleDNSResultReal *real = (IdleDNSResultReal *)(result);
 
 	if (result->ai_next)
 		idle_dns_result_destroy(result->ai_next);
 
-  if (real->addrinfo)
-    freeaddrinfo(real->addrinfo);
+	if (real->addrinfo)
+		freeaddrinfo(real->addrinfo);
 
 	g_slice_free(IdleDNSResult, result);
 }
@@ -125,7 +125,7 @@ static gboolean _resolve_idle_func(struct _idle_helper *helper) {
 
 	for (cur = info; cur != NULL; cur = cur->ai_next) {
 		IdleDNSResultReal *real = idle_dns_result_real_new();
-    IdleDNSResult *result = &(real->result);
+		IdleDNSResult *result = &(real->result);
 
 		result->ai_family = cur->ai_family;
 		result->ai_socktype = cur->ai_socktype;
@@ -134,14 +134,14 @@ static gboolean _resolve_idle_func(struct _idle_helper *helper) {
 		result->ai_addrlen = cur->ai_addrlen;
 		result->ai_next = NULL;
 
-    real->addrinfo = NULL;
+		real->addrinfo = NULL;
 
 		if (tail)
 			tail->result.ai_next = (IdleDNSResult *)(real);
 
 		if (!results) {
 			results = real;
-      real->addrinfo = info;
+			real->addrinfo = info;
 		}
 
 		tail = real;

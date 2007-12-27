@@ -31,28 +31,28 @@ typedef struct _IdleConnectionManager IdleConnectionManager;
 typedef struct _IdleConnectionManagerClass IdleConnectionManagerClass;
 
 struct _IdleConnectionManagerClass {
-    TpBaseConnectionManagerClass parent_class;
+	TpBaseConnectionManagerClass parent_class;
 };
 
 struct _IdleConnectionManager {
-    TpBaseConnection parent;
+	TpBaseConnection parent;
 };
 
 GType idle_connection_manager_get_type(void);
 
 /* TYPE MACROS */
 #define IDLE_TYPE_CONNECTION_MANAGER \
-  (idle_connection_manager_get_type())
+	(idle_connection_manager_get_type())
 #define IDLE_CONNECTION_MANAGER(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), IDLE_TYPE_CONNECTION_MANAGER, IdleConnectionManager))
+	(G_TYPE_CHECK_INSTANCE_CAST((obj), IDLE_TYPE_CONNECTION_MANAGER, IdleConnectionManager))
 #define IDLE_CONNECTION_MANAGER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), IDLE_TYPE_CONNECTION_MANAGER, IdleConnectionManagerClass))
+	(G_TYPE_CHECK_CLASS_CAST((klass), IDLE_TYPE_CONNECTION_MANAGER, IdleConnectionManagerClass))
 #define IDLE_IS_CONNECTION_MANAGER(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), IDLE_TYPE_CONNECTION_MANAGER))
+	(G_TYPE_CHECK_INSTANCE_TYPE((obj), IDLE_TYPE_CONNECTION_MANAGER))
 #define IDLE_IS_CONNECTION_MANAGER_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), IDLE_TYPE_CONNECTION_MANAGER))
+	(G_TYPE_CHECK_CLASS_TYPE((klass), IDLE_TYPE_CONNECTION_MANAGER))
 #define IDLE_CONNECTION_MANAGER_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_CONNECTION_MANAGER, IdleConnectionManagerClass))
+	(G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_CONNECTION_MANAGER, IdleConnectionManagerClass))
 
 G_END_DECLS
 

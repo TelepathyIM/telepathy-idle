@@ -404,18 +404,18 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 	}
 
 	if ((next->ai_family == cur->ai_family) &&
-	    (next->ai_socktype == cur->ai_socktype) &&
-		(next->ai_protocol == cur->ai_protocol)) {
+			(next->ai_socktype == cur->ai_socktype) &&
+			(next->ai_protocol == cur->ai_protocol)) {
 		int i;
 
 		IDLE_DEBUG("re-using existing socket for trying again");
 
-    errno = 0;
+		errno = 0;
 		connect(connect_data->fd, next->ai_addr, next->ai_addrlen);
 
 		for (i=0; i<5 && errno == ECONNABORTED; i++) {
 			IDLE_DEBUG("got ECONNABORTED for (%i+1)th time", i);
-      errno = 0;
+			errno = 0;
 			connect(connect_data->fd, next->ai_addr, next->ai_addrlen);
 		}
 
@@ -469,7 +469,7 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 		return FALSE;
 	}
 
-  errno = 0;
+	errno = 0;
 	connect(fd, cur->ai_addr, cur->ai_addrlen);
 
 	if (errno != EINPROGRESS) {

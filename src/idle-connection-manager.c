@@ -94,7 +94,7 @@ static void idle_connection_manager_init (IdleConnectionManager *obj) {
 }
 
 static void idle_connection_manager_class_init (IdleConnectionManagerClass *klass) {
-  TpBaseConnectionManagerClass *parent_class = TP_BASE_CONNECTION_MANAGER_CLASS(klass);
+	TpBaseConnectionManagerClass *parent_class = TP_BASE_CONNECTION_MANAGER_CLASS(klass);
 
 	parent_class->new_connection = _iface_new_connection;
 	parent_class->cm_dbus_name = "idle";
