@@ -50,23 +50,6 @@ PKG_CHECK_MODULES(DBUS, [dbus-1 >= 0.51, dbus-glib-1 >= 0.51])
 AC_SUBST(DBUS_CFLAGS)
 AC_SUBST(DBUS_LIBS)
 
-dnl PKG_CHECK_MODULES(SOFIA_TOOLS, [sofia-tools >= 1.12],
-dnl [
-dnl     SOFIA_CFLAGS=$SOFIA_TOOLS_CFLAGS
-dnl     SOFIA_LIBS=$SOFIA_TOOLS_LIBS
-dnl ],
-dnl [
-dnl     PKG_CHECK_MODULES(SOFIA_SIP_UA, [sofia-sip-ua >= 1.12],
-dnl         [PKG_CHECK_MODULES(SOFIA_SIP_UA_GLIB, [sofia-sip-ua-glib >= 1.12],
-dnl         [
-dnl             SOFIA_CFLAGS="${SOFIA_SIP_UA_CFLAGS}${SOFIA_SIP_UA_GLIB_CFLAGS}"
-dnl             SOFIA_LIBS="${SOFIA_SIP_UA_LIBS}${SOFIA_SIP_UA_GLIB_LIBS}"
-dnl         ]]))
-dnl ])
-
-AC_SUBST(SOFIA_CFLAGS)
-AC_SUBST(SOFIA_LIBS)
-
 PKG_CHECK_MODULES(TELEPATHY, [telepathy-glib >= 0.5.8])
 
 AC_SUBST(TELEPATHY_CFLAGS)
