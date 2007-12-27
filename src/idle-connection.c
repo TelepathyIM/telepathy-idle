@@ -220,32 +220,40 @@ static void idle_connection_set_property(GObject *obj, guint prop_id, const GVal
 			g_free(priv->nickname);
 			priv->nickname = g_value_dup_string(value);
 			break;
+
 		case PROP_SERVER:
 			g_free(priv->server);
 			priv->server = g_value_dup_string(value);
 			break;
+
 		case PROP_PORT:
 			priv->port = g_value_get_uint(value);
 			break;
+
 		case PROP_PASSWORD:
 			g_free(priv->password);
 			priv->password = g_value_dup_string(value);
 			break;
+
 		case PROP_REALNAME:
 			g_free(priv->realname);
 			priv->realname = g_value_dup_string(value);
 			break;
+
 		case PROP_CHARSET:
 			g_free(priv->charset);
 			priv->charset = g_value_dup_string(value);
 			break;
+
 		case PROP_QUITMESSAGE:
 			g_free(priv->quit_message);
 			priv->quit_message = g_value_dup_string(value);
 			break;
+
 		case PROP_USE_SSL:
 			priv->use_ssl = g_value_get_boolean(value);
 			break;
+
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID(obj, prop_id, pspec);
 			break;
@@ -259,27 +267,35 @@ static void idle_connection_get_property(GObject *obj, guint prop_id, GValue *va
 		case PROP_NICKNAME:
 			g_value_set_string(value, priv->nickname);
 			break;
+
 		case PROP_SERVER:
 			g_value_set_string(value, priv->server);
 			break;
+
 		case PROP_PORT:
 			g_value_set_uint(value, priv->port);
 			break;
+
 		case PROP_PASSWORD:
 			g_value_set_string(value, priv->password);
 			break;
+
 		case PROP_REALNAME:
 			g_value_set_string(value, priv->realname);
 			break;
+
 		case PROP_CHARSET:
 			g_value_set_string(value, priv->charset);
 			break;
+
 		case PROP_QUITMESSAGE:
 			g_value_set_string(value, priv->quit_message);
 			break;
+
 		case PROP_USE_SSL:
 			g_value_set_boolean(value, priv->use_ssl);
 			break;
+
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID(obj, prop_id, pspec);
 			break;
@@ -519,9 +535,11 @@ static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServer
 		case SERVER_CONNECTION_STATE_REASON_ERROR:
 			tp_reason = TP_CONNECTION_STATUS_REASON_NETWORK_ERROR;
 			break;
+
 		case SERVER_CONNECTION_STATE_REASON_REQUESTED:
 			tp_reason = TP_CONNECTION_STATUS_REASON_REQUESTED;
 			break;
+
 		default:
 			g_assert_not_reached();
 			break;
@@ -540,8 +558,10 @@ static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServer
 				connection_disconnect_cb(conn, tp_reason);
 			}
 			break;
+
 		case SERVER_CONNECTION_STATE_CONNECTING:
 			break;
+
 		case SERVER_CONNECTION_STATE_CONNECTED:
 			if ((priv->msg_queue_timeout == 0) && (g_queue_get_length(priv->msg_queue) > 0)) {
 				IDLE_DEBUG("we had messages in queue, start unloading them now");
@@ -549,6 +569,7 @@ static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServer
 				priv->msg_queue_timeout = g_timeout_add(MSG_QUEUE_TIMEOUT, msg_queue_timeout_cb, conn);
 			}
 			break;
+
 		default:
 			g_assert_not_reached();
 			break;

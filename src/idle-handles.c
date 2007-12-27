@@ -54,9 +54,11 @@ static gboolean _nickname_is_valid(const gchar *nickname) {
 			case '}':
 			case '-':
 				break;
+
 			case '\0':
 				return TRUE;
 				break;
+
 			default:
 				if (!(g_unichar_isalpha(ucs4char) || ((char_pos != nickname) && g_unichar_isdigit(ucs4char))))
 					return FALSE;

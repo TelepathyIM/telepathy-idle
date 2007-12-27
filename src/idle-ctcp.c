@@ -152,6 +152,7 @@ gchar **idle_ctcp_decode(const gchar *msg) {
 					iter += 2;
 				}
 				break;
+
 			case ' ':
 				if (string) {
 					*cur_iter++ = ' ';
@@ -165,6 +166,7 @@ gchar **idle_ctcp_decode(const gchar *msg) {
 
 				iter++;
 				break;
+
 			case '"':
 				if (cur_token[0] != '\0') {
 					g_ptr_array_add(tokens, g_strdup(cur_token));
@@ -176,9 +178,11 @@ gchar **idle_ctcp_decode(const gchar *msg) {
 
 				iter++;
 				break;
+
 			case '\001':
 				iter++;
 				break;
+
 			default:
 				*cur_iter++ = *iter++;
 				break;
