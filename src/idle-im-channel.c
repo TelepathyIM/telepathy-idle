@@ -207,8 +207,7 @@ static void idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_clas
 	tp_text_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleIMChannelClass, text_class));
 }
 
-void
-idle_im_channel_dispose (GObject *object) {
+void idle_im_channel_dispose (GObject *object) {
 	IdleIMChannel *self = IDLE_IM_CHANNEL (object);
 	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE (self);
 
@@ -226,8 +225,7 @@ idle_im_channel_dispose (GObject *object) {
 		G_OBJECT_CLASS (idle_im_channel_parent_class)->dispose (object);
 }
 
-void
-idle_im_channel_finalize (GObject *object) {
+void idle_im_channel_finalize (GObject *object) {
 	IdleIMChannel *self = IDLE_IM_CHANNEL (object);
 	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE (self);
 	TpHandleRepoIface *handles;

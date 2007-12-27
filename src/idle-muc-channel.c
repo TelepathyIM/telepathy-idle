@@ -227,8 +227,7 @@ static void change_password_flags(IdleMUCChannel *chan, guint flag, gboolean sta
 
 #define IDLE_MUC_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelPrivate))
 
-static void
-idle_muc_channel_init (IdleMUCChannel *obj) {
+static void idle_muc_channel_init (IdleMUCChannel *obj) {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (obj);
 
 	priv->password_flags = 0;
@@ -347,8 +346,7 @@ static void idle_muc_channel_set_property(GObject *object, guint property_id, co
 	}
 }
 
-static void
-idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class) {
+static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class) {
 	GObjectClass *object_class = G_OBJECT_CLASS (idle_muc_channel_class);
 	GParamSpec *param_spec;
 
@@ -376,8 +374,7 @@ idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class) {
 	tp_text_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleMUCChannelClass, text_class));
 }
 
-void
-idle_muc_channel_dispose (GObject *object) {
+void idle_muc_channel_dispose (GObject *object) {
 	IdleMUCChannel *self = IDLE_MUC_CHANNEL (object);
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (self);
 
@@ -393,8 +390,7 @@ idle_muc_channel_dispose (GObject *object) {
 		G_OBJECT_CLASS (idle_muc_channel_parent_class)->dispose (object);
 }
 
-void
-idle_muc_channel_finalize (GObject *object) {
+void idle_muc_channel_finalize (GObject *object) {
 	IdleMUCChannel *self = IDLE_MUC_CHANNEL (object);
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (self);
 	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_ROOM);
@@ -2157,8 +2153,7 @@ gboolean idle_muc_channel_is_modechar(char c) {
 	}
 }
 
-static void
-channel_iface_init(gpointer g_iface, gpointer iface_data) {
+static void channel_iface_init(gpointer g_iface, gpointer iface_data) {
 	TpSvcChannelClass *klass = (TpSvcChannelClass *)g_iface;
 
 #define IMPLEMENT(x) tp_svc_channel_implement_##x (\
@@ -2170,8 +2165,7 @@ channel_iface_init(gpointer g_iface, gpointer iface_data) {
 #undef IMPLEMENT
 }
 
-static void
-password_iface_init(gpointer g_iface, gpointer iface_data) {
+static void password_iface_init(gpointer g_iface, gpointer iface_data) {
 	TpSvcChannelInterfacePasswordClass *klass = (TpSvcChannelInterfacePasswordClass *)(g_iface);
 
 #define IMPLEMENT(x) tp_svc_channel_interface_password_implement_##x (\
@@ -2181,8 +2175,7 @@ password_iface_init(gpointer g_iface, gpointer iface_data) {
 #undef IMPLEMENT
 }
 
-static void
-properties_iface_init(gpointer g_iface, gpointer iface_data) {
+static void properties_iface_init(gpointer g_iface, gpointer iface_data) {
 	TpSvcPropertiesInterfaceClass *klass = (TpSvcPropertiesInterfaceClass *)(g_iface);
 
 #define IMPLEMENT(x) tp_svc_properties_interface_implement_##x (\
@@ -2193,8 +2186,7 @@ properties_iface_init(gpointer g_iface, gpointer iface_data) {
 #undef IMPLEMENT
 }
 
-static void
-text_iface_init(gpointer g_iface, gpointer iface_data) {
+static void text_iface_init(gpointer g_iface, gpointer iface_data) {
 	TpSvcChannelTypeTextClass *klass = (TpSvcChannelTypeTextClass *)(g_iface);
 
 	tp_text_mixin_iface_init(g_iface, iface_data);
