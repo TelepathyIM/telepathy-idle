@@ -175,7 +175,7 @@ static void idle_server_connection_finalize(GObject *obj) {
 	g_free(priv->host);
 }
 
-static void idle_server_connection_get_property(GObject 	*obj, guint prop_id, GValu *value, GParamSpec *pspec) {
+static void idle_server_connection_get_property(GObject 	*obj, guint prop_id, GValue *value, GParamSpec *pspec) {
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(obj);
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 
