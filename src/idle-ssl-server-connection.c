@@ -523,7 +523,7 @@ static gboolean iface_ssl_connect_impl(IdleServerConnectionIface *iface, GError 
 	if (priv->state != SERVER_CONNECTION_STATE_NOT_CONNECTED) {
 		IDLE_DEBUG("connection was not in state NOT_CONNECTED");
 
-		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection was in state NOT_CONNECTED");
+		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection was not in state NOT_CONNECTED");
 
 		return FALSE;
 	}
@@ -531,7 +531,7 @@ static gboolean iface_ssl_connect_impl(IdleServerConnectionIface *iface, GError 
 	if (!priv->host || !priv->host[0]) {
 		IDLE_DEBUG("no hostname provided");
 
-		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "no hostname provided");
+		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "no hostname provided");
 
 		return FALSE;
 	}
@@ -539,7 +539,7 @@ static gboolean iface_ssl_connect_impl(IdleServerConnectionIface *iface, GError 
 	if (!priv->port) {
 		IDLE_DEBUG("no port provided");
 
-		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "no port provided");
+		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "no port provided");
 
 		return FALSE;
 	}
@@ -558,7 +558,7 @@ static gboolean iface_ssl_disconnect_impl_full(IdleServerConnectionIface *iface,
 	if (priv->state == SERVER_CONNECTION_STATE_NOT_CONNECTED) {
 		IDLE_DEBUG("not connected");
 
-		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "not connected");
+		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "not connected");
 
 		return FALSE;
 	}
@@ -609,7 +609,7 @@ static gboolean iface_ssl_send_impl(IdleServerConnectionIface *iface, const gcha
 	if (priv->state != SERVER_CONNECTION_STATE_CONNECTED) {
 		IDLE_DEBUG("connection was not in state CONNECTED");
 
-		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection was not in state CONNECTED");
+		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection was not in state CONNECTED");
 
 		return FALSE;
 	}
@@ -631,7 +631,7 @@ static gboolean iface_ssl_send_impl(IdleServerConnectionIface *iface, const gcha
 			g_error_free(local_error);
 		}
 
-		*error = g_error_new(TP_ERRORS, TP_ERROR_NETWORK_ERROR, "SSL_write failed");
+		g_set_error(error, TP_ERRORS, TP_ERROR_NETWORK_ERROR, "SSL_write failed");
 
 		return FALSE;
 	}

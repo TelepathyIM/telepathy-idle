@@ -1423,7 +1423,7 @@ static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gc
 	if ((nick == NULL) || (nick[0] == '\0')) {
 		IDLE_DEBUG("invalid handle %u passed", handle);
 
-		*error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid handle %u passed", handle);
+		g_set_error(error, TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid handle %u passed", handle);
 
 		return FALSE;
 	}
@@ -1447,7 +1447,7 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 		if (tp_handle_set_is_member(obj->group.members, handle) || tp_handle_set_is_member(obj->group.remote_pending, handle)) {
 			IDLE_DEBUG("we are already a member of or trying to join the channel with handle %u", priv->handle);
 
-			*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "we are already a member of or trying to join the channel with handle %u", priv->handle);
+			g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "we are already a member of or trying to join the channel with handle %u", priv->handle);
 
 			return FALSE;
 		} else {
@@ -1465,7 +1465,7 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 		if (tp_handle_set_is_member(obj->group.members, handle) || tp_handle_set_is_member(obj->group.remote_pending, handle)) {
 			IDLE_DEBUG("the requested contact (handle %u) to be added to the room (handle %u) is already a member of or has already been invited to join the room", handle, priv->handle);
 
-			*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "the requested contact (handle %u) to be added to the room (handle %u) is already a member of or has already been invited to join the room", handle, priv->handle);
+			g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "the requested contact (handle %u) to be added to the room (handle %u) is already a member of or has already been invited to join the room", handle, priv->handle);
 
 			return FALSE;
 		} else {
@@ -1508,7 +1508,6 @@ static void part_from_channel(IdleMUCChannel *obj, const gchar *msg) {
 static gboolean remove_member(GObject *gobj, TpHandle handle, const gchar *message, GError **error) {
 	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(gobj);
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
-	GError *kick_error;
 
 	if (handle == priv->connection->parent.self_handle) {
 		part_from_channel(obj, message);
@@ -1518,18 +1517,13 @@ static gboolean remove_member(GObject *gobj, TpHandle handle, const gchar *messa
 	if (!tp_handle_set_is_member(obj->group.members, handle)) {
 		IDLE_DEBUG("handle %u not a current member!", handle);
 
-		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "handle %u is not a current member of the channel", handle);
+		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "handle %u is not a current member of the channel", handle);
 
 		return FALSE;
 	}
 
-	if (!send_kick_request(obj, handle, message, &kick_error)) {
-		IDLE_DEBUG("send_kick_request failed: %s", kick_error->message);
-
-		*error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, kick_error->message);
-
-		g_error_free(kick_error);
-
+	if (!send_kick_request(obj, handle, message, error)) {
+		IDLE_DEBUG("send_kick_request failed: %s", (*error)->message);
 		return FALSE;
 	}
 
@@ -1831,7 +1825,6 @@ static void idle_muc_channel_provide_password (TpSvcChannelInterfacePassword *if
 		IDLE_DEBUG("don't need a password now or authentication already in process (handle %u)", priv->handle);
 
 		error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "don't need a password now or authentication already in process (handle %u)", priv->handle);
-
 		dbus_g_method_return_error(context, error);
 		g_error_free(error);
 
