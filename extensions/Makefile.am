@@ -38,8 +38,7 @@ _gen/all.xml: all.xml $(wildcard *.xml)
 	$(XSLTPROC) $(XSLTPROCFLAGS) --xinclude $(tools_dir)/identity.xsl \
 		$< > $@
 
-extensions.html: _gen/all.xml \
-	$(SPEC_INTERFACE_XMLS) $(tools_dir)/doc-generator.xsl
+extensions.html: _gen/all.xml $(tools_dir)/doc-generator.xsl
 	$(XSLTPROC) $(XSLTPROCFLAGS) \
 		$(tools_dir)/doc-generator.xsl \
 		$< > $@
