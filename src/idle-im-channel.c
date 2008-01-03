@@ -166,7 +166,10 @@ static void idle_im_channel_set_property(GObject *object, guint property_id, con
 			priv->handle = g_value_get_uint(value);
 			break;
 
+		case PROP_CHANNEL_TYPE:
 		case PROP_HANDLE_TYPE:
+			/* writeable in the interface, but setting them makes
+			no sense, so ignore them */
 			break;
 
 		default:
