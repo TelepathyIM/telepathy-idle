@@ -32,9 +32,6 @@ AC_SUBST(ERROR_CFLAGS)
 AC_HEADER_STDC([])
 AC_C_INLINE
 
-dnl GTK docs
-GTK_DOC_CHECK
-
 dnl Check for Glib 
 PKG_CHECK_MODULES(GLIB, [glib-2.0 >= 2.4, gobject-2.0 >= 2.4])
 
