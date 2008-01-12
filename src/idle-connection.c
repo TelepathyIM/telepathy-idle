@@ -195,7 +195,6 @@ static void irc_handshakes(IdleConnection *conn);
 static void send_quit_request(IdleConnection *conn);
 static void connection_connect_cb(IdleConnection *conn, gboolean success, TpConnectionStatusReason fail_reason);
 static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusReason reason);
-static void send_irc_cmd(IdleConnection *conn, const gchar *msg);
 
 static void idle_connection_init (IdleConnection *obj) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE (obj);
@@ -587,12 +586,6 @@ static void sconn_received_cb(IdleServerConnectionIface *sconn, gchar *raw_msg, 
 	g_free(converted);
 }
 
-gboolean idle_connection_send(IdleConnection *conn, const gchar *msg) {
-	send_irc_cmd(conn, msg);
-
-	return TRUE;
-}
-
 static gboolean msg_queue_timeout_cb(gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
@@ -648,7 +641,7 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 /**
  * Queue a IRC command for sending, clipping it to IRC_MSG_MAXLEN bytes and appending the required <CR><LF> to it
  */
-static void send_irc_cmd_full(IdleConnection *conn, const gchar *msg, guint priority) {
+static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint priority) {
 	gchar cmd[IRC_MSG_MAXLEN + 3];
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	int len;
@@ -700,8 +693,8 @@ static void send_irc_cmd_full(IdleConnection *conn, const gchar *msg, guint prio
 		priv->msg_queue_timeout = g_timeout_add(MSG_QUEUE_TIMEOUT * 1000, msg_queue_timeout_cb, conn);
 }
 
-static void send_irc_cmd(IdleConnection *conn, const gchar *msg) {
-	return send_irc_cmd_full(conn, msg, SERVER_CMD_NORMAL_PRIORITY);
+void idle_connection_send(IdleConnection *conn, const gchar *msg) {
+	return _send_with_priority(conn, msg, SERVER_CMD_NORMAL_PRIORITY);
 }
 
 static IdleParserHandlerResult _erroneous_nickname_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
@@ -749,7 +742,7 @@ static IdleParserHandlerResult _ping_handler(IdleParser *parser, IdleParserMessa
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 
 	gchar *reply = g_strdup_printf("PONG %s", g_value_get_string(g_value_array_get_nth(args, 0)));
-	send_irc_cmd_full (conn, reply, SERVER_CMD_MAX_PRIORITY);
+	_send_with_priority(conn, reply, SERVER_CMD_MAX_PRIORITY);
 	g_free(reply);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
@@ -798,14 +791,14 @@ static void irc_handshakes(IdleConnection *conn) {
 
 	if ((priv->password != NULL) && (priv->password[0] != '\0')) {
 		g_snprintf(msg, IRC_MSG_MAXLEN + 1, "PASS %s", priv->password);
-		send_irc_cmd_full(conn, msg, SERVER_CMD_NORMAL_PRIORITY + 1);
+		_send_with_priority(conn, msg, SERVER_CMD_NORMAL_PRIORITY + 1);
 	}
 
 	g_snprintf(msg, IRC_MSG_MAXLEN + 1, "NICK %s", priv->nickname);
-	send_irc_cmd(conn, msg);
+	idle_connection_send(conn, msg);
 
 	g_snprintf(msg, IRC_MSG_MAXLEN + 1, "USER %s %u * :%s", priv->nickname, 8, priv->realname);
-	send_irc_cmd(conn, msg);
+	idle_connection_send(conn, msg);
 }
 
 static void send_quit_request(IdleConnection *conn) {
@@ -814,7 +807,7 @@ static void send_quit_request(IdleConnection *conn) {
 
 	g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "QUIT :%s", priv->quit_message);
 
-	send_irc_cmd_full(conn, cmd, SERVER_CMD_MAX_PRIORITY);
+	_send_with_priority(conn, cmd, SERVER_CMD_MAX_PRIORITY);
 }
 
 static void connection_connect_cb(IdleConnection *conn, gboolean success, TpConnectionStatusReason fail_reason) {
@@ -953,7 +946,7 @@ static gboolean _send_rename_request(IdleConnection *obj, const gchar *nick, DBu
 
 	gchar msg[IRC_MSG_MAXLEN + 1];
 	g_snprintf(msg, IRC_MSG_MAXLEN + 1, "NICK %s", nick);
-	send_irc_cmd(obj, msg);
+	idle_connection_send(obj, msg);
 
 	return TRUE;
 }
