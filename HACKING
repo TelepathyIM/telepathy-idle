@@ -1,0 +1,70 @@
+Requirements
+------------
+
+To compile telepathy-idle from darcs source, you need:
+
+- GNU autoconf
+- GNU automake
+- GNU libtool
+- pkg-config
+- xsltproc
+- python
+
+additionally, as when compiling a idle release, you need these libraries:
+
+- libglib-2.0
+- libdbus
+- libdbus-glib
+- openssl
+
+and obviously, a working C compiler and make.
+
+Compilation
+-----------
+
+Run autogen.sh in the telepathy-idle source root to create and run the
+"configure" script, which creates necessary Makefiles for compiling
+and installing telepathy-idle. Finally, run make.
+
+Version control
+---------------
+
+telepathy-idle is maintained in a Darcs repository at
+
+http://darcs.collabora.co.uk/darcs/telepathy/telepathy-idle/
+
+Patches
+-------
+
+Patches for telepathy-idle are welcome. The recommended way to submit them is to
+file a bug at
+
+https://bugs.freedesktop.org
+
+with the product "Telepathy" and component "telepathy-idle" and include a URL to
+a Darcs branch with your patches, or if this is not possible, attach a patch
+file produced by diff -unr.
+
+Coding style
+------------
+
+All patches for telepathy-idle should follow a coding style defined as follows:
+
+- Function names are lower_case, words separated by underscores
+- Type names are CamelCase, with no additional word separators
+- Macro names are ALL_UPPER_CASE, words separated by underscores
+- Indent with a single tab per indentation level
+- Control keywords (if, for, while, switch) have a single space between them and
+the opening paren
+- Function calls have no space between the function name and the opening paren
+- Opening braces on the same line
+- Public interface functions of classes should be namespaced properly (ie.
+    IdleConnection::send() -> idle_connection_send())
+- Don't hard-break lines, but break very long lines at logical breakpoints using
+common sense.
+- Follow the usual GLib conventions regarding eg. GError usage.
+
+Idle trunk code should more or less follow these rules, but due to historical
+reasons some inconsistency in formatting might have survived. All new code
+should be written in this way though.
+
