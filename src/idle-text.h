@@ -29,7 +29,7 @@
 G_BEGIN_DECLS
 
 void idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gchar **body);
-void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *ctx);
+void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *ctx);
 
 G_END_DECLS
 

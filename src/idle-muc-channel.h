@@ -68,25 +68,24 @@ GType idle_muc_channel_get_type(void);
 #define IDLE_MUC_CHANNEL_GET_CLASS(obj) \
 	(G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelClass))
 
-void _idle_muc_channel_join_attempt(IdleMUCChannel *chan);
+void idle_muc_channel_join_attempt(IdleMUCChannel *chan);
 
-
-void _idle_muc_channel_badchannelkey(IdleMUCChannel *chan);
-void _idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter);
-void _idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner);
-void _idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError err);
-void _idle_muc_channel_kick(IdleMUCChannel *chan, TpHandle kicked, TpHandle kicker, const gchar *message);
-void _idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args);
-void _idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args);
-void _idle_muc_channel_namereply_end(IdleMUCChannel *chan);
-void _idle_muc_channel_part(IdleMUCChannel *chan, TpHandle leaver, const gchar *message);
-void _idle_muc_channel_quit(IdleMUCChannel *chan, TpHandle handle, const gchar *message);
-gboolean _idle_muc_channel_receive(IdleMUCChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *msg);
-void _idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old_handle, TpHandle new_handle);
-void _idle_muc_channel_topic(IdleMUCChannel *chan, const gchar *topic);
-void _idle_muc_channel_topic_full(IdleMUCChannel *chan, const TpHandle handle, const guint timestamp, const gchar *topic);
-void _idle_muc_channel_topic_touch(IdleMUCChannel *chan, const TpHandle handle, const guint timestamp);
-void _idle_muc_channel_topic_unset(IdleMUCChannel *chan);
+void idle_muc_channel_badchannelkey(IdleMUCChannel *chan);
+void idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter);
+void idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner);
+void idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError err);
+void idle_muc_channel_kick(IdleMUCChannel *chan, TpHandle kicked, TpHandle kicker, const gchar *message);
+void idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args);
+void idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args);
+void idle_muc_channel_namereply_end(IdleMUCChannel *chan);
+void idle_muc_channel_part(IdleMUCChannel *chan, TpHandle leaver, const gchar *message);
+void idle_muc_channel_quit(IdleMUCChannel *chan, TpHandle handle, const gchar *message);
+gboolean idle_muc_channel_receive(IdleMUCChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *msg);
+void idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old_handle, TpHandle new_handle);
+void idle_muc_channel_topic(IdleMUCChannel *chan, const gchar *topic);
+void idle_muc_channel_topic_full(IdleMUCChannel *chan, const TpHandle handle, const guint timestamp, const gchar *topic);
+void idle_muc_channel_topic_touch(IdleMUCChannel *chan, const TpHandle handle, const guint timestamp);
+void idle_muc_channel_topic_unset(IdleMUCChannel *chan);
 
 gboolean idle_muc_channel_is_modechar(char c);
 

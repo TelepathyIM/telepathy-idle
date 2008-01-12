@@ -868,7 +868,7 @@ static void change_password_flags(IdleMUCChannel *obj, guint flag, gboolean stat
 	}
 }
 
-gboolean _idle_muc_channel_receive(IdleMUCChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *text) {
+gboolean idle_muc_channel_receive(IdleMUCChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *text) {
 	time_t stamp = time(NULL);
 
 	g_assert(chan != NULL);
@@ -888,10 +888,10 @@ static void send_mode_query_request(IdleMUCChannel *chan) {
 
 	g_snprintf(cmd, IRC_MSG_MAXLEN + 2, "MODE %s", priv->channel_name);
 
-	_idle_connection_send(priv->connection, cmd);
+	idle_connection_send(priv->connection, cmd);
 }
 
-void _idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner) {
+void idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner) {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 	TpIntSet *set;
 
@@ -937,19 +937,19 @@ static void _network_member_left(IdleMUCChannel *chan, TpHandle leaver, TpHandle
 	tp_intset_destroy(set);
 }
 
-void _idle_muc_channel_part(IdleMUCChannel *chan, TpHandle leaver, const gchar *message) {
+void idle_muc_channel_part(IdleMUCChannel *chan, TpHandle leaver, const gchar *message) {
 	return _network_member_left(chan, leaver, leaver, message, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 }
 
-void _idle_muc_channel_kick(IdleMUCChannel *chan, TpHandle kicked, TpHandle kicker, const gchar *message) {
+void idle_muc_channel_kick(IdleMUCChannel *chan, TpHandle kicked, TpHandle kicker, const gchar *message) {
 	return _network_member_left(chan, kicked, kicker, message, TP_CHANNEL_GROUP_CHANGE_REASON_KICKED);
 }
 
-void _idle_muc_channel_quit(IdleMUCChannel *chan, TpHandle quitter, const gchar *message) {
+void idle_muc_channel_quit(IdleMUCChannel *chan, TpHandle quitter, const gchar *message) {
 	return _network_member_left(chan, quitter, quitter, message, TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE);
 }
 
-void _idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter) {
+void idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter) {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 	TpIntSet *add = tp_intset_new();
 	TpIntSet *local = tp_intset_new();
@@ -963,7 +963,7 @@ void _idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter) {
 	tp_intset_destroy(local);
 }
 
-void _idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
+void idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 
 	if (!priv->namereply_set)
@@ -1002,7 +1002,7 @@ void _idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
 	}
 }
 
-void _idle_muc_channel_namereply_end(IdleMUCChannel *chan) {
+void idle_muc_channel_namereply_end(IdleMUCChannel *chan) {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 
 	if (!priv->namereply_set) {
@@ -1031,7 +1031,7 @@ static guint _modechar_to_modeflag(gchar modechar) {
 	}
 }
 
-void _idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args) {
+void idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args) {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
 	GArray *flags_to_change = g_array_new(FALSE, FALSE, sizeof(guint));
@@ -1184,7 +1184,7 @@ void _idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args) {
 	}
 }
 
-void _idle_muc_channel_topic(IdleMUCChannel *chan, const char *topic) {
+void idle_muc_channel_topic(IdleMUCChannel *chan, const char *topic) {
 	GValue prop = {0, };
 	GValue val = {0, };
 	GPtrArray *arr;
@@ -1212,7 +1212,7 @@ void _idle_muc_channel_topic(IdleMUCChannel *chan, const char *topic) {
 	g_ptr_array_free(arr, TRUE);
 }
 
-void _idle_muc_channel_topic_touch(IdleMUCChannel *chan, const TpHandle toucher, const guint timestamp) {
+void idle_muc_channel_topic_touch(IdleMUCChannel *chan, const TpHandle toucher, const guint timestamp) {
 	GValue prop = {0, };
 	GValue val = {0, };
 	GPtrArray *arr;
@@ -1249,7 +1249,7 @@ void _idle_muc_channel_topic_touch(IdleMUCChannel *chan, const TpHandle toucher,
 	g_ptr_array_free(arr, TRUE);
 }
 
-void _idle_muc_channel_topic_full(IdleMUCChannel *chan, const TpHandle toucher, const guint timestamp, const gchar *topic) {
+void idle_muc_channel_topic_full(IdleMUCChannel *chan, const TpHandle toucher, const guint timestamp, const gchar *topic) {
 	GValue prop = {0, };
 	GValue val = {0, };
 	GPtrArray *arr;
@@ -1289,7 +1289,7 @@ void _idle_muc_channel_topic_full(IdleMUCChannel *chan, const TpHandle toucher, 
 	g_ptr_array_free(arr, TRUE);
 }
 
-void _idle_muc_channel_topic_unset(IdleMUCChannel *chan) {
+void idle_muc_channel_topic_unset(IdleMUCChannel *chan) {
 	GArray *arr = g_array_new(FALSE, FALSE, sizeof(guint));
 	guint not_even_g_array_append_can_take_address_of_enumeration_constants_in_c;
 	guint *tmp = &not_even_g_array_append_can_take_address_of_enumeration_constants_in_c;
@@ -1306,11 +1306,11 @@ void _idle_muc_channel_topic_unset(IdleMUCChannel *chan) {
 	g_array_free(arr, TRUE);
 }
 
-void _idle_muc_channel_badchannelkey(IdleMUCChannel *chan) {
+void idle_muc_channel_badchannelkey(IdleMUCChannel *chan) {
 	change_state(chan, MUC_STATE_NEED_PASSWORD);
 }
 
-void _idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError err) {
+void idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError err) {
 	IdleMUCChannelPrivate *priv;
 
 	g_assert(chan != NULL);
@@ -1327,7 +1327,7 @@ void _idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError 
 	}
 }
 
-void _idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old_handle, TpHandle new_handle) {
+void idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old_handle, TpHandle new_handle) {
 	TpIntSet *add = tp_intset_new();
 	TpIntSet *remove = tp_intset_new();
 	TpIntSet *local = tp_intset_new();
@@ -1373,10 +1373,10 @@ static void send_join_request(IdleMUCChannel *obj, const gchar *password) {
 	else
 		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "JOIN %s", priv->channel_name);
 
-	_idle_connection_send(priv->connection, cmd);
+	idle_connection_send(priv->connection, cmd);
 }
 
-void _idle_muc_channel_join_attempt(IdleMUCChannel *obj) {
+void idle_muc_channel_join_attempt(IdleMUCChannel *obj) {
 	return send_join_request(obj, NULL);
 }
 
@@ -1402,7 +1402,7 @@ static gboolean send_invite_request(IdleMUCChannel *obj, TpHandle handle, GError
 
 	g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "INVITE %s %s", nick, priv->channel_name);
 
-	_idle_connection_send(priv->connection, cmd);
+	idle_connection_send(priv->connection, cmd);
 
 	return TRUE;
 }
@@ -1433,7 +1433,7 @@ static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gc
 		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "KICK %s %s", priv->channel_name, nick);
 	}
 
-	_idle_connection_send(priv->connection, cmd);
+	idle_connection_send(priv->connection, cmd);
 
 	return TRUE;
 }
@@ -1501,7 +1501,7 @@ static void part_from_channel(IdleMUCChannel *obj, const gchar *msg) {
 		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "PART %s", priv->channel_name);
 	}
 
-	_idle_connection_send(priv->connection, cmd);
+	idle_connection_send(priv->connection, cmd);
 }
 
 static gboolean remove_member(GObject *gobj, TpHandle handle, const gchar *message, GError **error) {
@@ -1948,7 +1948,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 			body[seq++] = irc_mode;
 			body[seq++] = '\0';
 
-			_idle_connection_send(priv->connection, cmd);
+			idle_connection_send(priv->connection, cmd);
 		} else {
 			if (prop_id == TP_PROPERTY_SUBJECT) {
 				const gchar *subject = g_value_get_string(prop_val);
@@ -1956,7 +1956,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 
 				g_snprintf(cmd, IRC_MSG_MAXLEN + 2, "TOPIC %s :%s", priv->channel_name, subject);
 
-				_idle_connection_send(priv->connection, cmd);
+				idle_connection_send(priv->connection, cmd);
 			} else {
 				g_ptr_array_add(waiting, g_value_get_boxed(&prop));
 			}
@@ -2042,7 +2042,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 			}
 		}
 
-		_idle_connection_send(priv->connection, cmd);
+		idle_connection_send(priv->connection, cmd);
 	}
 
 	g_ptr_array_free(waiting, TRUE);

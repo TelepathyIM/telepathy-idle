@@ -55,7 +55,7 @@ GType idle_im_channel_get_type(void);
 #define IDLE_IM_CHANNEL_GET_CLASS(obj) \
 	(G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_IM_CHANNEL, IdleIMChannelClass))
 
-gboolean _idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *msg);
+gboolean idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *msg);
 
 G_END_DECLS
 

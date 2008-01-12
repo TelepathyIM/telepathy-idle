@@ -587,7 +587,7 @@ static void sconn_received_cb(IdleServerConnectionIface *sconn, gchar *raw_msg, 
 	g_free(converted);
 }
 
-gboolean _idle_connection_send(IdleConnection *conn, const gchar *msg) {
+gboolean idle_connection_send(IdleConnection *conn, const gchar *msg) {
 	send_irc_cmd(conn, msg);
 
 	return TRUE;

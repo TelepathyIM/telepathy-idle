@@ -110,7 +110,7 @@ void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gch
 		if (br)
 			part++;
 
-		_idle_connection_send(conn, msg);
+		idle_connection_send(conn, msg);
 	}
 
 	timestamp = time(NULL);

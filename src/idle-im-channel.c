@@ -241,7 +241,7 @@ void idle_im_channel_finalize (GObject *object) {
 	G_OBJECT_CLASS (idle_im_channel_parent_class)->finalize (object);
 }
 
-gboolean _idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *text) {
+gboolean idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *text) {
 	time_t stamp = time(NULL);
 
 	g_assert(chan != NULL);

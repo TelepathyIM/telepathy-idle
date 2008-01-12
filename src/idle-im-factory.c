@@ -142,7 +142,7 @@ static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleP
 	if (!(chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(handle))))
 		chan = _create_channel(factory, handle, NULL);
 
-	_idle_im_channel_receive(chan, type, handle, body);
+	idle_im_channel_receive(chan, type, handle, body);
 
 	g_free(body);
 

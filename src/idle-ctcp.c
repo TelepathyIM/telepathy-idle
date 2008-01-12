@@ -67,7 +67,7 @@ out:
 	buf[out_index++] = '\001';
 	buf[out_index++] = '\000';
 
-	_idle_connection_send(conn, buf);
+	idle_connection_send(conn, buf);
 
 	if (*iter == '\0')
 		return NULL;

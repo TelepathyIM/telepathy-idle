@@ -147,19 +147,19 @@ static IdleParserHandlerResult _numeric_error_handler(IdleParser *parser, IdlePa
 
 	switch (code) {
 		case IDLE_PARSER_NUMERIC_BADCHANNELKEY:
-			_idle_muc_channel_badchannelkey(chan);
+			idle_muc_channel_badchannelkey(chan);
 			break;
 
 		case IDLE_PARSER_NUMERIC_BANNEDFROMCHAN:
-			_idle_muc_channel_join_error(chan, MUC_CHANNEL_JOIN_ERROR_BANNED);
+			idle_muc_channel_join_error(chan, MUC_CHANNEL_JOIN_ERROR_BANNED);
 			break;
 
 		case IDLE_PARSER_NUMERIC_CHANNELISFULL:
-			_idle_muc_channel_join_error(chan, MUC_CHANNEL_JOIN_ERROR_FULL);
+			idle_muc_channel_join_error(chan, MUC_CHANNEL_JOIN_ERROR_FULL);
 			break;
 
 		case IDLE_PARSER_NUMERIC_INVITEONLYCHAN:
-			_idle_muc_channel_join_error(chan, MUC_CHANNEL_JOIN_ERROR_INVITE_ONLY);
+			idle_muc_channel_join_error(chan, MUC_CHANNEL_JOIN_ERROR_INVITE_ONLY);
 			break;
 
 		default:
@@ -183,7 +183,7 @@ static IdleParserHandlerResult _numeric_topic_handler(IdleParser *parser, IdlePa
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
-		_idle_muc_channel_topic(chan, topic);
+		idle_muc_channel_topic(chan, topic);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
@@ -204,7 +204,7 @@ static IdleParserHandlerResult _numeric_topic_stamp_handler(IdleParser *parser, 
 	idle_connection_emit_queued_aliases_changed(priv->conn);
 
 	if (chan)
-		_idle_muc_channel_topic_touch(chan, toucher_handle, touched);
+		idle_muc_channel_topic_touch(chan, toucher_handle, touched);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
@@ -231,7 +231,7 @@ static IdleParserHandlerResult _invite_handler(IdleParser *parser, IdleParserMes
 	if (!chan) {
 		chan = _create_channel(factory, room_handle);
 		tp_channel_factory_iface_emit_new_channel(TP_CHANNEL_FACTORY_IFACE(user_data), (TpChannelIface *) chan, NULL);
-		_idle_muc_channel_invited(chan, inviter_handle);
+		idle_muc_channel_invited(chan, inviter_handle);
 	}
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
@@ -255,7 +255,7 @@ static IdleParserHandlerResult _join_handler(IdleParser *parser, IdleParserMessa
 	if (!chan)
 		chan = _create_channel(factory, room_handle);
 
-	_idle_muc_channel_join(chan, joiner_handle);
+	idle_muc_channel_join(chan, joiner_handle);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
@@ -275,7 +275,7 @@ static IdleParserHandlerResult _kick_handler(IdleParser *parser, IdleParserMessa
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
-		_idle_muc_channel_kick(chan, kicked_handle, kicker_handle, message);
+		idle_muc_channel_kick(chan, kicked_handle, kicker_handle, message);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
@@ -292,7 +292,7 @@ static IdleParserHandlerResult _numeric_namereply_handler(IdleParser *parser, Id
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
-		_idle_muc_channel_namereply(chan, args);
+		idle_muc_channel_namereply(chan, args);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
@@ -309,7 +309,7 @@ static IdleParserHandlerResult _numeric_namereply_end_handler(IdleParser *parser
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
-		_idle_muc_channel_namereply_end(chan);
+		idle_muc_channel_namereply_end(chan);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
@@ -326,7 +326,7 @@ static IdleParserHandlerResult _mode_handler(IdleParser *parser, IdleParserMessa
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
-		_idle_muc_channel_mode(chan, args);
+		idle_muc_channel_mode(chan, args);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
@@ -340,7 +340,7 @@ static void _channel_rename_foreach(TpChannelIface *iface, gpointer user_data) {
 	IdleMUCChannel *chan = IDLE_MUC_CHANNEL(iface);
 	ChannelRenameForeachData *data = user_data;
 
-	_idle_muc_channel_rename(chan, data->old_handle, data->new_handle);
+	idle_muc_channel_rename(chan, data->old_handle, data->new_handle);
 }
 
 static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
@@ -384,7 +384,7 @@ static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleP
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 
 	if (chan)
-		_idle_muc_channel_receive(chan, type, sender_handle, body);
+		idle_muc_channel_receive(chan, type, sender_handle, body);
 
 	g_free(body);
 
@@ -406,7 +406,7 @@ static IdleParserHandlerResult _part_handler(IdleParser *parser, IdleParserMessa
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
-		_idle_muc_channel_part(chan, leaver_handle, message);
+		idle_muc_channel_part(chan, leaver_handle, message);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
@@ -421,7 +421,7 @@ static void _channel_quit_foreach(TpChannelIface *iface, gpointer user_data) {
 	IdleMUCChannel *chan = IDLE_MUC_CHANNEL(iface);
 	ChannelQuitForeachData *data = user_data;
 
-	_idle_muc_channel_quit(chan, data->handle, data->message);
+	idle_muc_channel_quit(chan, data->handle, data->message);
 }
 
 static IdleParserHandlerResult _quit_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
@@ -451,9 +451,9 @@ static IdleParserHandlerResult _topic_handler(IdleParser *parser, IdleParserMess
 
 	if (chan) {
 		if (topic)
-			_idle_muc_channel_topic_full(chan, setter_handle, stamp, topic);
+			idle_muc_channel_topic_full(chan, setter_handle, stamp, topic);
 		else
-			_idle_muc_channel_topic_unset(chan);
+			idle_muc_channel_topic_unset(chan);
 	}
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
@@ -547,7 +547,7 @@ static TpChannelFactoryRequestStatus _iface_request(TpChannelFactoryIface *iface
 		return TP_CHANNEL_FACTORY_REQUEST_STATUS_EXISTING;
 	} else {
 		IdleMUCChannel *chan = _create_channel(factory, handle);
-		_idle_muc_channel_join_attempt(chan);
+		idle_muc_channel_join_attempt(chan);
 
 		return TP_CHANNEL_FACTORY_REQUEST_STATUS_QUEUED;
 	}
