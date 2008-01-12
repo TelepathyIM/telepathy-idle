@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-autoreconf -i
+autoreconf -i -Wno-portability
 
 run_configure=true
 for arg in $*; do
