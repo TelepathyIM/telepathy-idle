@@ -38,12 +38,12 @@
 #include "idle-handles.h"
 #include "idle-text.h"
 
-static void channel_iface_init (gpointer, gpointer);
-static void text_iface_init (gpointer, gpointer);
+static void _channel_iface_init(gpointer, gpointer);
+static void _text_iface_init(gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE(IdleIMChannel, idle_im_channel, G_TYPE_OBJECT,
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL, channel_iface_init);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, text_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL, _channel_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, _text_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_IFACE, NULL);)
 
 /* property enum */
@@ -373,7 +373,7 @@ static void idle_im_channel_send (TpSvcChannelTypeText *iface, guint type, const
 	idle_text_send((GObject *)(obj), type, recipient, text, priv->connection, context);
 }
 
-static void channel_iface_init(gpointer g_iface, gpointer iface_data) {
+static void _channel_iface_init(gpointer g_iface, gpointer iface_data) {
 	TpSvcChannelClass *klass = (TpSvcChannelClass *)g_iface;
 
 #define IMPLEMENT(x) tp_svc_channel_implement_##x (\
@@ -385,7 +385,7 @@ static void channel_iface_init(gpointer g_iface, gpointer iface_data) {
 #undef IMPLEMENT
 }
 
-static void text_iface_init(gpointer g_iface, gpointer iface_data) {
+static void _text_iface_init(gpointer g_iface, gpointer iface_data) {
 	TpSvcChannelTypeTextClass *klass = (TpSvcChannelTypeTextClass *)(g_iface);
 
 	tp_text_mixin_iface_init(g_iface, iface_data);

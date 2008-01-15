@@ -39,13 +39,13 @@
 #include "idle-debug.h"
 #include "idle-server-connection-iface.h"
 
-static void idle_server_connection_iface_init(gpointer g_iface, gpointer iface_data);
+static void _server_connection_iface_init(gpointer, gpointer);
 typedef struct _IdleServerConnectionPrivate IdleServerConnectionPrivate;
 
 #define IDLE_SERVER_CONNECTION_GET_PRIVATE(conn) (G_TYPE_INSTANCE_GET_PRIVATE((conn), IDLE_TYPE_SERVER_CONNECTION, IdleServerConnectionPrivate))
 
 G_DEFINE_TYPE_WITH_CODE(IdleServerConnection, idle_server_connection, G_TYPE_OBJECT,
-		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SERVER_CONNECTION_IFACE, idle_server_connection_iface_init));
+		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SERVER_CONNECTION_IFACE, _server_connection_iface_init));
 
 enum {
 	PROP_HOST = 1,
@@ -682,7 +682,7 @@ static IdleServerConnectionState iface_get_state_impl(IdleServerConnectionIface 
 	return priv->state;
 }
 
-static void idle_server_connection_iface_init(gpointer g_iface, gpointer iface_data) {
+static void _server_connection_iface_init(gpointer g_iface, gpointer iface_data) {
 	IdleServerConnectionIfaceClass *klass = (IdleServerConnectionIfaceClass *)(g_iface);
 
 	klass->connect = iface_connect_impl;

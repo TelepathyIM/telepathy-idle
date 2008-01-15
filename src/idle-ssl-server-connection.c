@@ -47,7 +47,7 @@
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_NETWORK
 #include "idle-debug.h"
 
-static void idle_ssl_server_connection_iface_init(gpointer g_iface, gpointer iface_data);
+static void _server_connection_iface_init(gpointer, gpointer);
 typedef struct _IdleSSLServerConnectionPrivate IdleSSLServerConnectionPrivate;
 
 #define IDLE_SSL_SERVER_CONNECTION_GET_PRIVATE(conn) \
@@ -55,7 +55,7 @@ typedef struct _IdleSSLServerConnectionPrivate IdleSSLServerConnectionPrivate;
 								 IdleSSLServerConnectionPrivate))
 
 G_DEFINE_TYPE_WITH_CODE(IdleSSLServerConnection, idle_ssl_server_connection, G_TYPE_OBJECT,
-		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SERVER_CONNECTION_IFACE, idle_ssl_server_connection_iface_init));
+		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SERVER_CONNECTION_IFACE, _server_connection_iface_init));
 
 enum {
 	PROP_HOST = 1,
@@ -646,7 +646,7 @@ IdleServerConnectionState iface_ssl_get_state_impl(IdleServerConnectionIface *if
 	return priv->state;
 }
 
-static void idle_ssl_server_connection_iface_init(gpointer g_iface, gpointer iface_data) {
+static void _server_connection_iface_init(gpointer g_iface, gpointer iface_data) {
 	IdleServerConnectionIfaceClass *klass = (IdleServerConnectionIfaceClass *)(g_iface);
 
 	klass->connect = iface_ssl_connect_impl;

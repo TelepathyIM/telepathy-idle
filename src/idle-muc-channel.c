@@ -42,17 +42,17 @@
 #include "idle-debug.h"
 #include "idle-text.h"
 
-static void channel_iface_init (gpointer, gpointer);
-static void password_iface_init (gpointer, gpointer);
-static void properties_iface_init (gpointer, gpointer);
-static void text_iface_init (gpointer, gpointer);
+static void _channel_iface_init(gpointer, gpointer);
+static void _password_iface_init(gpointer, gpointer);
+static void _properties_iface_init(gpointer, gpointer);
+static void _text_iface_init(gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE(IdleMUCChannel, idle_muc_channel, G_TYPE_OBJECT,
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL, channel_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL, _channel_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_GROUP, tp_group_mixin_iface_init);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_PASSWORD, password_iface_init);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, text_iface_init);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_PROPERTIES_INTERFACE, properties_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_PASSWORD, _password_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, _text_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_PROPERTIES_INTERFACE, _properties_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_IFACE, NULL);)
 
 /* signal enum */
@@ -2145,7 +2145,7 @@ gboolean idle_muc_channel_is_modechar(char c) {
 	}
 }
 
-static void channel_iface_init(gpointer g_iface, gpointer iface_data) {
+static void _channel_iface_init(gpointer g_iface, gpointer iface_data) {
 	TpSvcChannelClass *klass = (TpSvcChannelClass *)g_iface;
 
 #define IMPLEMENT(x) tp_svc_channel_implement_##x (\
@@ -2157,7 +2157,7 @@ static void channel_iface_init(gpointer g_iface, gpointer iface_data) {
 #undef IMPLEMENT
 }
 
-static void password_iface_init(gpointer g_iface, gpointer iface_data) {
+static void _password_iface_init(gpointer g_iface, gpointer iface_data) {
 	TpSvcChannelInterfacePasswordClass *klass = (TpSvcChannelInterfacePasswordClass *)(g_iface);
 
 #define IMPLEMENT(x) tp_svc_channel_interface_password_implement_##x (\
@@ -2167,7 +2167,7 @@ static void password_iface_init(gpointer g_iface, gpointer iface_data) {
 #undef IMPLEMENT
 }
 
-static void properties_iface_init(gpointer g_iface, gpointer iface_data) {
+static void _properties_iface_init(gpointer g_iface, gpointer iface_data) {
 	TpSvcPropertiesInterfaceClass *klass = (TpSvcPropertiesInterfaceClass *)(g_iface);
 
 #define IMPLEMENT(x) tp_svc_properties_interface_implement_##x (\
@@ -2178,7 +2178,7 @@ static void properties_iface_init(gpointer g_iface, gpointer iface_data) {
 #undef IMPLEMENT
 }
 
-static void text_iface_init(gpointer g_iface, gpointer iface_data) {
+static void _text_iface_init(gpointer g_iface, gpointer iface_data) {
 	TpSvcChannelTypeTextClass *klass = (TpSvcChannelTypeTextClass *)(g_iface);
 
 	tp_text_mixin_iface_init(g_iface, iface_data);

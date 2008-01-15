@@ -31,10 +31,10 @@
 #include "idle-parser.h"
 #include "idle-text.h"
 
-static void _im_factory_iface_init(gpointer g_iface, gpointer iface_data);
+static void _factory_iface_init(gpointer g_iface, gpointer iface_data);
 
 G_DEFINE_TYPE_WITH_CODE(IdleIMFactory, idle_im_factory, G_TYPE_OBJECT,
-		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_FACTORY_IFACE, _im_factory_iface_init));
+		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_FACTORY_IFACE, _factory_iface_init));
 
 /* properties */
 enum {
@@ -248,8 +248,8 @@ static void _channel_closed_cb(IdleIMChannel *chan, gpointer user_data) {
 	}
 }
 
-static void _im_factory_iface_init(gpointer iface, gpointer data) {
-	TpChannelFactoryIfaceClass *klass = (TpChannelFactoryIfaceClass *) iface;
+static void _factory_iface_init(gpointer g_iface, gpointer iface_data) {
+	TpChannelFactoryIfaceClass *klass = (TpChannelFactoryIfaceClass *) g_iface;
 
 	klass->close_all = _iface_close_all;
 	klass->connected = NULL;

@@ -33,10 +33,10 @@
 #include "idle-parser.h"
 #include "idle-text.h"
 
-static void _channel_factory_iface_init(gpointer g_iface, gpointer iface_data);
+static void _factory_iface_init(gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE(IdleMUCFactory, idle_muc_factory, G_TYPE_OBJECT,
-		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_FACTORY_IFACE, _channel_factory_iface_init));
+		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_FACTORY_IFACE, _factory_iface_init));
 
 /* properties */
 enum {
@@ -620,8 +620,8 @@ static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer use
 		g_hash_table_remove(priv->channels, GUINT_TO_POINTER(handle));
 }
 
-static void _channel_factory_iface_init(gpointer iface, gpointer data) {
-	TpChannelFactoryIfaceClass *klass = (TpChannelFactoryIfaceClass *) iface;
+static void _factory_iface_init(gpointer g_iface, gpointer iface_data) {
+	TpChannelFactoryIfaceClass *klass = (TpChannelFactoryIfaceClass *) g_iface;
 
 	klass->close_all = _iface_close_all;
 	klass->connected = NULL;
