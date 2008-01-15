@@ -18,56 +18,34 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include "idle-connection.h"
+
 #include <config.h>
-
-#define DBUS_API_SUBJECT_TO_CHANGE
-
-#include <dbus/dbus-glib.h>
-#include <dbus/dbus-glib-lowlevel.h>
-
-#include <telepathy-glib/intset.h>
-#include <telepathy-glib/enums.h>
-#include <telepathy-glib/interfaces.h>
-#include <telepathy-glib/errors.h>
-#include <telepathy-glib/dbus.h>
-#include <telepathy-glib/svc-connection.h>
-#include <telepathy-glib/channel-factory-iface.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <errno.h>
 
 /* strnlen */
 #define __USE_GNU
 #include <string.h>
-#include <ctype.h>
+#include <time.h>
 
-#include <unistd.h>
-#include <pthread.h>
-#include <sys/poll.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
+#define DBUS_API_SUBJECT_TO_CHANGE
+#include <dbus/dbus-glib.h>
 
-#include "idle-handles.h"
-#include "idle-muc-channel.h"
-
-#include "idle-ctcp.h"
-#include "idle-parser.h"
-#include "idle-server-connection.h"
-#include "idle-ssl-server-connection.h"
-#include "idle-server-connection-iface.h"
-#include "idle-im-factory.h"
-#include "idle-muc-factory.h"
-
-#include "idle-connection.h"
+#include <telepathy-glib/enums.h>
+#include <telepathy-glib/errors.h>
+#include <telepathy-glib/interfaces.h>
+#include <telepathy-glib/svc-connection.h>
+#include <telepathy-glib/channel-factory-iface.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_CONNECTION
+#include "idle-ctcp.h"
 #include "idle-debug.h"
+#include "idle-handles.h"
+#include "idle-im-factory.h"
+#include "idle-muc-factory.h"
+#include "idle-parser.h"
+#include "idle-server-connection.h"
+#include "idle-server-connection-iface.h"
+#include "idle-ssl-server-connection.h"
 
 #include "extensions/extensions.h"    /* Renaming */
 
@@ -195,6 +173,8 @@ static void irc_handshakes(IdleConnection *conn);
 static void send_quit_request(IdleConnection *conn);
 static void connection_connect_cb(IdleConnection *conn, gboolean success, TpConnectionStatusReason fail_reason);
 static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusReason reason);
+static gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **_error);
+static void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **output);
 
 static void idle_connection_init (IdleConnection *obj) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE (obj);
@@ -973,7 +953,7 @@ static void idle_connection_set_aliases(TpSvcConnectionInterfaceAliasing *iface,
 		tp_svc_connection_interface_aliasing_return_from_set_aliases(context);
 }
 
-gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **_error) {
+static gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **_error) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(obj);
 	GError *error = NULL;
 	gsize bytes_written;
@@ -998,7 +978,7 @@ gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **o
 	return TRUE;
 }
 
-void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **output) {
+static void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **output) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(obj);
 	GError *error = NULL;
 	gsize bytes_written;

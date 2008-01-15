@@ -18,31 +18,29 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <glib.h>
-#include <dbus/dbus-glib.h>
+#include "idle-muc-channel.h"
 
-#include <telepathy-glib/enums.h>
-#include <telepathy-glib/interfaces.h>
-#include <telepathy-glib/errors.h>
-#include <telepathy-glib/dbus.h>
-#include <telepathy-glib/channel-iface.h>
-#include <telepathy-glib/svc-channel.h>
-#include <telepathy-glib/svc-properties-interface.h>
-
-#define _GNU_SOURCE
-#include <stdlib.h>
 #include <ctype.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-#include "idle-muc-channel.h"
+#define DBUS_API_SUBJECT_TO_CHANGE
+#include <dbus/dbus-glib.h>
 
-#include "idle-connection.h"
-#include "idle-handles.h"
-#include "idle-text.h"
+#include <telepathy-glib/channel-iface.h>
+#include <telepathy-glib/dbus.h>
+#include <telepathy-glib/enums.h>
+#include <telepathy-glib/errors.h>
+#include <telepathy-glib/interfaces.h>
+#include <telepathy-glib/handle.h>
+#include <telepathy-glib/svc-channel.h>
+#include <telepathy-glib/svc-properties-interface.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_MUC
+#include "idle-connection.h"
 #include "idle-debug.h"
+#include "idle-text.h"
 
 static void channel_iface_init (gpointer, gpointer);
 static void password_iface_init (gpointer, gpointer);

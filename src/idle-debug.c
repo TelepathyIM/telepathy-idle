@@ -19,10 +19,7 @@
 
 #include "idle-debug.h"
 
-#include <glib.h>
-
 #include <stdarg.h>
-
 #include <telepathy-glib/debug.h>
 
 static IdleDebugFlags _flags = 0;

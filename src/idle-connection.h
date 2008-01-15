@@ -22,19 +22,17 @@
 #define __IDLE_CONNECTION_H__
 
 #include <glib-object.h>
-#include <dbus/dbus-glib.h>
-
 #include <telepathy-glib/base-connection.h>
+#include <telepathy-glib/handle.h>
 
-typedef struct _IdleConnection IdleConnection;
-typedef struct _IdleConnectionClass IdleConnectionClass;
-
-#include "idle-handles.h"
 #include "idle-parser.h"
 
 #define IRC_MSG_MAXLEN 510
 
 G_BEGIN_DECLS
+
+typedef struct _IdleConnection IdleConnection;
+typedef struct _IdleConnectionClass IdleConnectionClass;
 
 struct _IdleConnectionClass {
 	TpBaseConnectionClass parent_class;
@@ -61,13 +59,9 @@ GType idle_connection_get_type(void);
 #define IDLE_CONNECTION_GET_CLASS(obj) \
 	(G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_CONNECTION, IdleConnectionClass))
 
-void idle_connection_send(IdleConnection *conn, const gchar *msg);
-
 void idle_connection_canon_nick_receive(IdleConnection *conn, TpHandle handle, const gchar *canon_nick);
 void idle_connection_emit_queued_aliases_changed(IdleConnection *conn);
-
-gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **error);
-void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **output);
+void idle_connection_send(IdleConnection *conn, const gchar *msg);
 
 G_END_DECLS
 

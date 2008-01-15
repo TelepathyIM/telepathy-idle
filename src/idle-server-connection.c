@@ -18,31 +18,26 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <glib.h>
-#include <glib-object.h>
+#include "idle-server-connection.h"
 
 #include <telepathy-glib/errors.h>
 
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <time.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 #include <errno.h>
 #include <string.h>
+#include <time.h>
 
-#include "idle-server-connection.h"
-#include "idle-server-connection-iface.h"
-#include "idle-connection.h"
-
-#include "idle-dns-resolver.h"
+#include <arpa/inet.h>
+#include <fcntl.h>
+#include <netinet/tcp.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_NETWORK
+#include "idle-connection.h"
+#include "idle-dns-resolver.h"
 #include "idle-debug.h"
+#include "idle-server-connection-iface.h"
 
 static void idle_server_connection_iface_init(gpointer g_iface, gpointer iface_data);
 typedef struct _IdleServerConnectionPrivate IdleServerConnectionPrivate;

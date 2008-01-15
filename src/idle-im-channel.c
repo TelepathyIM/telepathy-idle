@@ -18,26 +18,25 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <glib.h>
-#include <dbus/dbus-glib.h>
-
-#include <telepathy-glib/enums.h>
-#include <telepathy-glib/interfaces.h>
-#include <telepathy-glib/errors.h>
-#include <telepathy-glib/dbus.h>
-#include <telepathy-glib/channel-iface.h>
-#include <telepathy-glib/svc-channel.h>
+#include "idle-im-channel.h"
 
 #include <time.h>
 
-#include "idle-connection.h"
-#include "idle-handles.h"
-#include "idle-text.h"
+#define DBUS_API_SUBJECT_TO_CHANGE
+#include <dbus/dbus-glib.h>
 
-#include "idle-im-channel.h"
+#include <telepathy-glib/channel-iface.h>
+#include <telepathy-glib/dbus.h>
+#include <telepathy-glib/enums.h>
+#include <telepathy-glib/interfaces.h>
+#include <telepathy-glib/errors.h>
+#include <telepathy-glib/svc-channel.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_IM
+#include "idle-connection.h"
 #include "idle-debug.h"
+#include "idle-handles.h"
+#include "idle-text.h"
 
 static void channel_iface_init (gpointer, gpointer);
 static void text_iface_init (gpointer, gpointer);

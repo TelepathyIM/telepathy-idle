@@ -22,6 +22,8 @@
 #define __IDLE_TEXT_H__
 
 #include <glib.h>
+
+#define DBUS_API_SUBJECT_TO_CHANGE
 #include <dbus/dbus-glib.h>
 
 #include "idle-connection.h"

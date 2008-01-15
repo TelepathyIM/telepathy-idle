@@ -19,10 +19,18 @@
  */
 
 #include <glib.h>
+
+#ifndef __USE_POSIX
+#define _IDLE_DNS_RESOLVER_H_UNDEF_USE_POSIX
 #define __USE_POSIX
+#endif
+
 #include <sys/types.h>
 #include <netdb.h>
+
+#ifdef _IDLE_DNS_RESOLVER_H_UNDEF_USE_POSIX
 #undef __USE_POSIX
+#endif
 
 G_BEGIN_DECLS
 

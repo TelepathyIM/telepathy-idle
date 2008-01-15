@@ -22,7 +22,6 @@
 #define __IDLE_CONNECTION_MANAGER_H__
 
 #include <glib-object.h>
-
 #include <telepathy-glib/base-connection-manager.h>
 
 G_BEGIN_DECLS

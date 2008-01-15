@@ -23,8 +23,6 @@
 
 #include <glib-object.h>
 
-#include "idle-im-channel.h"
-
 G_BEGIN_DECLS
 
 typedef struct _IdleIMFactory IdleIMFactory;

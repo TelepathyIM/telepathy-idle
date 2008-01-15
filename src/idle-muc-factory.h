@@ -23,8 +23,6 @@
 
 #include <glib-object.h>
 
-#include "idle-muc-channel.h"
-
 G_BEGIN_DECLS
 
 typedef struct _IdleMUCFactory IdleMUCFactory;

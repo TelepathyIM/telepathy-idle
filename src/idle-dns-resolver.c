@@ -19,9 +19,8 @@
  */
 #include "idle-dns-resolver.h"
 
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <netdb.h>
+#include <sys/socket.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_DNS
 #include "idle-debug.h"

@@ -18,16 +18,14 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include "idle-handles.h"
+
 #include <glib.h>
-#include <string.h>
 #include <ctype.h>
+#include <string.h>
 
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/handle-repo-dynamic.h>
-
-#include "idle-handles.h"
-
-#include "idle-connection.h"
 
 static gboolean _nickname_is_valid(const gchar *nickname) {
 	gsize len;

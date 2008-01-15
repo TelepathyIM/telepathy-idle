@@ -20,14 +20,13 @@
 
 #include "idle-text.h"
 
-#include <telepathy-glib/text-mixin.h>
-
 #include <time.h>
 #include <string.h>
 
-#include "idle-ctcp.h"
+#include <telepathy-glib/text-mixin.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_TEXT
+#include "idle-ctcp.h"
 #include "idle-debug.h"
 
 void idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gchar **body) {

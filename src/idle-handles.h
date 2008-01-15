@@ -22,11 +22,7 @@
 #define __IDLE_HANDLES_H__
 
 #include <glib.h>
-
-#include <telepathy-glib/enums.h>
 #include <telepathy-glib/handle-repo.h>
-
-#include "idle-connection.h"
 
 G_BEGIN_DECLS
 

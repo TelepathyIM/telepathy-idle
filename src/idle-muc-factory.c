@@ -20,20 +20,18 @@
 
 #include "idle-muc-factory.h"
 
-#include "idle-connection.h"
-#include "idle-ctcp.h"
-#include "idle-parser.h"
-#include "idle-text.h"
-
 #include <time.h>
-
-#include <glib.h>
 
 #include <telepathy-glib/channel-factory-iface.h>
 #include <telepathy-glib/interfaces.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_MUC
+#include "idle-connection.h"
+#include "idle-ctcp.h"
 #include "idle-debug.h"
+#include "idle-muc-channel.h"
+#include "idle-parser.h"
+#include "idle-text.h"
 
 static void _channel_factory_iface_init(gpointer g_iface, gpointer iface_data);
 
