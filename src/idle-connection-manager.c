@@ -90,10 +90,10 @@ static const TpCMProtocolSpec _protocols[] = {
 
 static TpBaseConnection *_iface_new_connection(TpBaseConnectionManager *self, const gchar *proto, TpIntSet *params_present, void *parsed_params, GError **error);
 
-static void idle_connection_manager_init (IdleConnectionManager *obj) {
+static void idle_connection_manager_init(IdleConnectionManager *obj) {
 }
 
-static void idle_connection_manager_class_init (IdleConnectionManagerClass *klass) {
+static void idle_connection_manager_class_init(IdleConnectionManagerClass *klass) {
 	TpBaseConnectionManagerClass *parent_class = TP_BASE_CONNECTION_MANAGER_CLASS(klass);
 
 	parent_class->new_connection = _iface_new_connection;

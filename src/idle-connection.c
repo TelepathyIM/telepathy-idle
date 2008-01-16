@@ -150,7 +150,7 @@ struct _IdleConnectionPrivate {
 	gboolean dispose_has_run;
 };
 
-#define IDLE_CONNECTION_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), IDLE_TYPE_CONNECTION, IdleConnectionPrivate))
+#define IDLE_CONNECTION_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), IDLE_TYPE_CONNECTION, IdleConnectionPrivate))
 
 static void _iface_create_handle_repos(TpBaseConnection *self, TpHandleRepoIface **repos);
 static GPtrArray *_iface_create_channel_factories(TpBaseConnection *self);
@@ -176,8 +176,8 @@ static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusRea
 static gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **_error);
 static void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **output);
 
-static void idle_connection_init (IdleConnection *obj) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE (obj);
+static void idle_connection_init(IdleConnection *obj) {
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(obj);
 
 	priv->sconn_status = SERVER_CONNECTION_STATE_NOT_CONNECTED;
 	priv->msg_queue = g_queue_new();
@@ -306,8 +306,8 @@ static void idle_connection_dispose (GObject *object) {
 
 	g_object_unref(self->parser);
 
-	if (G_OBJECT_CLASS (idle_connection_parent_class)->dispose)
-		G_OBJECT_CLASS (idle_connection_parent_class)->dispose (object);
+	if (G_OBJECT_CLASS(idle_connection_parent_class)->dispose)
+		G_OBJECT_CLASS(idle_connection_parent_class)->dispose (object);
 }
 
 static void idle_connection_finalize (GObject *object) {
@@ -326,10 +326,10 @@ static void idle_connection_finalize (GObject *object) {
 
 	g_queue_free(priv->msg_queue);
 
-	G_OBJECT_CLASS (idle_connection_parent_class)->finalize(object);
+	G_OBJECT_CLASS(idle_connection_parent_class)->finalize(object);
 }
 
-static void idle_connection_class_init (IdleConnectionClass *klass) {
+static void idle_connection_class_init(IdleConnectionClass *klass) {
 	GObjectClass *object_class = G_OBJECT_CLASS(klass);
 	TpBaseConnectionClass *parent_class = TP_BASE_CONNECTION_CLASS(klass);
 	GParamSpec *param_spec;

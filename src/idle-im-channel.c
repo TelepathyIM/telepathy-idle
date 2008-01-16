@@ -69,7 +69,7 @@ struct _IdleIMChannelPrivate {
 	gboolean dispose_has_run;
 };
 
-#define IDLE_IM_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), IDLE_TYPE_IM_CHANNEL, IdleIMChannelPrivate))
+#define IDLE_IM_CHANNEL_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), IDLE_TYPE_IM_CHANNEL, IdleIMChannelPrivate))
 
 static void idle_im_channel_init (IdleIMChannel *obj) {
 }
@@ -178,7 +178,7 @@ static void idle_im_channel_set_property(GObject *object, guint property_id, con
 }
 
 static void idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_class) {
-	GObjectClass *object_class = G_OBJECT_CLASS (idle_im_channel_class);
+	GObjectClass *object_class = G_OBJECT_CLASS(idle_im_channel_class);
 	GParamSpec *param_spec;
 
 	g_type_class_add_private (idle_im_channel_class, sizeof (IdleIMChannelPrivate));
@@ -191,12 +191,12 @@ static void idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_clas
 	object_class->dispose = idle_im_channel_dispose;
 	object_class->finalize = idle_im_channel_finalize;
 
-	g_object_class_override_property (object_class, PROP_OBJECT_PATH, "object-path");
-	g_object_class_override_property (object_class, PROP_CHANNEL_TYPE, "channel-type");
-	g_object_class_override_property (object_class, PROP_HANDLE_TYPE, "handle-type");
-	g_object_class_override_property (object_class, PROP_HANDLE, "handle");
+	g_object_class_override_property(object_class, PROP_OBJECT_PATH, "object-path");
+	g_object_class_override_property(object_class, PROP_CHANNEL_TYPE, "channel-type");
+	g_object_class_override_property(object_class, PROP_HANDLE_TYPE, "handle-type");
+	g_object_class_override_property(object_class, PROP_HANDLE, "handle");
 
-	param_spec = g_param_spec_object ("connection", "IdleConnection object",
+	param_spec = g_param_spec_object("connection", "IdleConnection object",
 			"The IdleConnection object that owns this "
 			"IMChannel object.",
 			IDLE_TYPE_CONNECTION,
@@ -204,14 +204,14 @@ static void idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_clas
 			G_PARAM_READWRITE |
 			G_PARAM_STATIC_NICK |
 			G_PARAM_STATIC_BLURB);
-	g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
+	g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
 
 	tp_text_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleIMChannelClass, text_class));
 }
 
 void idle_im_channel_dispose (GObject *object) {
-	IdleIMChannel *self = IDLE_IM_CHANNEL (object);
-	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE (self);
+	IdleIMChannel *self = IDLE_IM_CHANNEL(object);
+	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE(self);
 
 	g_assert(object != NULL);
 
@@ -223,13 +223,13 @@ void idle_im_channel_dispose (GObject *object) {
 	if (!priv->closed)
 		tp_svc_channel_emit_closed((TpSvcChannel *)(self));
 
-	if (G_OBJECT_CLASS (idle_im_channel_parent_class)->dispose)
-		G_OBJECT_CLASS (idle_im_channel_parent_class)->dispose (object);
+	if (G_OBJECT_CLASS(idle_im_channel_parent_class)->dispose)
+		G_OBJECT_CLASS(idle_im_channel_parent_class)->dispose (object);
 }
 
 void idle_im_channel_finalize (GObject *object) {
-	IdleIMChannel *self = IDLE_IM_CHANNEL (object);
-	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE (self);
+	IdleIMChannel *self = IDLE_IM_CHANNEL(object);
+	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE(self);
 	TpHandleRepoIface *handles;
 
 	handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
@@ -240,7 +240,7 @@ void idle_im_channel_finalize (GObject *object) {
 
 	tp_text_mixin_finalize(object);
 
-	G_OBJECT_CLASS (idle_im_channel_parent_class)->finalize (object);
+	G_OBJECT_CLASS(idle_im_channel_parent_class)->finalize (object);
 }
 
 gboolean idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *text) {
@@ -336,7 +336,7 @@ static void idle_im_channel_get_handle (TpSvcChannel *iface, DBusGMethodInvocati
  *
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
-static void idle_im_channel_get_interfaces (TpSvcChannel *iface, DBusGMethodInvocation *context) {
+static void idle_im_channel_get_interfaces(TpSvcChannel *iface, DBusGMethodInvocation *context) {
 	const gchar *interfaces[] = {NULL};
 
 	tp_svc_channel_return_from_get_interfaces(context, interfaces);
@@ -354,7 +354,7 @@ static void idle_im_channel_get_interfaces (TpSvcChannel *iface, DBusGMethodInvo
  *
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
-static void idle_im_channel_send (TpSvcChannelTypeText *iface, guint type, const gchar * text, DBusGMethodInvocation *context) {
+static void idle_im_channel_send(TpSvcChannelTypeText *iface, guint type, const gchar * text, DBusGMethodInvocation *context) {
 	IdleIMChannel *obj = (IdleIMChannel *)(iface);
 	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE(obj);
 	const gchar *recipient = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), priv->handle);

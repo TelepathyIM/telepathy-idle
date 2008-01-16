@@ -57,7 +57,7 @@ GType idle_connection_get_type(void);
 #define IDLE_IS_CONNECTION_CLASS(klass) \
 	(G_TYPE_CHECK_CLASS_TYPE((klass), IDLE_TYPE_CONNECTION))
 #define IDLE_CONNECTION_GET_CLASS(obj) \
-	(G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_CONNECTION, IdleConnectionClass))
+	(G_TYPE_INSTANCE_GET_CLASS((obj), IDLE_TYPE_CONNECTION, IdleConnectionClass))
 
 void idle_connection_canon_nick_receive(IdleConnection *conn, TpHandle handle, const gchar *canon_nick);
 void idle_connection_emit_queued_aliases_changed(IdleConnection *conn);

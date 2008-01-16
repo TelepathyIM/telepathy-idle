@@ -50,7 +50,7 @@ void idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gchar *
 	g_free(tmp);
 }
 
-void idle_text_send (GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *context) {
+void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *context) {
 	gchar msg[IRC_MSG_MAXLEN + 1];
 	time_t timestamp;
 	const gchar *final_text = text;
