@@ -73,7 +73,7 @@ static void idle_im_factory_get_property(GObject *object, guint property_id, GVa
 	IdleIMFactory *fac = IDLE_IM_FACTORY(object);
 	IdleIMFactoryPrivate *priv = IDLE_IM_FACTORY_GET_PRIVATE(fac);
 
-	switch(property_id) {
+	switch (property_id) {
 		case PROP_CONNECTION:
 			g_value_set_object(value, priv->conn);
 			break;
@@ -88,7 +88,7 @@ static void idle_im_factory_set_property(GObject *object, guint property_id, con
 	IdleIMFactory *fac = IDLE_IM_FACTORY(object);
 	IdleIMFactoryPrivate *priv = IDLE_IM_FACTORY_GET_PRIVATE(fac);
 
-	switch(property_id) {
+	switch (property_id) {
 		case PROP_CONNECTION:
 			priv->conn = g_value_get_object(value);
 			break;

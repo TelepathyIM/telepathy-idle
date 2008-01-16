@@ -135,7 +135,7 @@ gchar **idle_ctcp_decode(const gchar *msg) {
 	const gchar *iter = msg + 1;
 	gboolean string = FALSE;
 	while (*iter != '\0') {
-		switch(*iter) {
+		switch (*iter) {
 			case '\\':
 				if (isdigit(iter[1])) {
 					gchar *endptr = NULL;

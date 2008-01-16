@@ -90,7 +90,7 @@ static void idle_muc_factory_get_property(GObject *object, guint property_id, GV
 	IdleMUCFactory *fac = IDLE_MUC_FACTORY(object);
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(fac);
 
-	switch(property_id) {
+	switch (property_id) {
 		case PROP_CONNECTION:
 			g_value_set_object(value, priv->conn);
 			break;
@@ -105,7 +105,7 @@ static void idle_muc_factory_set_property(GObject *object, guint property_id, co
 	IdleMUCFactory *fac = IDLE_MUC_FACTORY(object);
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(fac);
 
-	switch(property_id) {
+	switch (property_id) {
 		case PROP_CONNECTION:
 			priv->conn = g_value_get_object(value);
 			break;
