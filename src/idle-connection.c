@@ -77,12 +77,17 @@ typedef struct _IdleOutputPendingMsg IdleOutputPendingMsg;
 struct _IdleOutputPendingMsg {
 	gchar *message;
 	guint priority;
+	guint64 id;
 };
 
-#define idle_output_pending_msg_new() \
-	(g_slice_new(IdleOutputPendingMsg))
-#define idle_output_pending_msg_new0() \
-	(g_slice_new0(IdleOutputPendingMsg))
+static IdleOutputPendingMsg *idle_output_pending_msg_new() {
+	IdleOutputPendingMsg *msg = g_slice_new(IdleOutputPendingMsg);
+	static guint64 last_id = 0;
+
+	msg->id = last_id++;
+
+	return msg;
+}
 
 static void idle_output_pending_msg_free(IdleOutputPendingMsg *msg) {
 	if (!msg)
@@ -95,7 +100,13 @@ static void idle_output_pending_msg_free(IdleOutputPendingMsg *msg) {
 static gint pending_msg_compare(gconstpointer a, gconstpointer b, gpointer unused) {
 	const IdleOutputPendingMsg *msg1 = a, *msg2 = b;
 
-	return (msg1->priority > msg2->priority) ? -1 : 1;
+	if (msg1->priority == msg2->priority) {
+		/* prefer the message with the lower id */
+		return (msg1->id - msg2->id);
+	}
+
+	/* prefer the message with the higher priority */
+	return (msg2->priority - msg1->priority);
 }
 
 enum {
