@@ -95,7 +95,9 @@ void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gcha
 		char *br = strchr (part, '\n');
 		size_t len = IRC_MSG_MAXLEN - headerlen;
 		if (br) {
-			len = (len < br - part) ? len : br - part;
+			/* If br is non-NULL, (br - part) will always be positive. */
+			size_t len_to_br = br - part;
+			len = (len < len_to_br) ? len : len_to_br;
 		}
 
 		if (type == TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION) {
