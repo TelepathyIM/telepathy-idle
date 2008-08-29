@@ -186,8 +186,8 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 
 void idle_parser_receive(IdleParser *parser, const gchar *msg) {
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
-	int i;
-	int lasti = 0;
+	guint i;
+	guint lasti = 0;
 	gchar *tmp;
 	gboolean line_ends = FALSE;
 	guint len;

@@ -501,7 +501,7 @@ static gboolean g_value_compare(const GValue *v1, const GValue *v2) {
 
 static void change_tp_properties(IdleMUCChannel *chan, const GPtrArray *props) {
 	IdleMUCChannelPrivate *priv;
-	int i;
+	guint i;
 	GPtrArray *changed_props;
 	GArray *flags;
 
@@ -596,7 +596,7 @@ static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpP
 			}
 		}
 	} else {
-		for (int i = 0; i < props->len; i++) {
+		for (guint i = 0; i < props->len; i++) {
 			guint prop_id = g_array_index(props, guint, i);
 			guint curr_flags = priv->properties[prop_id].flags;
 			guint flags = (curr_flags | add) & (~remove);
@@ -970,7 +970,7 @@ void idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
 	if (!priv->namereply_set)
 		priv->namereply_set = tp_handle_set_new(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT));
 
-	for (int i = 1; (i + 1) < args->n_values; i += 2) {
+	for (guint i = 1; (i + 1) < args->n_values; i += 2) {
 		TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, i));
 		gchar modechar = g_value_get_char(g_value_array_get_nth(args, i + 1));
 
@@ -1052,7 +1052,7 @@ void idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args) {
 
 	g_array_free(flags_to_change, TRUE);
 
-	for (int i = 1; i < args->n_values; i++) {
+	for (guint i = 1; i < args->n_values; i++) {
 		const gchar *modes = g_value_get_string(g_value_array_get_nth(args, i));
 		gchar operation = modes[0];
 		guint mode_accum = 0;
@@ -1675,7 +1675,7 @@ static void idle_muc_channel_get_properties (TpSvcPropertiesInterface *iface, co
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	for (int i = 0; i < properties->len; i++) {
+	for (guint i = 0; i < properties->len; i++) {
 		IdleMUCChannelTPProperty prop = g_array_index(properties, guint, i);
 
 		if (prop >= LAST_TP_PROPERTY_ENUM) {
@@ -1701,7 +1701,7 @@ static void idle_muc_channel_get_properties (TpSvcPropertiesInterface *iface, co
 
 	ret = g_ptr_array_sized_new(properties->len);
 
-	for (int i = 0; i < properties->len; i++) {
+	for (guint i = 0; i < properties->len; i++) {
 		IdleMUCChannelTPProperty prop = g_array_index(properties, guint, i);
 		GValue prop_val = {0, };
 
@@ -1876,7 +1876,7 @@ static char to_irc_mode(IdleMUCChannelTPProperty prop_id) {
 }
 
 static int prop_arr_find(const GPtrArray *props, IdleMUCChannelTPProperty needle) {
-	for (int i = 0; i < props->len; i++) {
+	for (guint i = 0; i < props->len; i++) {
 		GValue prop = {0, };
 		guint prop_id;
 
@@ -1914,7 +1914,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 	len = strlen(cmd);
 	body = cmd + len;
 
-	for (int i = 0; i < properties->len; i++) {
+	for (guint i = 0; i < properties->len; i++) {
 		GValue prop = {0, };
 		IdleMUCChannelTPProperty prop_id;
 		GValue *prop_val;
@@ -1986,7 +1986,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 
 	/* okay now the data is ALWAYS before the boolean */
 
-	for (int i = 0; i < waiting->len; i++) {
+	for (guint i = 0; i < waiting->len; i++) {
 		GValue prop = {0, };
 		IdleMUCChannelTPProperty prop_id;
 		GValue *prop_val;
@@ -2067,7 +2067,7 @@ static void idle_muc_channel_set_properties (TpSvcPropertiesInterface *iface, co
 
 	to_change = g_ptr_array_new();
 
-	for (int i = 0; i < properties->len; i++) {
+	for (guint i = 0; i < properties->len; i++) {
 		GValue prop = {0, };
 		IdleMUCChannelTPProperty prop_id;
 		GValue *prop_val;
