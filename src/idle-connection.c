@@ -894,7 +894,7 @@ static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing *if
 	}
 
 	const gchar **aliases = g_new0(const gchar *, handles->len + 1);
-	for (int i = 0; i < handles->len; i++) {
+	for (guint i = 0; i < handles->len; i++) {
 		TpHandle handle = g_array_index(handles, TpHandle, i);
 
 		const gchar *alias = tp_handle_get_qdata(repo, handle, _canon_nick_quark());
