@@ -1,11 +1,32 @@
 AC_PREREQ([2.59])
 
-AC_INIT
+# Making releases:
+#   set the new version number:
+#     odd minor -> development series
+#     even minor -> stable series
+#     increment micro for each release within a series
+#   set nano_version to 0
+#   make the release, tag it
+#   set nano_version to 1
+
+m4_define([idle_major_version], [0])
+m4_define([idle_minor_version], [1])
+m4_define([idle_micro_version], [2])
+m4_define([idle_nano_version], [1])
+
+m4_define([idle_base_version],
+          [idle_major_version.idle_minor_version.idle_micro_version])
+m4_define([idle_version],
+          [m4_if(idle_nano_version, 0,
+                 [idle_base_version],
+                 [idle_base_version].[idle_nano_version])])
+
+AC_INIT([telepathy-idle], [idle_version],
+        [https://bugs.freedesktop.org/enter_bug.cgi?product=Telepathy&component=telepathy-idle])
+
 AC_CONFIG_MACRO_DIR([m4])
 
-AS_VERSION(telepathy-idle, TELEPATHY_IDLE_VERSION, 0, 1, 2, 1, WERROR="no", WERROR="no")
-
-AM_INIT_AUTOMAKE($PACKAGE, $VERSION)
+AM_INIT_AUTOMAKE([1.8])
 
 AM_PROG_LIBTOOL
 AM_CONFIG_HEADER(config.h)
@@ -16,16 +37,28 @@ AC_PROG_CC
 AC_PROG_CC_STDC
 AM_PROG_AS
 
-dnl decide on error flags
-AS_COMPILER_FLAG(-Wall, WALL="yes", WALL="no")
+dnl decide error flags
+AS_COMPILER_FLAG(-Wall, ERROR_CFLAGS="-Wall", ERROR_CFLAGS="")
+AS_COMPILER_FLAG(-Werror, werror=yes, werror=no)
+AS_COMPILER_FLAG(-Wextra, wextra=yes, wextra=no)
+AS_COMPILER_FLAG(-Wno-missing-field-initializers,
+        wno_missing_field_initializers=yes,
+        wno_missing_field_initializers=no)
+AS_COMPILER_FLAG(-Wno-unused-parameter,
+        wno_unused_parameter=yes,
+        wno_unused_parameter=no)
 
-if test "x$WALL" = "xyes"; then
-  ERROR_CFLAGS="-Wall"
-
-  if test "x$WERROR" = "xyes"; then
-    AS_COMPILER_FLAG(-Werror,ERROR_CFLAGS="$ERROR_CFLAGS -Werror",ERROR_CFLAGS="$ERROR_CFLAGS")
-  fi
-fi
+ifelse(idle_nano_version, 0, [],
+    [
+        if test x$werror = xyes; then
+            ERROR_CFLAGS="$ERROR_CFLAGS -Werror"
+        fi
+        if test x$wextra = xyes -a \
+            x$wno_missing_field_initializers = xyes -a \
+            x$wno_unused_parameter = xyes; then
+            ERROR_CFLAGS="$ERROR_CFLAGS -Wextra -Wno-missing-field-initializers -Wno-unused-parameter"
+        fi
+    ])
 
 AC_SUBST(ERROR_CFLAGS)
 
