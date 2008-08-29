@@ -695,11 +695,7 @@ static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessa
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 
 	if (old_handle == conn->parent.self_handle) {
-		TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT);
-
-		tp_handle_unref(handles, conn->parent.self_handle);
-		conn->parent.self_handle = new_handle;
-		tp_handle_ref(handles, new_handle);
+		tp_base_connection_set_self_handle(TP_BASE_CONNECTION(conn), new_handle);
 	}
 
 	idle_svc_connection_interface_renaming_emit_renamed(IDLE_SVC_CONNECTION_INTERFACE_RENAMING(conn), old_handle, new_handle);
@@ -751,9 +747,7 @@ static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMe
 	TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT);
 
-	conn->parent.self_handle = handle;
-	tp_handle_ref(handles, handle);
-	g_assert(tp_handle_is_valid(handles, handle, NULL));
+	tp_base_connection_set_self_handle(TP_BASE_CONNECTION(conn), handle);
 
 	connection_connect_cb(conn, TRUE, 0);
 
