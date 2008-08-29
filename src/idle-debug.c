@@ -41,12 +41,12 @@ void idle_debug_init() {
 
 	const gchar *flags_string = g_getenv("IDLE_DEBUG");
 	if (flags_string) {
-		tp_debug_set_flags_from_env("IDLE_DEBUG");
+		tp_debug_set_flags(flags_string);
 		_flags |= g_parse_debug_string(flags_string, _keys, nkeys);
 	}
 
-	if (g_getenv("IDLE_PERSIST"))
-		tp_debug_set_flags_from_string("persist");
+	if (g_getenv("IDLE_PERSIST") != NULL)
+		tp_debug_set_persistent(TRUE);
 }
 
 void idle_debug(IdleDebugFlags flag, const gchar *format, ...) {
