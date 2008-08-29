@@ -51,25 +51,15 @@ gboolean idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gch
 	return TRUE;
 }
 
-void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *context) {
+GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *recipient, const gchar *text, GError **error) {
+	GPtrArray *messages;
 	gchar msg[IRC_MSG_MAXLEN + 1];
-	time_t timestamp;
-	const gchar *final_text = text;
 	gsize len;
 	gchar *part;
 	gsize headerlen;
-	GError *error;
+	const gchar *final_text;
 
-	if ((recipient == NULL) || (strlen(recipient) == 0)) {
-		IDLE_DEBUG("invalid recipient");
-
-		error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "invalid recipient");
-		dbus_g_method_return_error(context, error);
-		g_error_free(error);
-
-		return;
-	}
-
+	final_text = text;
 	len = strlen(final_text);
 	part = (gchar*)final_text;
 
@@ -81,14 +71,12 @@ void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gcha
 		g_snprintf(msg, IRC_MSG_MAXLEN + 1, "NOTICE %s :", recipient);
 	else {
 		IDLE_DEBUG("invalid message type %u", type);
+		g_set_error(error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid message type %u", type);
 
-		error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid message type %u", type);
-		dbus_g_method_return_error(context, error);
-		g_error_free(error);
-
-		return;
+		return NULL;
 	}
 
+	messages = g_ptr_array_new ();
 	headerlen = strlen(msg);
 
 	while (part < final_text + len) {
@@ -112,8 +100,41 @@ void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gcha
 		if (br)
 			part++;
 
-		idle_connection_send(conn, msg);
+		g_ptr_array_add(messages, g_strdup(msg));
 	}
+
+	g_ptr_array_add(messages, NULL);
+
+	return (GStrv) g_ptr_array_free(messages, FALSE);
+}
+
+void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *context) {
+	time_t timestamp;
+	GError *error = NULL;
+	GStrv messages;
+
+	if ((recipient == NULL) || (strlen(recipient) == 0)) {
+		IDLE_DEBUG("invalid recipient");
+
+		error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "invalid recipient");
+		dbus_g_method_return_error(context, error);
+		g_error_free(error);
+
+		return;
+	}
+
+	messages = idle_text_encode_and_split(type, recipient, text, &error);
+	if (messages == NULL) {
+		dbus_g_method_return_error(context, error);
+		g_error_free(error);
+		return;
+	}
+
+	for(GStrv m = messages; *m != NULL; m++) {
+		idle_connection_send(conn, *m);
+	}
+
+	g_strfreev(messages);
 
 	timestamp = time(NULL);
 	tp_svc_channel_type_text_emit_sent(obj, timestamp, type, text);
