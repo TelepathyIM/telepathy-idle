@@ -59,7 +59,7 @@ struct _MessageSpec {
 	IdleParserMessageCode code;
 };
 
-const static MessageSpec message_specs[] = {
+static const MessageSpec message_specs[] = {
 	{"PING", "Is", IDLE_PARSER_CMD_PING},
 
 	{"INVITE", "cIcr", IDLE_PARSER_PREFIXCMD_INVITE},

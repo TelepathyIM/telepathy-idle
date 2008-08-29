@@ -70,7 +70,7 @@ static gboolean _nickname_is_valid(const gchar *nickname) {
 }
 
 static gboolean _channelname_is_valid(const gchar *channel) {
-	const static gchar not_allowed_chars[] = {' ', '\007', ',', '\r', '\n', ':', '\0'};
+	static const gchar not_allowed_chars[] = {' ', '\007', ',', '\r', '\n', ':', '\0'};
 
 	if ((channel[0] != '#') && (channel[0] != '!') && (channel[0] != '&') && (channel[0] != '+'))
 		return FALSE;
