@@ -375,11 +375,10 @@ static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleP
 		type = TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE;
 		body = idle_ctcp_kill_blingbling(g_value_get_string(g_value_array_get_nth(args, 2)));
 	} else {
-		idle_text_decode(g_value_get_string(g_value_array_get_nth(args, 2)), &type, &body);
+		gboolean decoded = idle_text_decode(g_value_get_string(g_value_array_get_nth(args, 2)), &type, &body);
+		if (!decoded)
+			return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 	}
-
-	if (type == -1)
-		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 
 	if (chan)
 		idle_muc_channel_receive(chan, type, sender_handle, body);

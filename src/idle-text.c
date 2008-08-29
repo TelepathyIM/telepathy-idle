@@ -29,7 +29,7 @@
 #include "idle-ctcp.h"
 #include "idle-debug.h"
 
-void idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gchar **body) {
+gboolean idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gchar **body) {
 	gchar *tmp = NULL;
 
 	if (text[0] != '\001') {
@@ -41,13 +41,14 @@ void idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gchar *
 			*type = TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION;
 			tmp = g_strndup(text + actionlen, strlen(text + actionlen) - 1);
 		} else {
-			*type = -1;
-			tmp = NULL;
+			*body = NULL;
+			return FALSE;
 		}
 	}
 
 	*body = idle_ctcp_kill_blingbling(tmp);
 	g_free(tmp);
+	return TRUE;
 }
 
 void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *context) {
