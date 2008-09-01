@@ -1,12 +1,17 @@
 check_PROGRAMS = \
 	test-ctcp-tokenize \
-	test-ctcp-kill-blingbling
+	test-ctcp-kill-blingbling \
+	test-text-encode-and-split
 
 test_ctcp_tokenize_LDADD = \
 	$(top_builddir)/src/libidle-convenience.la \
 	$(ALL_LIBS)
 
 test_ctcp_kill_blingbling_LDADD = \
+	$(top_builddir)/src/libidle-convenience.la \
+	$(ALL_LIBS)
+
+test_text_encode_and_split_LDADD = \
 	$(top_builddir)/src/libidle-convenience.la \
 	$(ALL_LIBS)
 
