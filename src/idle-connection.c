@@ -745,7 +745,6 @@ static IdleParserHandlerResult _version_privmsg_handler(IdleParser *parser, Idle
 static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, 0));
-	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT);
 
 	tp_base_connection_set_self_handle(TP_BASE_CONNECTION(conn), handle);
 
