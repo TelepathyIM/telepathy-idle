@@ -1854,7 +1854,7 @@ static void idle_muc_channel_send (TpSvcChannelTypeText *iface, guint type, cons
 	time_t timestamp = time(NULL);
 
 	if ((priv->mode_state.flags & MODE_FLAG_MODERATED) && !(priv->mode_state.flags & (MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE | MODE_FLAG_VOICE_PRIVILEGE))) {
-		IDLE_DEBUG("emitting SEND_ERROR with (%u, %llu, %u, %s)", TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED, (guint64)(timestamp), type, text);
+		IDLE_DEBUG("emitting SEND_ERROR with (%u, %" G_GUINT64_FORMAT ", %u, %s)", TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED, (guint64)(timestamp), type, text);
 		tp_svc_channel_type_text_emit_send_error(iface, TP_CHANNEL_TEXT_SEND_ERROR_PERMISSION_DENIED, timestamp, type, text);
 		return;
 	}

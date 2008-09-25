@@ -102,7 +102,7 @@ GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *rec
 			advance = remaining_text_len;
 		}
 
-		message = g_strdup_printf("%s%.*s%s", header, bytes_to_copy, remaining_text, footer);
+		message = g_strdup_printf("%s%.*s%s", header, (int)bytes_to_copy, remaining_text, footer);
 		g_ptr_array_add(messages, message);
 
 		remaining_text += advance;
