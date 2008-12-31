@@ -350,7 +350,13 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 				iter += 2;
 			}
 		} else if ((*format == ':') || (*format == '.')) {
-			if ((iter[0][0] != ':') || (iter[0][1] == '\0')) {
+			/* Because of the way things are tokenized, if there is a space
+			 * immediately after the the ':', the current token will only be
+			 * ":", so we check that iter[1][1] is non-NULL rather than checking
+			 * iter[0][1] (since iter[0] is a NULL-terminated token string
+			 * whereas iter[1] is a pointer into the full message string
+			 */
+			if ((iter[0][0] != ':') || (iter[1][1] == '\0')) {
 				success = FALSE;
 				break;
 			}
