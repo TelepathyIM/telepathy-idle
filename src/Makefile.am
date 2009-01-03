@@ -22,12 +22,12 @@ libidle_convenience_la_SOURCES = \
 	idle-handles.h \
 	idle-im-channel.c \
 	idle-im-channel.h \
-	idle-im-factory.c \
-	idle-im-factory.h \
+	idle-im-manager.c \
+	idle-im-manager.h \
 	idle-muc-channel.c \
 	idle-muc-channel.h \
-	idle-muc-factory.c \
-	idle-muc-factory.h \
+	idle-muc-manager.c \
+	idle-muc-manager.h \
 	idle-parser.c \
 	idle-parser.h \
 	idle-server-connection.c \

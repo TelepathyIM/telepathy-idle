@@ -18,34 +18,34 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef __IDLE_IM_FACTORY_H__
-#define __IDLE_IM_FACTORY_H__
+#ifndef __IDLE_IM_MANAGER_H__
+#define __IDLE_IM_MANAGER_H__
 
 #include <glib-object.h>
 
 G_BEGIN_DECLS
 
-typedef struct _IdleIMFactory IdleIMFactory;
-typedef struct _IdleIMFactoryClass IdleIMFactoryClass;
+typedef struct _IdleIMManager IdleIMManager;
+typedef struct _IdleIMManagerClass IdleIMManagerClass;
 
-struct _IdleIMFactoryClass {
+struct _IdleIMManagerClass {
 	GObjectClass parent_class;
 };
 
-struct _IdleIMFactory {
+struct _IdleIMManager {
 	GObject parent;
 };
 
-GType idle_im_factory_get_type();
+GType idle_im_manager_get_type();
 
-#define IDLE_TYPE_IM_FACTORY (idle_im_factory_get_type())
-#define IDLE_IM_FACTORY(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), IDLE_TYPE_IM_FACTORY, IdleIMFactory))
-#define IDLE_IM_FACTORY_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST((klass), IDLE_TYPE_IM_FACTORY, IdleIMFactoryClass))
-#define IDLE_IS_IM_FACTORY(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), IDLE_TYPE_IM_FACTORY))
-#define IDLE_IS_IM_FACTORY_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), IDLE_TYPE_IM_FACTORY))
-#define IDLE_IM_FACTORY_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS((obj), IDLE_TYPE_IM_FACTORY, IdleIMFactoryClass))
+#define IDLE_TYPE_IM_MANAGER (idle_im_manager_get_type())
+#define IDLE_IM_MANAGER(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), IDLE_TYPE_IM_MANAGER, IdleIMManager))
+#define IDLE_IM_MANAGER_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST((klass), IDLE_TYPE_IM_MANAGER, IdleIMManagerClass))
+#define IDLE_IS_IM_MANAGER(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), IDLE_TYPE_IM_MANAGER))
+#define IDLE_IS_IM_MANAGER_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), IDLE_TYPE_IM_MANAGER))
+#define IDLE_IM_MANAGER_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS((obj), IDLE_TYPE_IM_MANAGER, IdleIMManagerClass))
 
 G_END_DECLS
 
-#endif /* #ifndef __IDLE_IM_FACTORY_H__ */
+#endif /* #ifndef __IDLE_IM_MANAGER_H__ */
 
