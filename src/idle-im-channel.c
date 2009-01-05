@@ -44,7 +44,8 @@ static void _text_iface_init(gpointer, gpointer);
 G_DEFINE_TYPE_WITH_CODE(IdleIMChannel, idle_im_channel, G_TYPE_OBJECT,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL, _channel_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, _text_iface_init);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_IFACE, NULL);)
+		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_IFACE, NULL);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_EXPORTABLE_CHANNEL, NULL);)
 
 /* property enum */
 enum {
@@ -53,6 +54,8 @@ enum {
 	PROP_CHANNEL_TYPE,
 	PROP_HANDLE_TYPE,
 	PROP_HANDLE,
+	PROP_CHANNEL_DESTROYED,
+	PROP_CHANNEL_PROPERTIES,
 	LAST_PROPERTY_ENUM
 };
 
@@ -134,6 +137,22 @@ static void idle_im_channel_get_property(GObject *object, guint property_id, GVa
 			g_value_set_uint(value, priv->handle);
 			break;
 
+		case PROP_CHANNEL_DESTROYED:
+			/* TODO: this should be FALSE if there are still pending messages, so
+			 *       the channel manager can respawn the channel.
+			 */
+			g_value_set_boolean (value, TRUE);
+			break;
+
+		case PROP_CHANNEL_PROPERTIES:
+			g_value_take_boxed (value,
+								tp_dbus_properties_mixin_make_properties_hash (object,
+									TP_IFACE_CHANNEL, "TargetHandle",
+									TP_IFACE_CHANNEL, "TargetHandleType",
+									TP_IFACE_CHANNEL, "ChannelType",
+									NULL));
+			break;
+
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
 			break;
@@ -195,18 +214,37 @@ static void idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_clas
 	g_object_class_override_property(object_class, PROP_CHANNEL_TYPE, "channel-type");
 	g_object_class_override_property(object_class, PROP_HANDLE_TYPE, "handle-type");
 	g_object_class_override_property(object_class, PROP_HANDLE, "handle");
+	g_object_class_override_property(object_class, PROP_CHANNEL_DESTROYED, "channel-destroyed");
+	g_object_class_override_property(object_class, PROP_CHANNEL_PROPERTIES, "channel-properties");
 
 	param_spec = g_param_spec_object("connection", "IdleConnection object",
-			"The IdleConnection object that owns this "
-			"IMChannel object.",
-			IDLE_TYPE_CONNECTION,
-			G_PARAM_CONSTRUCT_ONLY |
-			G_PARAM_READWRITE |
-			G_PARAM_STATIC_NICK |
-			G_PARAM_STATIC_BLURB);
+									 "The IdleConnection object that owns this "
+									 "IMChannel object.",
+									 IDLE_TYPE_CONNECTION,
+									 G_PARAM_CONSTRUCT_ONLY |
+									 G_PARAM_READWRITE |
+									 G_PARAM_STATIC_NICK |
+									 G_PARAM_STATIC_BLURB);
 	g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
 
+	static TpDBusPropertiesMixinPropImpl channel_props[] = {
+		{ "TargetHandleType", "handle-type", NULL },
+		{ "TargetHandle", "handle", NULL },
+		{ "ChannelType", "channel-type", NULL },
+		{ NULL }
+	};
+	static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
+		{ TP_IFACE_CHANNEL,
+			tp_dbus_properties_mixin_getter_gobject_properties,
+			NULL,
+			channel_props,
+		},
+		{ NULL }
+	};
+
+	idle_im_channel_class->dbus_props_class.interfaces = prop_interfaces;
 	tp_text_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleIMChannelClass, text_class));
+	tp_dbus_properties_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleIMChannelClass, dbus_props_class));
 }
 
 void idle_im_channel_dispose (GObject *object) {

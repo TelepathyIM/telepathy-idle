@@ -27,6 +27,7 @@
 #include <telepathy-glib/group-mixin.h>
 #include <telepathy-glib/handle.h>
 #include <telepathy-glib/text-mixin.h>
+#include <telepathy-glib/dbus-properties-mixin.h>
 
 G_BEGIN_DECLS
 
@@ -37,6 +38,7 @@ struct _IdleMUCChannelClass {
 	GObjectClass parent_class;
 	TpGroupMixinClass group_class;
 	TpTextMixinClass text_class;
+	TpDBusPropertiesMixinClass dbus_props_class;
 };
 
 struct _IdleMUCChannel {

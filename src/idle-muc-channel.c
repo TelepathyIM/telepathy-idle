@@ -53,6 +53,7 @@ G_DEFINE_TYPE_WITH_CODE(IdleMUCChannel, idle_muc_channel, G_TYPE_OBJECT,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_PASSWORD, _password_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, _text_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_PROPERTIES_INTERFACE, _properties_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_EXPORTABLE_CHANNEL, NULL);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_IFACE, NULL);)
 
 /* signal enum */
@@ -68,6 +69,8 @@ enum {
 	PROP_CHANNEL_TYPE,
 	PROP_HANDLE_TYPE,
 	PROP_HANDLE,
+	PROP_CHANNEL_DESTROYED,
+	PROP_CHANNEL_PROPERTIES,
 	LAST_PROPERTY_ENUM
 };
 
@@ -303,6 +306,22 @@ static void idle_muc_channel_get_property(GObject *object, guint property_id, GV
 			g_value_set_uint(value, priv->handle);
 			break;
 
+		case PROP_CHANNEL_DESTROYED:
+			/* TODO: this should be FALSE if there are still pending messages, so
+			 *       the channel manager can respawn the channel.
+			 */
+			g_value_set_boolean (value, TRUE);
+			break;
+
+		case PROP_CHANNEL_PROPERTIES:
+			g_value_take_boxed (value,
+								tp_dbus_properties_mixin_make_properties_hash (object,
+									TP_IFACE_CHANNEL, "TargetHandle",
+									TP_IFACE_CHANNEL, "TargetHandleType",
+									TP_IFACE_CHANNEL, "ChannelType",
+									NULL));
+			break;
+
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
 			break;
@@ -362,6 +381,8 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
 	g_object_class_override_property (object_class, PROP_CHANNEL_TYPE, "channel-type");
 	g_object_class_override_property (object_class, PROP_HANDLE_TYPE, "handle-type");
 	g_object_class_override_property (object_class, PROP_HANDLE, "handle");
+	g_object_class_override_property (object_class, PROP_CHANNEL_DESTROYED, "channel-destroyed");
+	g_object_class_override_property (object_class, PROP_CHANNEL_PROPERTIES, "channel-properties");
 
 	object_class->dispose = idle_muc_channel_dispose;
 	object_class->finalize = idle_muc_channel_finalize;
@@ -373,6 +394,24 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
 
 	tp_group_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleMUCChannelClass, group_class), add_member, remove_member);
 	tp_text_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleMUCChannelClass, text_class));
+
+	static TpDBusPropertiesMixinPropImpl channel_props[] = {
+		{ "TargetHandleType", "handle-type", NULL },
+		{ "TargetHandle", "handle", NULL },
+		{ "ChannelType", "channel-type", NULL },
+		{ NULL }
+	};
+	static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
+		{ TP_IFACE_CHANNEL,
+			tp_dbus_properties_mixin_getter_gobject_properties,
+			NULL,
+			channel_props,
+		},
+		{ NULL }
+	};
+
+	idle_muc_channel_class->dbus_props_class.interfaces = prop_interfaces;
+	tp_dbus_properties_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleMUCChannelClass, dbus_props_class));
 }
 
 void idle_muc_channel_dispose (GObject *object) {
