@@ -18,11 +18,12 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include "idle-muc-factory.h"
+#include "idle-muc-manager.h"
 
 #include <time.h>
 
-#include <telepathy-glib/channel-factory-iface.h>
+#include <telepathy-glib/channel-manager.h>
+#include <telepathy-glib/dbus.h>
 #include <telepathy-glib/interfaces.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_MUC
@@ -33,10 +34,11 @@
 #include "idle-parser.h"
 #include "idle-text.h"
 
-static void _factory_iface_init(gpointer, gpointer);
+static void _muc_manager_iface_init(gpointer, gpointer);
+static GObject* _muc_manager_constructor(GType type, guint n_props, GObjectConstructParam *props);
 
-G_DEFINE_TYPE_WITH_CODE(IdleMUCFactory, idle_muc_factory, G_TYPE_OBJECT,
-		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_FACTORY_IFACE, _factory_iface_init));
+G_DEFINE_TYPE_WITH_CODE(IdleMUCManager, idle_muc_manager, G_TYPE_OBJECT,
+		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_MANAGER, _muc_manager_iface_init));
 
 /* properties */
 enum {
@@ -44,15 +46,15 @@ enum {
 	LAST_PROPERTY_ENUM
 };
 
-typedef struct _IdleMUCFactoryPrivate IdleMUCFactoryPrivate;
-struct _IdleMUCFactoryPrivate {
+typedef struct _IdleMUCManagerPrivate IdleMUCManagerPrivate;
+struct _IdleMUCManagerPrivate {
 	IdleConnection *conn;
 	GHashTable *channels;
-
+	gulong status_changed_id;
 	gboolean dispose_has_run;
 };
 
-#define IDLE_MUC_FACTORY_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), IDLE_TYPE_MUC_FACTORY, IdleMUCFactoryPrivate))
+#define IDLE_MUC_MANAGER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), IDLE_TYPE_MUC_MANAGER, IdleMUCManagerPrivate))
 
 static IdleParserHandlerResult _numeric_error_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _numeric_namereply_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
@@ -70,25 +72,65 @@ static IdleParserHandlerResult _part_handler(IdleParser *parser, IdleParserMessa
 static IdleParserHandlerResult _quit_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _topic_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 
-static void _iface_close_all(TpChannelFactoryIface *iface);
-static void _iface_connecting(TpChannelFactoryIface *iface);
-static void _iface_disconnected(TpChannelFactoryIface *iface);
-static void _iface_foreach(TpChannelFactoryIface *iface, TpChannelFunc func, gpointer user_data);
-static TpChannelFactoryRequestStatus _iface_request(TpChannelFactoryIface *iface, const gchar *chan_type, TpHandleType handle_type, guint handle, gpointer request, TpChannelIface **new_chan, GError **error);
+static void connection_status_changed_cb (IdleConnection *conn, guint status, guint reason, IdleMUCManager *self);
+static void _muc_manager_close_all(IdleMUCManager *manager);
+static void _muc_manager_add_handlers(IdleMUCManager *manager);
 
-static IdleMUCChannel *_create_channel(IdleMUCFactory *factory, TpHandle handle);
+static void _muc_manager_foreach_channel(TpChannelManager *manager, TpExportableChannelFunc func, gpointer user_data);
+static void _muc_manager_foreach_channel_class (TpChannelManager *manager, TpChannelManagerChannelClassFunc func, gpointer user_data);
+
+static gboolean _muc_manager_create_channel (TpChannelManager *manager, gpointer request_token, GHashTable *request_properties);
+static gboolean _muc_manager_request_channel (TpChannelManager *manager, gpointer request_token, GHashTable *request_properties);
+static gboolean _muc_manager_ensure_channel (TpChannelManager *manager, gpointer request_token, GHashTable *request_properties);
+static gboolean _muc_manager_request (IdleMUCManager *self, gpointer request_token, GHashTable *request_properties, gboolean require_new);
+
+static IdleMUCChannel *_muc_manager_new_channel(IdleMUCManager *manager, TpHandle handle, gpointer request_token);
+
 static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data);
 static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer user_data);
 
-static void idle_muc_factory_init(IdleMUCFactory *obj) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(obj);
+
+static const gchar * const muc_channel_fixed_properties[] = {
+    TP_IFACE_CHANNEL ".ChannelType",
+    TP_IFACE_CHANNEL ".TargetHandleType",
+    NULL
+};
+
+static const gchar * const muc_channel_allowed_properties[] = {
+    TP_IFACE_CHANNEL ".TargetHandle",
+    TP_IFACE_CHANNEL ".TargetID",
+    NULL
+};
+
+
+static GObject*
+_muc_manager_constructor(GType type, guint n_props, GObjectConstructParam *props)
+{
+	GObject *obj;
+	IdleMUCManagerPrivate *priv;
+
+	obj = G_OBJECT_CLASS (idle_muc_manager_parent_class)-> constructor (type,
+																		n_props,
+																		props);
+
+	priv = IDLE_MUC_MANAGER_GET_PRIVATE (obj);
+
+	priv->status_changed_id =
+		g_signal_connect (priv->conn, "status-changed",
+						  (GCallback) connection_status_changed_cb, obj);
+
+	return obj;
+}
+
+static void idle_muc_manager_init(IdleMUCManager *obj) {
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(obj);
 
 	priv->channels = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_object_unref);
 }
 
-static void idle_muc_factory_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec) {
-	IdleMUCFactory *fac = IDLE_MUC_FACTORY(object);
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(fac);
+static void idle_muc_manager_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec) {
+	IdleMUCManager *fac = IDLE_MUC_MANAGER(object);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(fac);
 
 	switch (property_id) {
 		case PROP_CONNECTION:
@@ -101,9 +143,9 @@ static void idle_muc_factory_get_property(GObject *object, guint property_id, GV
 	}
 }
 
-static void idle_muc_factory_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec) {
-	IdleMUCFactory *fac = IDLE_MUC_FACTORY(object);
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(fac);
+static void idle_muc_manager_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec) {
+	IdleMUCManager *fac = IDLE_MUC_MANAGER(object);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(fac);
 
 	switch (property_id) {
 		case PROP_CONNECTION:
@@ -116,21 +158,22 @@ static void idle_muc_factory_set_property(GObject *object, guint property_id, co
 	}
 }
 
-static void idle_muc_factory_class_init(IdleMUCFactoryClass *klass) {
+static void idle_muc_manager_class_init(IdleMUCManagerClass *klass) {
 	GObjectClass *object_class = G_OBJECT_CLASS(klass);
 	GParamSpec *param_spec;
 
-	g_type_class_add_private(klass, sizeof(IdleMUCFactoryPrivate));
+	g_type_class_add_private(klass, sizeof(IdleMUCManagerPrivate));
 
-	object_class->get_property = idle_muc_factory_get_property;
-	object_class->set_property = idle_muc_factory_set_property;
+	object_class->constructor = _muc_manager_constructor;
+	object_class->get_property = idle_muc_manager_get_property;
+	object_class->set_property = idle_muc_manager_set_property;
 
-	param_spec = g_param_spec_object("connection", "IdleConnection object", "The IdleConnection object that owns this IM channel factory object.", IDLE_TYPE_CONNECTION, G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
+	param_spec = g_param_spec_object("connection", "IdleConnection object", "The IdleConnection object that owns this IM channel manager object.", IDLE_TYPE_CONNECTION, G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
 	g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
 }
 
 static IdleParserHandlerResult _numeric_error_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 
 	if (!priv->channels) {
@@ -169,7 +212,7 @@ static IdleParserHandlerResult _numeric_error_handler(IdleParser *parser, IdlePa
 }
 
 static IdleParserHandlerResult _numeric_topic_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	const gchar *topic = g_value_get_string(g_value_array_get_nth(args, 1));
 
@@ -187,7 +230,7 @@ static IdleParserHandlerResult _numeric_topic_handler(IdleParser *parser, IdlePa
 }
 
 static IdleParserHandlerResult _numeric_topic_stamp_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle toucher_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	time_t touched = g_value_get_uint(g_value_array_get_nth(args, 2));
@@ -208,8 +251,8 @@ static IdleParserHandlerResult _numeric_topic_stamp_handler(IdleParser *parser, 
 }
 
 static IdleParserHandlerResult _invite_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
-	IdleMUCFactory *factory = IDLE_MUC_FACTORY(user_data);
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(factory);
+	IdleMUCManager *manager = IDLE_MUC_MANAGER(user_data);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(manager);
 	TpHandle inviter_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle invited_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 2));
@@ -227,8 +270,8 @@ static IdleParserHandlerResult _invite_handler(IdleParser *parser, IdleParserMes
 	idle_connection_emit_queued_aliases_changed(priv->conn);
 
 	if (!chan) {
-		chan = _create_channel(factory, room_handle);
-		tp_channel_factory_iface_emit_new_channel(TP_CHANNEL_FACTORY_IFACE(user_data), (TpChannelIface *) chan, NULL);
+		chan = _muc_manager_new_channel(manager, room_handle, NULL);
+		tp_channel_manager_emit_new_channel(TP_CHANNEL_MANAGER(user_data), (TpExportableChannel *) chan, NULL);
 		idle_muc_channel_invited(chan, inviter_handle);
 	}
 
@@ -236,8 +279,8 @@ static IdleParserHandlerResult _invite_handler(IdleParser *parser, IdleParserMes
 }
 
 static IdleParserHandlerResult _join_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
-	IdleMUCFactory *factory = IDLE_MUC_FACTORY(user_data);
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(factory);
+	IdleMUCManager *manager = IDLE_MUC_MANAGER(user_data);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(manager);
 	TpHandle joiner_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 
@@ -250,8 +293,10 @@ static IdleParserHandlerResult _join_handler(IdleParser *parser, IdleParserMessa
 
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
-	if (!chan)
-		chan = _create_channel(factory, room_handle);
+	if (!chan) {
+		/* XXX: emit request_already_satisified?  use request_channel API? */
+		chan = _muc_manager_new_channel(manager, room_handle, NULL);
+	}
 
 	idle_muc_channel_join(chan, joiner_handle);
 
@@ -259,7 +304,7 @@ static IdleParserHandlerResult _join_handler(IdleParser *parser, IdleParserMessa
 }
 
 static IdleParserHandlerResult _kick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 	TpHandle kicker_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	TpHandle kicked_handle = g_value_get_uint(g_value_array_get_nth(args, 2));
@@ -279,7 +324,7 @@ static IdleParserHandlerResult _kick_handler(IdleParser *parser, IdleParserMessa
 }
 
 static IdleParserHandlerResult _numeric_namereply_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 
 	if (!priv->channels) {
@@ -296,7 +341,7 @@ static IdleParserHandlerResult _numeric_namereply_handler(IdleParser *parser, Id
 }
 
 static IdleParserHandlerResult _numeric_namereply_end_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 
 	if (!priv->channels) {
@@ -313,7 +358,7 @@ static IdleParserHandlerResult _numeric_namereply_end_handler(IdleParser *parser
 }
 
 static IdleParserHandlerResult _mode_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 
 	if (!priv->channels) {
@@ -334,15 +379,15 @@ struct _ChannelRenameForeachData {
 	TpHandle old_handle, new_handle;
 };
 
-static void _channel_rename_foreach(TpChannelIface *iface, gpointer user_data) {
-	IdleMUCChannel *chan = IDLE_MUC_CHANNEL(iface);
+static void _channel_rename_foreach(TpExportableChannel *channel, gpointer user_data) {
+	IdleMUCChannel *muc_chan = IDLE_MUC_CHANNEL(channel);
 	ChannelRenameForeachData *data = user_data;
 
-	idle_muc_channel_rename(chan, data->old_handle, data->new_handle);
+	idle_muc_channel_rename(muc_chan, data->old_handle, data->new_handle);
 }
 
 static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
-	TpChannelFactoryIface *iface = TP_CHANNEL_FACTORY_IFACE(user_data);
+	TpChannelManager *mgr = TP_CHANNEL_MANAGER(user_data);
 	TpHandle old_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle new_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	ChannelRenameForeachData data = {old_handle, new_handle};
@@ -350,14 +395,14 @@ static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessa
 	if (old_handle == new_handle)
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 
-	tp_channel_factory_iface_foreach(iface, _channel_rename_foreach, &data);
+	tp_channel_manager_foreach_channel(mgr, _channel_rename_foreach, &data);
 
 	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 }
 
 static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
-	IdleMUCFactory *factory = IDLE_MUC_FACTORY(user_data);
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(factory);
+	IdleMUCManager *manager = IDLE_MUC_MANAGER(user_data);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(manager);
 	TpHandle sender_handle = (TpHandle) g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle room_handle = (TpHandle) g_value_get_uint(g_value_array_get_nth(args, 1));
 
@@ -367,6 +412,11 @@ static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleP
 	}
 
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+	/* XXX: just check for chan == NULL here and bail with NOT_HANDLED if room
+	 * was not found ?  Currently we go through all of the decoding of the
+	 * message, but don't actually deliver the message to a channel if chan is
+	 * NULL, and then we return 'HANDLED', which seems wrong
+	 */
 
 	TpChannelTextMessageType type;
 	gchar *body;
@@ -390,7 +440,7 @@ static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleP
 
 
 static IdleParserHandlerResult _part_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 	TpHandle leaver_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	const gchar *message = (args->n_values == 3) ? g_value_get_string(g_value_array_get_nth(args, 2)) : NULL;
@@ -414,26 +464,26 @@ struct _ChannelQuitForeachData {
 	const gchar *message;
 };
 
-static void _channel_quit_foreach(TpChannelIface *iface, gpointer user_data) {
-	IdleMUCChannel *chan = IDLE_MUC_CHANNEL(iface);
+static void _channel_quit_foreach(TpExportableChannel *channel, gpointer user_data) {
+	IdleMUCChannel *muc_chan = IDLE_MUC_CHANNEL(channel);
 	ChannelQuitForeachData *data = user_data;
 
-	idle_muc_channel_quit(chan, data->handle, data->message);
+	idle_muc_channel_quit(muc_chan, data->handle, data->message);
 }
 
 static IdleParserHandlerResult _quit_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
-	TpChannelFactoryIface *iface = TP_CHANNEL_FACTORY_IFACE(user_data);
+	TpChannelManager *manager = TP_CHANNEL_MANAGER(user_data);
 	TpHandle leaver_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	const gchar *message = (args->n_values == 2) ? g_value_get_string(g_value_array_get_nth(args, 1)) : NULL;
 	ChannelQuitForeachData data = {leaver_handle, message};
 
-	tp_channel_factory_iface_foreach(iface, _channel_quit_foreach, &data);
+	tp_channel_manager_foreach_channel(manager, _channel_quit_foreach, &data);
 
 	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 }
 
 static IdleParserHandlerResult _topic_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 	TpHandle setter_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	const gchar *topic = (args->n_values == 3) ? g_value_get_string(g_value_array_get_nth(args, 2)) : NULL;
@@ -456,8 +506,14 @@ static IdleParserHandlerResult _topic_handler(IdleParser *parser, IdleParserMess
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
 
-static void _iface_close_all(TpChannelFactoryIface *iface) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(iface);
+static void _muc_manager_close_all(IdleMUCManager *manager)
+{
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(manager);
+
+	if (priv->status_changed_id != 0) {
+		g_signal_handler_disconnect (priv->conn, priv->status_changed_id);
+		priv->status_changed_id = 0;
+	}
 
 	if (!priv->channels) {
 		IDLE_DEBUG("Channels already closed, ignoring...");
@@ -469,39 +525,54 @@ static void _iface_close_all(TpChannelFactoryIface *iface) {
 	g_hash_table_destroy(tmp);
 }
 
-static void _iface_connecting(TpChannelFactoryIface *iface) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(iface);
-
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_BADCHANNELKEY, _numeric_error_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_BANNEDFROMCHAN, _numeric_error_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_CHANNELISFULL, _numeric_error_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_INVITEONLYCHAN, _numeric_error_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_MODEREPLY, _mode_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_NAMEREPLY, _numeric_namereply_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_NAMEREPLY_END, _numeric_namereply_end_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_TOPIC, _numeric_topic_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_TOPIC_STAMP, _numeric_topic_stamp_handler, iface);
-
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_INVITE, _invite_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_JOIN, _join_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_KICK, _kick_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_MODE_CHANNEL, _mode_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_NICK, _nick_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_NOTICE_CHANNEL, _notice_privmsg_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_CHANNEL, _notice_privmsg_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_PART, _part_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_QUIT, _quit_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_TOPIC, _topic_handler, iface);
+static void
+connection_status_changed_cb (IdleConnection *conn,
+							  guint status,
+							  guint reason,
+							  IdleMUCManager *self)
+{
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(self);
+	switch (status)
+	{
+		case TP_CONNECTION_STATUS_CONNECTED:
+			_muc_manager_add_handlers(self);
+			break;
+		case TP_CONNECTION_STATUS_DISCONNECTED:
+			idle_parser_remove_handlers_by_data(priv->conn->parser, self);
+			_muc_manager_close_all(self);
+			break;
+	}
 }
 
-static void _iface_disconnected(TpChannelFactoryIface *iface) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(iface);
 
-	idle_parser_remove_handlers_by_data(priv->conn->parser, iface);
+static void _muc_manager_add_handlers(IdleMUCManager *manager)
+{
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(manager);
+
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_BADCHANNELKEY, _numeric_error_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_BANNEDFROMCHAN, _numeric_error_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_CHANNELISFULL, _numeric_error_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_INVITEONLYCHAN, _numeric_error_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_MODEREPLY, _mode_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_NAMEREPLY, _numeric_namereply_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_NAMEREPLY_END, _numeric_namereply_end_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_TOPIC, _numeric_topic_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_NUMERIC_TOPIC_STAMP, _numeric_topic_stamp_handler, manager);
+
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_INVITE, _invite_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_JOIN, _join_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_KICK, _kick_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_MODE_CHANNEL, _mode_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_NICK, _nick_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_NOTICE_CHANNEL, _notice_privmsg_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_CHANNEL, _notice_privmsg_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_PART, _part_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_QUIT, _quit_handler, manager);
+	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_TOPIC, _topic_handler, manager);
 }
 
 struct _ForeachHelperData {
-	TpChannelFunc func;
+	TpExportableChannelFunc func;
 	gpointer user_data;
 };
 
@@ -510,8 +581,8 @@ static void _foreach_helper(gpointer key, gpointer value, gpointer user_data) {
 	data->func(value, data->user_data);
 }
 
-static void _iface_foreach(TpChannelFactoryIface *iface, TpChannelFunc func, gpointer user_data) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(iface);
+static void _muc_manager_foreach_channel(TpChannelManager *iface, TpExportableChannelFunc func, gpointer user_data) {
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(iface);
 	struct _ForeachHelperData data = {func, user_data};
 
 	if (!priv->channels) {
@@ -522,54 +593,62 @@ static void _iface_foreach(TpChannelFactoryIface *iface, TpChannelFunc func, gpo
 	g_hash_table_foreach(priv->channels, _foreach_helper, &data);
 }
 
-static TpChannelFactoryRequestStatus _iface_request(TpChannelFactoryIface *iface, const gchar *chan_type, TpHandleType handle_type, guint handle, gpointer request, TpChannelIface **new_chan, GError **error) {
-	IdleMUCFactory *factory = IDLE_MUC_FACTORY(iface);
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(factory);
+static void
+_muc_manager_foreach_channel_class (TpChannelManager *manager,
+									TpChannelManagerChannelClassFunc func,
+									gpointer user_data)
+{
+	GHashTable *table = g_hash_table_new_full (g_str_hash, g_str_equal,
+											   NULL, (GDestroyNotify) tp_g_value_slice_free);
+	GValue *channel_type_value, *handle_type_value;
 
-	if (!g_str_equal(chan_type, TP_IFACE_CHANNEL_TYPE_TEXT))
-		return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_IMPLEMENTED;
+	channel_type_value = tp_g_value_slice_new (G_TYPE_STRING);
+	g_value_set_static_string (channel_type_value, TP_IFACE_CHANNEL_TYPE_TEXT);
+	g_hash_table_insert (table, TP_IFACE_CHANNEL ".ChannelType",
+						 channel_type_value);
 
-	if (handle_type != TP_HANDLE_TYPE_ROOM)
-		return TP_CHANNEL_FACTORY_REQUEST_STATUS_NOT_AVAILABLE;
+	handle_type_value = tp_g_value_slice_new (G_TYPE_UINT);
+	g_value_set_uint (handle_type_value, TP_HANDLE_TYPE_ROOM);
+	g_hash_table_insert (table, TP_IFACE_CHANNEL ".TargetHandleType",
+						 handle_type_value);
 
-	if (!tp_handle_is_valid(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_ROOM), handle, error))
-		return TP_CHANNEL_FACTORY_REQUEST_STATUS_INVALID_HANDLE;
+	func (manager, table, muc_channel_allowed_properties,
+		  user_data);
 
-	if (!priv->channels) {
-		IDLE_DEBUG("Channels hash table missing, failing request...");
-		return TP_CHANNEL_FACTORY_REQUEST_STATUS_ERROR;
-	}
-
-	if ((*new_chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(handle)))) {
-		return TP_CHANNEL_FACTORY_REQUEST_STATUS_EXISTING;
-	} else {
-		IdleMUCChannel *chan = _create_channel(factory, handle);
-		idle_muc_channel_join_attempt(chan);
-
-		return TP_CHANNEL_FACTORY_REQUEST_STATUS_QUEUED;
-	}
+	g_hash_table_destroy (table);
 }
 
-static IdleMUCChannel *_create_channel(IdleMUCFactory *factory, TpHandle handle) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(factory);
+
+static IdleMUCChannel *_muc_manager_new_channel(IdleMUCManager *manager, TpHandle handle, gpointer request_token)
+{
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(manager);
 	IdleMUCChannel *chan;
 	gchar *object_path;
 
 	object_path = g_strdup_printf("%s/MucChannel%u", priv->conn->parent.object_path, handle);
 	chan = g_object_new(IDLE_TYPE_MUC_CHANNEL, "connection", priv->conn, "object-path", object_path, "handle", handle, NULL);
 
-	g_signal_connect(chan, "closed", (GCallback) _channel_closed_cb, factory);
-	g_signal_connect(chan, "join-ready", (GCallback) _channel_join_ready_cb, factory);
+	g_signal_connect(chan, "closed", (GCallback) _channel_closed_cb, manager);
+	g_signal_connect(chan, "join-ready", (GCallback) _channel_join_ready_cb, manager);
 
 	g_hash_table_insert(priv->channels, GUINT_TO_POINTER(handle), chan);
 
 	g_free(object_path);
 
+	GSList* tokens = NULL;
+	if (request_token != NULL)
+		tokens = g_slist_prepend (tokens, request_token);
+
+	tp_channel_manager_emit_new_channel (manager, TP_EXPORTABLE_CHANNEL (chan),
+										 tokens);
+
+	g_slist_free (tokens);
+
 	return chan;
 }
 
 static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data) {
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 
 	if (priv->channels) {
 		TpHandle handle;
@@ -579,33 +658,34 @@ static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data) {
 }
 
 static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer user_data) {
-	TpChannelFactoryIface *iface = TP_CHANNEL_FACTORY_IFACE(user_data);
-	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	TpChannelManager *manager = TP_CHANNEL_MANAGER(user_data);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 
 	if (err == MUC_CHANNEL_JOIN_ERROR_NONE) {
-		tp_channel_factory_iface_emit_new_channel(iface, (TpChannelIface *) chan, NULL);
+		tp_channel_manager_emit_new_channel(manager, (TpExportableChannel *) chan, NULL);
 		return;
 	}
 
-	GError error = {TP_ERRORS, 0, NULL};
+	gint err_code = 0;
+	const gchar* err_msg = NULL;
 	TpHandle handle;
 
 	g_object_get(chan, "handle", &handle, NULL);
 
 	switch (err) {
 		case MUC_CHANNEL_JOIN_ERROR_BANNED:
-			error.code = TP_ERROR_CHANNEL_BANNED;
-			error.message = "You are banned from the channel.";
+			err_code = TP_ERROR_CHANNEL_BANNED;
+			err_msg = "You are banned from the channel.";
 			break;
 
 		case MUC_CHANNEL_JOIN_ERROR_FULL:
-			error.code = TP_ERROR_CHANNEL_FULL;
-			error.message = "The channel is full.";
+			err_code = TP_ERROR_CHANNEL_FULL;
+			err_msg = "The channel is full.";
 			break;
 
 		case MUC_CHANNEL_JOIN_ERROR_INVITE_ONLY:
-			error.code = TP_ERROR_CHANNEL_INVITE_ONLY;
-			error.message = "The channel is invite only.";
+			err_code = TP_ERROR_CHANNEL_INVITE_ONLY;
+			err_msg = "The channel is invite only.";
 			break;
 
 		default:
@@ -613,20 +693,135 @@ static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer use
 			break;
 	}
 
-	tp_channel_factory_iface_emit_channel_error(iface, (TpChannelIface *) chan, &error, NULL);
+	/* XXX: old: tp_channel_factory_iface_emit_channel_error().  is this a
+	 * suitable replacement?
+	 * FIXME: eventually we need to hook up the request_token so that this error
+	 * is associated with the proper request
+	 */
+	tp_channel_manager_emit_request_failed(manager, NULL, TP_ERRORS, err_code, err_msg);
 
 	if (priv->channels)
 		g_hash_table_remove(priv->channels, GUINT_TO_POINTER(handle));
 }
 
-static void _factory_iface_init(gpointer g_iface, gpointer iface_data) {
-	TpChannelFactoryIfaceClass *klass = (TpChannelFactoryIfaceClass *) g_iface;
 
-	klass->close_all = _iface_close_all;
-	klass->connected = NULL;
-	klass->connecting = _iface_connecting;
-	klass->disconnected = _iface_disconnected;
-	klass->foreach = _iface_foreach;
-	klass->request = _iface_request;
+static gboolean
+_muc_manager_create_channel (TpChannelManager *manager,
+							 gpointer request_token,
+							 GHashTable *request_properties)
+{
+	IdleMUCManager *self = IDLE_MUC_MANAGER (manager);
+
+	return _muc_manager_request (self, request_token, request_properties,
+								 TRUE);
+}
+
+
+static gboolean
+_muc_manager_request_channel (TpChannelManager *manager,
+							  gpointer request_token,
+							  GHashTable *request_properties)
+{
+	IdleMUCManager *self = IDLE_MUC_MANAGER (manager);
+
+	return _muc_manager_request (self, request_token, request_properties,
+								 FALSE);
+}
+
+
+static gboolean
+_muc_manager_ensure_channel (TpChannelManager *manager,
+							 gpointer request_token,
+							 GHashTable *request_properties)
+{
+	IdleMUCManager *self = IDLE_MUC_MANAGER (manager);
+
+	return _muc_manager_request (self, request_token, request_properties,
+								 FALSE);
+}
+
+static gboolean
+_muc_manager_request (IdleMUCManager *self,
+					  gpointer request_token,
+					  GHashTable *request_properties,
+					  gboolean require_new)
+{
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE (self);
+	TpBaseConnection *base_conn = (TpBaseConnection *) priv->conn;
+	TpHandleRepoIface *room_repo = tp_base_connection_get_handles (base_conn,
+																   TP_HANDLE_TYPE_ROOM);
+	GError *error = NULL;
+	TpHandle handle;
+	const gchar *channel_type;
+	IdleMUCChannel *channel;
+
+	if (tp_asv_get_uint32 (request_properties,
+						   TP_IFACE_CHANNEL ".TargetHandleType", NULL) != TP_HANDLE_TYPE_ROOM)
+		return FALSE;
+
+	handle = tp_asv_get_uint32 (request_properties,
+								TP_IFACE_CHANNEL ".TargetHandle", NULL);
+
+	if (!tp_handle_is_valid (room_repo, handle, &error))
+		goto error;
+
+	channel_type = tp_asv_get_string (request_properties,
+									  TP_IFACE_CHANNEL ".ChannelType");
+
+	if (!tp_strdiff (channel_type, TP_IFACE_CHANNEL_TYPE_TEXT))
+	{
+		if (tp_channel_manager_asv_has_unknown_properties (request_properties,
+														   muc_channel_fixed_properties, muc_channel_allowed_properties,
+														   &error))
+			goto error;
+
+		channel = g_hash_table_lookup (priv->channels,
+										 GINT_TO_POINTER (handle));
+
+		if (channel != NULL)
+		{
+			if (require_new)
+			{
+				g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+							 "That channel has already been created (or requested)");
+				goto error;
+			}
+			else
+			{
+				tp_channel_manager_emit_request_already_satisfied (self,
+																   request_token,
+																   TP_EXPORTABLE_CHANNEL (channel));
+			}
+		}
+		else
+		{
+			channel = _muc_manager_new_channel (self, handle,
+												request_token);
+		}
+		idle_muc_channel_join_attempt(channel);
+
+		return TRUE;
+	}
+	else
+	{
+		return FALSE;
+	}
+
+error:
+	tp_channel_manager_emit_request_failed (self, request_token,
+											error->domain, error->code, error->message);
+	g_error_free (error);
+	return TRUE;
+}
+
+
+static void _muc_manager_iface_init(gpointer g_iface, gpointer iface_data) {
+	TpChannelManagerIface *iface = g_iface;
+
+	iface->foreach_channel = _muc_manager_foreach_channel;
+	iface->foreach_channel_class = _muc_manager_foreach_channel_class;
+	iface->request_channel = _muc_manager_request_channel;
+	iface->create_channel = _muc_manager_create_channel;
+	iface->ensure_channel = _muc_manager_ensure_channel;
 }
 
