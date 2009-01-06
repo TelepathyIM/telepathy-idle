@@ -1334,9 +1334,8 @@ void idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old_handle, TpHandle
 	TpIntSet *local = tp_intset_new();
 	TpIntSet *remote = tp_intset_new();
 
-	/* FIXME when self renaming lands in TpGroupMixin, use that */
 	if (old_handle == chan->group.self_handle)
-		chan->group.self_handle = new_handle;
+		tp_group_mixin_change_self_handle((GObject *) chan, new_handle);
 
 	tp_intset_add(remove, old_handle);
 
@@ -1349,8 +1348,7 @@ void idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old_handle, TpHandle
 	else
 		goto cleanup;
 
-	/* FIXME use REASON_RENAMED when it gets in telepathy-glib */
-	tp_group_mixin_change_members((GObject *) chan, NULL, add, remove, local, remote, new_handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+	tp_group_mixin_change_members((GObject *) chan, NULL, add, remove, local, remote, new_handle, TP_CHANNEL_GROUP_CHANGE_REASON_RENAMED);
 
 cleanup:
 
