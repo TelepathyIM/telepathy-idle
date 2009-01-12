@@ -32,3 +32,4 @@ ALL_LIBS = \
 
 TESTS = $(check_PROGRAMS)
 
+SUBDIRS = twisted

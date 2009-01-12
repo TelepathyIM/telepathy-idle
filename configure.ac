@@ -103,6 +103,24 @@ if test -z "$PYTHON"; then
   AC_MSG_ERROR([Python is required to compile this package])
 fi
 
+
+dnl check for a version of python that can run the twisted tests
+AC_MSG_CHECKING([for Python with Twisted and IRC protocol support])
+for TEST_PYTHON in python2.5 python2.6 python; do
+  if $TEST_PYTHON -c "from sys import version_info; import dbus, dbus.mainloop.glib; raise SystemExit(version_info < (2, 5, 0, 'final', 0))" >/dev/null 2>&1; then
+    if $TEST_PYTHON -c "import twisted.words.protocols.irc, twisted.internet.reactor" >/dev/null 2>&1; then
+      AM_CONDITIONAL([WANT_TWISTED_TESTS], true)
+      break
+    else
+      TEST_PYTHON=no
+    fi
+  fi
+done
+AC_MSG_RESULT([$TEST_PYTHON])
+AC_SUBST(TEST_PYTHON)
+AM_CONDITIONAL([WANT_TWISTED_TESTS], test xno != x$TEST_PYTHON)
+
+
 AS_AC_EXPAND(DATADIR, $datadir)
 DBUS_SERVICES_DIR="$DATADIR/dbus-1/services"
 AC_SUBST(DBUS_SERVICES_DIR)
@@ -114,5 +132,7 @@ AC_OUTPUT( Makefile \
            m4/Makefile \
            src/Makefile \
 					 tests/Makefile \
+						 tests/twisted/Makefile \
+							 tests/twisted/tools/Makefile \
 					 tools/Makefile \
 )
