@@ -437,7 +437,7 @@ static void _iface_disconnected(TpBaseConnection *self) {
 
 static void _iface_shut_down(TpBaseConnection *self) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(self);
-	GError *error;
+	GError *error = NULL;
 
 	if (priv->quitting)
 		return;
@@ -583,7 +583,7 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 	int i, j;
 	IdleOutputPendingMsg *output_msg;
 	gchar msg[IRC_MSG_MAXLEN + 3];
-	GError *error;
+	GError *error = NULL;
 
 	IDLE_DEBUG("called");
 
@@ -636,9 +636,9 @@ static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint pr
 	gchar cmd[IRC_MSG_MAXLEN + 3];
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	int len;
-	GError *error;
+	GError *error = NULL;
 	gchar *converted;
-	GError *convert_error;
+	GError *convert_error = NULL;
 	time_t curr_time = time(NULL);
 	IdleOutputPendingMsg *output_msg;
 
