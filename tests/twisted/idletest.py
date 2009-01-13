@@ -23,40 +23,44 @@ def make_disconnected_event():
     event = make_irc_event('irc-disconnected', None)
     return event
 
-def make_privmsg_event(data):
-    event = make_irc_event('irc-privmsg', data)
-    return event
-
-def make_nick_event(data):
-    event = make_irc_event('irc-nick', data)
-    return event
-
-def make_user_event(data):
-    event = make_irc_event('irc-user', data)
-    return event
-
 class BaseIRCServer(irc.IRC):
     def __init__(self, event_func):
         self.event_func = event_func
-        self.authenticated = False;
+        self.authenticated = False
+        self.user = None
+        self.nick = None
+        self.passwd = None
+        self.require_pass = False
 
     def connectionMade(self):
         print ("connection Made")
-        self.event_func(make_connected_event());
+        self.event_func(make_connected_event())
 
     def connectionLost(self):
         print ("connection Lost")
-        self.event_func(make_disconnected_event());
+        self.event_func(make_disconnected_event())
 
     def dataReceived(self, data):
-        print ("data received: %s" % (data,));
-        (prefix, command, args) = irc.parsemsg(data);
+        print ("data received: %s" % (data,))
+        (prefix, command, args) = irc.parsemsg(data)
         if command == 'PRIVMSG':
-            self.event_func(make_privmsg_event(args));
-        elif command == 'USER':
-            self.event_func(make_user_event(args));
+            self.event_func(make_privmsg_event(args))
+#handle 'login' handshake
+        elif command == 'PASS':
+            self.passwd = args[0]
         elif command == 'NICK':
-            self.event_func(make_nick_event(args[0]));
+            self.nick = args[0]
+        elif command == 'USER':
+            self.user = args[0]
+            if ((not self.require_pass) or (self.passwd is not None)) \
+                and (self.nick is not None and self.user is not None):
+                    self.sendWelcome()
+
+        elif command == 'QUIT':
+            self.transport.loseConnection()
+
+    def sendWelcome(self):
+        self.sendMessage('001', self.nick, ':Welcome to the test IRC Network', prefix='idle.test.server')
 
 def install_colourer():
     def red(s):
@@ -133,7 +137,6 @@ def exec_test_deferred (funs, params, protocol=None, timeout=None):
         for f in funs:
             conn = make_connection(bus, queue.append, params)
             f(queue, bus, conn, server)
-            print "called f"
     except Exception, e:
         import traceback
         traceback.print_exc()
@@ -149,7 +152,7 @@ def exec_test_deferred (funs, params, protocol=None, timeout=None):
             # please ignore the POSIX behind the curtain
             d.addBoth((lambda *args: os._exit(1)))
 
-        conn.Disconnect()
+        #conn.Disconnect()
 
         if 'IDLE_TEST_REFDBG' in os.environ:
             # we have to wait that Gabble timeouts so the process is properly
@@ -157,7 +160,6 @@ def exec_test_deferred (funs, params, protocol=None, timeout=None):
             time.sleep(5.5)
 
     except dbus.DBusException, e:
-        print "exception"
         pass
 
 def exec_tests(funs, params=None, protocol=None, timeout=None):
