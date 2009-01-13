@@ -307,7 +307,7 @@ static gboolean iface_ssl_disconnect_impl_full(IdleServerConnectionIface *iface,
 
 static gboolean ssl_io_err_cleanup_func(gpointer user_data) {
 	IdleServerConnectionIface *iface = IDLE_SERVER_CONNECTION_IFACE(user_data);
-	GError *error;
+	GError *error = NULL;
 
 	if (!iface_ssl_disconnect_impl_full(iface, SERVER_CONNECTION_STATE_REASON_ERROR, &error)) {
 		IDLE_DEBUG("disconnect: %s", error->message);
@@ -623,7 +623,7 @@ static gboolean iface_ssl_send_impl(IdleServerConnectionIface *iface, const gcha
 	rc = SSL_write(priv->ssl, cmd, len);
 
 	if (rc <= 0) {
-		GError *local_error;
+		GError *local_error = NULL;
 
 		IDLE_DEBUG("SSL_write failed with status %i (error %i)", rc, SSL_get_error(priv->ssl, rc));
 
