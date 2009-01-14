@@ -9,7 +9,7 @@ import dbus
 import servicetest
 import twisted
 from twisted.words.protocols import irc
-from twisted.internet import reactor
+from twisted.internet import reactor, ssl
 
 def make_irc_event(type, data):
     event = servicetest.Event(type, data=data)
@@ -31,6 +31,9 @@ class BaseIRCServer(irc.IRC):
         self.nick = None
         self.passwd = None
         self.require_pass = False
+
+    def listen(self, port, factory):
+        return reactor.listenTCP(port, factory)
 
     def connectionMade(self):
         print ("connection Made")
@@ -61,6 +64,12 @@ class BaseIRCServer(irc.IRC):
 
     def sendWelcome(self):
         self.sendMessage('001', self.nick, ':Welcome to the test IRC Network', prefix='idle.test.server')
+
+class SSLIRCServer(BaseIRCServer):
+    def listen(self, port, factory):
+        return reactor.listenSSL(port, factory,
+                ssl.DefaultOpenSSLContextFactory("tools/idletest.key",
+                    "tools/idletest.cert"))
 
 def install_colourer():
     def red(s):
@@ -95,7 +104,7 @@ def start_server(event_func, protocol=None, port=6900):
     server = protocol(event_func)
     factory = twisted.internet.protocol.Factory()
     factory.protocol = lambda *args: server
-    port = reactor.listenTCP(port, factory)
+    port = server.listen(port, factory)
     return (server, port)
 
 def make_connection(bus, event_func, params=None):

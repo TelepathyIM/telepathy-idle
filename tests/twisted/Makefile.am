@@ -1,6 +1,8 @@
 TWISTED_TESTS = \
 		connect/connect-fail.py \
+		connect/connect-fail-ssl.py \
 		connect/connect-success.py \
+		connect/connect-success-ssl.py \
 		$(NULL)
 
 TESTS =
