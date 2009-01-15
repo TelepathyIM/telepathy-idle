@@ -33,14 +33,15 @@ class BaseIRCServer(irc.IRC):
         self.require_pass = False
 
     def listen(self, port, factory):
+        print ("BaseIRCServer listening...")
         return reactor.listenTCP(port, factory)
 
     def connectionMade(self):
         print ("connection Made")
         self.event_func(make_connected_event())
 
-    def connectionLost(self):
-        print ("connection Lost")
+    def connectionLost(self, reason):
+        print ("connection Lost  %s" % reason)
         self.event_func(make_disconnected_event())
 
     def dataReceived(self, data):
@@ -67,6 +68,7 @@ class BaseIRCServer(irc.IRC):
 
 class SSLIRCServer(BaseIRCServer):
     def listen(self, port, factory):
+        print ("SSLIRCServer listening...")
         return reactor.listenSSL(port, factory,
                 ssl.DefaultOpenSSLContextFactory("tools/idletest.key",
                     "tools/idletest.cert"))
