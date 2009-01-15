@@ -58,3 +58,7 @@ tests/twisted/tools/exec-with-log.sh
 tests/twisted/tools/idle-testing.log
 tests/twisted/tools/org.freedesktop.Telepathy.ConnectionManager.idle.service
 tests/twisted/tools/tmp-session-bus.conf
+
+tests/twisted/with-session-bus*.dbus-monitor-logs
+tests/twisted/with-session-bus*.address
+tests/twisted/with-session-bus*.pid
