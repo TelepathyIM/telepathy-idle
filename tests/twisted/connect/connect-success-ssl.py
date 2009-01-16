@@ -5,7 +5,7 @@ Test connecting to a SSL server.
 
 import dbus
 from idletest import exec_test, SSLIRCServer
-from servicetest import EventPattern
+from servicetest import EventPattern, call_async
 
 def test(q, bus, conn, stream):
     conn.Connect()
@@ -15,8 +15,11 @@ def test(q, bus, conn, stream):
     q.expect('dbus-signal', signal='SelfHandleChanged',
         args=[1L])
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
-    conn.Disconnect()
-    q.expect('dbus-signal', signal='StatusChanged', args=[2, 1])
+    call_async(q, conn, 'Disconnect')
+    q.expect_many(
+            EventPattern('dbus-signal', signal='StatusChanged', args=[2, 1]),
+            EventPattern('irc-disconnected'),
+            EventPattern('dbus-return', method='Disconnect'))
     return True
 
 if __name__ == '__main__':
