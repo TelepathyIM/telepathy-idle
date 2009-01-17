@@ -52,7 +52,7 @@ class BaseIRCServer(irc.IRC):
         print ("data received: %s" % (data,))
         (prefix, command, args) = irc.parsemsg(data)
         if command == 'PRIVMSG':
-            self.event_func(make_privmsg_event(args[0], ' '.join(args[1:])))
+            self.event_func(make_privmsg_event(args[0], ' '.join(args[1:]).rstrip('\r\n')))
         #handle 'login' handshake
         elif command == 'PASS':
             self.passwd = args[0]
