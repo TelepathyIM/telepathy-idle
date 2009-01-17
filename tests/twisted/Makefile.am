@@ -3,6 +3,7 @@ TWISTED_TESTS = \
 		connect/connect-success-ssl.py \
 		connect/connect-fail.py \
 		connect/connect-fail-ssl.py \
+		channels/join-muc-channel.py \
 		$(NULL)
 
 TESTS =

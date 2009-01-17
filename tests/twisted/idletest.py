@@ -23,6 +23,10 @@ def make_disconnected_event():
     event = make_irc_event('irc-disconnected', None)
     return event
 
+def make_privmsg_event(recipient, msg):
+    event = make_irc_event('irc-privmsg', {'recipient':recipient, 'message':msg})
+    return event
+
 class BaseIRCServer(irc.IRC):
     def __init__(self, event_func):
         self.event_func = event_func
@@ -48,8 +52,8 @@ class BaseIRCServer(irc.IRC):
         print ("data received: %s" % (data,))
         (prefix, command, args) = irc.parsemsg(data)
         if command == 'PRIVMSG':
-            self.event_func(make_privmsg_event(args))
-#handle 'login' handshake
+            self.event_func(make_privmsg_event(args[0], ' '.join(args[1:])))
+        #handle 'login' handshake
         elif command == 'PASS':
             self.passwd = args[0]
         elif command == 'NICK':
@@ -59,7 +63,9 @@ class BaseIRCServer(irc.IRC):
             if ((not self.require_pass) or (self.passwd is not None)) \
                 and (self.nick is not None and self.user is not None):
                     self.sendWelcome()
-
+        elif command == 'JOIN':
+            print ("Joined channel %s" % args[0])
+            self.sendMessage('JOIN', args[0], prefix=self.nick)
         elif command == 'QUIT':
             self.transport.loseConnection()
 
