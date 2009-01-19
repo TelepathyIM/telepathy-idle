@@ -480,9 +480,7 @@ static void ssl_do_connect(AsyncConnectData *data) {
 
 	rc = connect(fd, data->cur->ai_addr, data->cur->ai_addrlen);
 
-	g_assert(rc == -1);
-
-	if (errno != EINPROGRESS) {
+	if ((errno != EINPROGRESS) && (rc == -1)) {
 		IDLE_DEBUG("connect() failed: %s", g_strerror(errno));
 		close(fd);
 		return data->finished_cb(data->conn, FALSE);
