@@ -48,29 +48,49 @@ class BaseIRCServer(irc.IRC):
         print ("connection Lost  %s" % reason)
         self.event_func(make_disconnected_event())
 
-    def dataReceived(self, data):
-        print ("data received: %s" % (data,))
-        (prefix, command, args) = irc.parsemsg(data)
-        if command == 'PRIVMSG':
+    def handlePRIVMSG(self, args, prefix):
             self.event_func(make_privmsg_event(args[0], ' '.join(args[1:]).rstrip('\r\n')))
+
         #handle 'login' handshake
-        elif command == 'PASS':
-            self.passwd = args[0]
-        elif command == 'NICK':
-            self.nick = args[0]
-        elif command == 'USER':
-            self.user = args[0]
-            if ((not self.require_pass) or (self.passwd is not None)) \
-                and (self.nick is not None and self.user is not None):
-                    self.sendWelcome()
-        elif command == 'JOIN':
-            print ("Joined channel %s" % args[0])
-            self.sendMessage('JOIN', args[0], prefix=self.nick)
-        elif command == 'QUIT':
-            self.transport.loseConnection()
+    def handlePASS(self, args, prefix):
+        self.passwd = args[0]
+    def handleNICK(self, args, prefix):
+        self.nick = args[0]
+    def handleUSER(self, args, prefix):
+        self.user = args[0]
+        if ((not self.require_pass) or (self.passwd is not None)) \
+            and (self.nick is not None and self.user is not None):
+                self.sendWelcome()
+
+    def handleJOIN(self, args, prefix):
+        room = args[0]
+        self.sendMessage('JOIN', room, prefix=self.nick)
+        self._sendNameReply(room, [self.nick])
+
+    def _sendNameReply(self, room, members):
+        #namereply
+        self.sendMessage('353', '%s = %s' % (self.nick, room), ":%s" % ' '.join(members),
+                prefix='idle.test.server')
+        #namereply end
+        self.sendMessage('366', self.nick, room, ':End if /NAMES list', prefix='idle.test.server')
+
+    def handleQUIT(self, args, prefix):
+        self.transport.loseConnection()
 
     def sendWelcome(self):
         self.sendMessage('001', self.nick, ':Welcome to the test IRC Network', prefix='idle.test.server')
+
+    def dataReceived(self, data):
+        print ("data received: %s" % (data,))
+        (_prefix, _command, _args) = irc.parsemsg(data)
+        try:
+            f = getattr(self, 'handle%s' % _command)
+            try:
+                f(_args, _prefix)
+            except Exception, e:
+                print 'handler failed: %s' % e
+        except Exception, e:
+            print 'No handler for command %s: %s' % (_command, e)
 
 class SSLIRCServer(BaseIRCServer):
     def listen(self, port, factory):
