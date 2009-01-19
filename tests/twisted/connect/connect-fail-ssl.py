@@ -8,9 +8,10 @@ from idletest import exec_test, SSLIRCServer
 
 def test(q, bus, conn, stream):
     conn.Connect()
-    q.expect('dbus-signal', signal='StatusChanged', args=[1,1])
-    q.expect('dbus-signal', signal='StatusChanged', args=[2,2])
+    q.expect('dbus-signal', signal='StatusChanged', args=[1,1]) # connecting, requested
+    q.expect('dbus-signal', signal='StatusChanged', args=[2,2]) # disconnected, network-error
 
 if __name__ == '__main__':
-    exec_test(test, {'port': dbus.UInt32(5600), 'use-ssl': dbus.Boolean(True)}, timeout=10)
+    # there is no ssl server listening at port 5600, so this should fail
+    exec_test(test, {'port': dbus.UInt32(5600), 'use-ssl': dbus.Boolean(True)})
 
