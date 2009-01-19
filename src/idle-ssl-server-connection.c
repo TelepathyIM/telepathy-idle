@@ -446,6 +446,8 @@ static gboolean ssl_connect_io_func(GIOChannel *src, GIOCondition cond, gpointer
 		close(data->fd);
 		data->fd = 0;
 
+		/* try the next address */
+		data->cur = data->cur->ai_next;
 		ssl_do_connect(data);
 	}
 
