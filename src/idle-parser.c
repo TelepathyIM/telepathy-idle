@@ -59,6 +59,17 @@ struct _MessageSpec {
 	IdleParserMessageCode code;
 };
 
+/* Message spec key:
+ * 'I' - ignore token
+ * 'r' - token is a room name
+ * 'c' - token is a contact (nick)
+ * 'C' - token is a contact (nick) with mode characters
+ * 'v' - following token is repeated multiple times
+ * 's' - token is a string
+ * ':' - Consume all remaining tokens as a single string prefixed by ':'
+ *         (e.g. ':this is a message string')
+ * '.' - Same as ':', but optional
+ */
 static const MessageSpec message_specs[] = {
 	{"PING", "Is", IDLE_PARSER_CMD_PING},
 
