@@ -543,6 +543,8 @@ static void change_tp_properties(IdleMUCChannel *chan, const GPtrArray *props) {
 
 			IDLE_DEBUG("tp_property %u changed", prop_id);
 		}
+		g_value_unset(new_val);
+		g_free(new_val);
 
 		g_value_unset(&prop);
 	}
