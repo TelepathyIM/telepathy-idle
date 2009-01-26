@@ -66,6 +66,11 @@
 #define IDLE_TP_ALIAS_PAIR_TYPE (dbus_g_type_get_struct ("GValueArray", \
 			G_TYPE_UINT, G_TYPE_STRING, G_TYPE_INVALID))
 
+static void _free_alias_pair(gpointer data, gpointer user_data)
+{
+	g_boxed_free(IDLE_TP_ALIAS_PAIR_TYPE, data);
+}
+
 static void _aliasing_iface_init(gpointer, gpointer);
 static void _renaming_iface_init(gpointer, gpointer);
 
@@ -876,6 +881,7 @@ void idle_connection_emit_queued_aliases_changed(IdleConnection *conn) {
 
 	tp_svc_connection_interface_aliasing_emit_aliases_changed(conn, priv->queued_aliases);
 
+	g_ptr_array_foreach(priv->queued_aliases, _free_alias_pair, NULL);
 	g_ptr_array_free(priv->queued_aliases, TRUE);
 	priv->queued_aliases = NULL;
 
