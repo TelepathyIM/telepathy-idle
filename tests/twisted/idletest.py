@@ -75,6 +75,8 @@ class BaseIRCServer(irc.IRC):
         self.sendMessage('366', self.nick, room, ':End if /NAMES list', prefix='idle.test.server')
 
     def handleQUIT(self, args, prefix):
+        quit_msg = ' '.join(args).rstrip('\r\n')
+        self.sendMessage('ERROR', ':Closing Link: idle.test.server (Quit: %s)' % quit_msg)
         self.transport.loseConnection()
 
     def sendWelcome(self):
