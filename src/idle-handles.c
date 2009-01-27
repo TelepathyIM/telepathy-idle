@@ -121,12 +121,6 @@ static gchar *_nick_normalize_func(TpHandleRepoIface *repo, const gchar *id, gpo
 static gchar *_channel_normalize_func(TpHandleRepoIface *repo, const gchar *id, gpointer ctx, GError **error) {
 	gchar *channel = g_strdup(id);
 
-	if ((channel[0] != '#') && (channel[0] != '!') && (channel[0] != '&') && (channel[0] != '+')) {
-		gchar *tmp = channel;
-		channel = g_strdup_printf("#%s", channel);
-		g_free(tmp);
-	}
-
 	if (!_channelname_is_valid(channel)) {
 		g_set_error(error, TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid channel ID");
 		return NULL;
