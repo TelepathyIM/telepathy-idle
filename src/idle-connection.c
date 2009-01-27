@@ -152,6 +152,7 @@ struct _IdleConnectionPrivate {
 
 	/* if we are quitting asynchronously */
 	gboolean quitting;
+	guint force_disconnect_id;
 
 	/* AliasChanged aggregation */
 	GPtrArray *queued_aliases;
@@ -426,6 +427,15 @@ static gboolean _finish_shutdown_idle_func(gpointer data) {
 	return FALSE;
 }
 
+static gboolean
+_force_disconnect (gpointer data)
+{
+	IdleConnection *conn = IDLE_CONNECTION(data);
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	idle_server_connection_iface_disconnect(priv->conn, NULL);
+	return FALSE;
+}
+
 static void _iface_disconnected(TpBaseConnection *self) {
 	IdleConnection *conn = IDLE_CONNECTION(self);
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
@@ -433,6 +443,11 @@ static void _iface_disconnected(TpBaseConnection *self) {
 	send_quit_request(conn);
 
 	priv->quitting = TRUE;
+	/* don't handle any more messages, we're quitting.  See e.g. bug #19762 */
+	idle_parser_remove_handlers_by_data(conn->parser, conn);
+	/* schedule forceful disconnect for 2 seconds if the remote server doesn't
+	 * respond or disconnect before then */
+	priv->force_disconnect_id = g_timeout_add_seconds(2, _force_disconnect, conn);
 }
 
 static void _iface_shut_down(TpBaseConnection *self) {
@@ -518,6 +533,13 @@ static gboolean msg_queue_timeout_cb(gpointer user_data);
 static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServerConnectionState state, IdleServerConnectionStateReason reason, IdleConnection *conn) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	TpConnectionStatusReason tp_reason;
+
+	/* cancel scheduled forced disconnect since we are now disconnected */
+	if (state == SERVER_CONNECTION_STATE_NOT_CONNECTED &&
+		priv->force_disconnect_id) {
+		g_source_remove(priv->force_disconnect_id);
+		priv->force_disconnect_id = 0;
+	}
 
 	IDLE_DEBUG("called with state %u", state);
 
