@@ -4,6 +4,7 @@ TWISTED_TESTS = \
 		connect/connect-fail.py \
 		connect/connect-fail-ssl.py \
 		channels/join-muc-channel.py \
+		channels/requests-create.py \
 		messages/message-order.py \
 		messages/leading-space.py \
 		$(NULL)

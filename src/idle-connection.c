@@ -347,6 +347,7 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 	static const gchar *interfaces_always_present[] = {
 		TP_IFACE_CONNECTION_INTERFACE_ALIASING,
 		IDLE_IFACE_CONNECTION_INTERFACE_RENAMING,
+		TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
 		NULL};
 
 	g_type_class_add_private(klass, sizeof(IdleConnectionPrivate));
