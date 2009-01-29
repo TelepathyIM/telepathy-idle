@@ -32,6 +32,10 @@ libidle_convenience_la_SOURCES = \
 	idle-parser.h \
 	protocol.c \
 	protocol.h \
+	idle-roomlist-channel.h \
+	idle-roomlist-channel.c \
+	idle-roomlist-manager.h \
+	idle-roomlist-manager.c \
 	idle-server-connection.c \
 	idle-server-connection.h \
 	idle-text.h \

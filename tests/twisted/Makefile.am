@@ -15,6 +15,7 @@ TWISTED_TESTS = \
 		channels/requests-create.py \
 		channels/requests-muc.py \
 		channels/muc-channel-topic.py \
+		channels/room-list-channel.py \
 		messages/accept-invalid-nicks.py \
 		messages/contactinfo-request.py \
 		messages/messages-iface.py \
