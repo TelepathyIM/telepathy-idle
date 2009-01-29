@@ -28,26 +28,16 @@ def test(q, bus, conn, stream):
     call_async(q, text_chan, 'Send', 0, '2')
     call_async(q, text_chan, 'Send', 0, '3')
     call_async(q, text_chan, 'Send', 0, '4')
-    call_async(q, text_chan, 'Send', 0, '5')
-    call_async(q, text_chan, 'Send', 0, '6')
-    call_async(q, text_chan, 'Send', 0, '7')
-    call_async(q, text_chan, 'Send', 0, '8')
-    call_async(q, text_chan, 'Send', 0, '9')
 
     q.expect('irc-privmsg', data={'message':'0','recipient':CHANNEL_NAME})
     q.expect('irc-privmsg', data={'message':'1','recipient':CHANNEL_NAME})
     q.expect('irc-privmsg', data={'message':'2','recipient':CHANNEL_NAME})
     q.expect('irc-privmsg', data={'message':'3','recipient':CHANNEL_NAME})
     q.expect('irc-privmsg', data={'message':'4','recipient':CHANNEL_NAME})
-    q.expect('irc-privmsg', data={'message':'5','recipient':CHANNEL_NAME})
-    q.expect('irc-privmsg', data={'message':'6','recipient':CHANNEL_NAME})
-    q.expect('irc-privmsg', data={'message':'7','recipient':CHANNEL_NAME})
-    q.expect('irc-privmsg', data={'message':'8','recipient':CHANNEL_NAME})
-    q.expect('irc-privmsg', data={'message':'9','recipient':CHANNEL_NAME})
 
     call_async(q, conn, 'Disconnect')
     return True
 
 if __name__ == '__main__':
-    exec_test(test, timeout=10)
+    exec_test(test)
 

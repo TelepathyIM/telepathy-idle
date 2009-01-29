@@ -23,5 +23,5 @@ def test(q, bus, conn, stream):
     return True
 
 if __name__ == '__main__':
-    exec_test(test, {'use-ssl':dbus.Boolean(True)}, protocol=SSLIRCServer, timeout=10)
+    exec_test(test, {'use-ssl':dbus.Boolean(True)}, protocol=SSLIRCServer)
 
