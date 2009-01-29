@@ -364,17 +364,11 @@ idle_roomlist_channel_close (TpSvcChannel *iface,
                              DBusGMethodInvocation *context)
 {
   IdleRoomlistChannel *obj = IDLE_ROOMLIST_CHANNEL (iface);
-  IdleRoomlistChannelPrivate *priv;
 
   g_assert (obj != NULL);
   g_assert (IDLE_IS_ROOMLIST_CHANNEL (obj));
 
-  priv = IDLE_ROOMLIST_CHANNEL_GET_PRIVATE (obj);
-  priv->closed = TRUE;
-
-  IDLE_DEBUG ("called on %p", obj);
-
-  tp_svc_channel_emit_closed (iface);
+  g_object_run_dispose (G_OBJECT (iface));
 
   tp_svc_channel_return_from_close (context);
 }

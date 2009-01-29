@@ -185,11 +185,17 @@ static void
 _roomlist_manager_close_all (IdleRoomlistManager *self)
 {
     IdleRoomlistManagerPrivate *priv = IDLE_ROOMLIST_MANAGER_GET_PRIVATE (self);
+    IdleRoomlistChannel *tmp;
 
-    if (priv->channel)
+    if (priv->channel != NULL)
       {
-        g_object_unref(priv->channel);
+        /* use a temporary variable and set priv->channel to NULL first
+         * because unreffing this channel will cause the
+         * _roomlist_channel_closed_cb to fire, which will try to unref it
+         * again if priv->channel is not NULL */
+        tmp = priv->channel;
         priv->channel = NULL;
+        g_object_unref(tmp);
       }
     if (priv->status_changed_id != 0)
       {
