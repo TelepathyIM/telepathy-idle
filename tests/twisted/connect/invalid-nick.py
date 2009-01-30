@@ -51,8 +51,16 @@ def test():
     except dbus.DBusException, e:
         pass    # nick rejected properly with an error
 
+    try:
+        make_connection('-foo') # '-' not allowed as first char
+        raise RuntimeError('Invalid nick not rejected')
+    except dbus.DBusException, e:
+        pass    # nick rejected properly with an error
+
     # should pass succeed without an exception
     make_connection('good_nick')
+    make_connection('good-nick')
+    make_connection('{goodnick]`')
 
 if __name__ == '__main__':
     test()
