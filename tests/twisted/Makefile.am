@@ -6,6 +6,7 @@ TWISTED_TESTS = \
 		channels/join-muc-channel.py \
 		messages/message-order.py \
 		messages/leading-space.py \
+		messages/long-message-split.py \
 		$(NULL)
 
 TESTS =
