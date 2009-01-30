@@ -3,6 +3,7 @@ TWISTED_TESTS = \
 		connect/connect-success-ssl.py \
 		connect/connect-fail.py \
 		connect/connect-fail-ssl.py \
+		connect/invalid-nick.py \
 		channels/join-muc-channel.py \
 		messages/message-order.py \
 		messages/leading-space.py \
