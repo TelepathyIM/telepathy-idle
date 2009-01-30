@@ -25,6 +25,7 @@
 #include <telepathy-glib/enums.h>
 
 #include "idle-connection.h"
+#include "idle-handles.h" /* to check for valid nick */
 
 G_DEFINE_TYPE(IdleConnectionManager, idle_connection_manager, TP_TYPE_BASE_CONNECTION_MANAGER)
 
@@ -71,8 +72,23 @@ enum {
 	LAST_PARAM
 };
 
+gboolean
+filter_nick(const TpCMParamSpec *paramspec, GValue *value, GError **error)
+{
+	g_assert(value);
+	g_assert(G_VALUE_HOLDS_STRING(value));
+
+	const gchar* nick = g_value_get_string (value);
+	if (!idle_nickname_is_valid(nick)) {
+		g_set_error(error, TP_ERRORS, TP_ERROR_INVALID_HANDLE, "Invalid account name '%s'", nick);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 static const TpCMParamSpec _params[] = {
-	{"account", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, TP_CONN_MGR_PARAM_FLAG_REQUIRED, NULL, G_STRUCT_OFFSET(Params, account)},
+	{"account", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, TP_CONN_MGR_PARAM_FLAG_REQUIRED, NULL, G_STRUCT_OFFSET(Params, account), filter_nick},
 	{"server",  DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, TP_CONN_MGR_PARAM_FLAG_REQUIRED, NULL, G_STRUCT_OFFSET(Params, server)},
 	{"port", DBUS_TYPE_UINT16_AS_STRING, G_TYPE_UINT, TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GINT_TO_POINTER(6667), G_STRUCT_OFFSET(Params, port)},
 	{"password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL, G_STRUCT_OFFSET(Params, password)},

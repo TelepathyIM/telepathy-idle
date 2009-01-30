@@ -27,7 +27,7 @@
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/handle-repo-dynamic.h>
 
-static gboolean _nickname_is_valid(const gchar *nickname) {
+gboolean idle_nickname_is_valid(const gchar *nickname) {
 	gsize len;
 	gunichar ucs4char;
 	const gchar *char_pos = nickname;
@@ -108,7 +108,7 @@ static gboolean _channelname_is_valid(const gchar *channel) {
 }
 
 static gchar *_nick_normalize_func(TpHandleRepoIface *repo, const gchar *id, gpointer ctx, GError **error) {
-	if (!_nickname_is_valid(id)) {
+	if (!idle_nickname_is_valid(id)) {
 		g_set_error(error, TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid nickname");
 		return NULL;
 	}
