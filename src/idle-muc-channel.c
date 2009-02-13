@@ -184,6 +184,22 @@ static const gchar *ascii_muc_states[] = {
 	"MUC_STATE_PARTED"
 };
 
+static void _free_prop_value_struct(gpointer data, gpointer user_data)
+{
+	g_boxed_free(TP_TYPE_PROPERTY_VALUE_STRUCT, data);
+}
+
+static void _free_flags_struct(gpointer data, gpointer user_data)
+{
+	g_boxed_free(TP_TYPE_PROPERTY_FLAGS_STRUCT, data);
+}
+
+static void _free_prop_info_struct(gpointer data, gpointer user_data)
+{
+	g_boxed_free(TP_TYPE_PROPERTY_INFO_STRUCT, data);
+}
+
+
 static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message, GError **error);
 static gboolean remove_member(GObject *gobj, TpHandle handle, const gchar *message, GError **error);
 
@@ -543,6 +559,8 @@ static void change_tp_properties(IdleMUCChannel *chan, const GPtrArray *props) {
 
 			IDLE_DEBUG("tp_property %u changed", prop_id);
 		}
+		g_value_unset(new_val);
+		g_free(new_val);
 
 		g_value_unset(&prop);
 	}
@@ -624,6 +642,7 @@ static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpP
 		tp_svc_properties_interface_emit_property_flags_changed((TpSvcPropertiesInterface *)(chan), changed_props);
 	}
 
+	g_ptr_array_foreach(changed_props, _free_flags_struct, NULL);
 	g_ptr_array_free(changed_props, TRUE);
 }
 
@@ -842,6 +861,9 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 	change_tp_properties(obj, tp_props_to_change);
 
 	priv->mode_state.flags = flags;
+
+	g_ptr_array_foreach(tp_props_to_change, _free_prop_value_struct, NULL);
+	g_ptr_array_free(tp_props_to_change, TRUE);
 
 	IDLE_DEBUG("changed to %x", flags);
 }
@@ -1210,6 +1232,8 @@ void idle_muc_channel_topic(IdleMUCChannel *chan, const char *topic) {
 	arr = g_ptr_array_new();
 	g_ptr_array_add(arr, g_value_get_boxed(&prop));
 	change_tp_properties(chan, arr);
+	g_value_unset(&val);
+	g_value_unset(&prop);
 	g_ptr_array_free(arr, TRUE);
 }
 
@@ -1230,23 +1254,26 @@ void idle_muc_channel_topic_touch(IdleMUCChannel *chan, const TpHandle toucher, 
 	g_value_set_uint(&val, toucher);
 
 	dbus_g_type_struct_set(&prop,
-							0, TP_PROPERTY_SUBJECT_CONTACT,
-							1, &val,
-							G_MAXUINT);
+			       0, TP_PROPERTY_SUBJECT_CONTACT,
+			       1, &val,
+			       G_MAXUINT);
 
-	g_ptr_array_add(arr, g_value_get_boxed(&prop));
+	/* need to copy it out with g_value_dup_boxed() so we don't over-write
+	 * it when we re-use this GValue for the next property */
+	g_ptr_array_add(arr, g_value_dup_boxed(&prop));
 
 	g_value_set_uint(&val, timestamp);
 
 	dbus_g_type_struct_set(&prop,
-							0, TP_PROPERTY_SUBJECT_TIMESTAMP,
-							1, &val,
-							G_MAXUINT);
+			       0, TP_PROPERTY_SUBJECT_TIMESTAMP,
+			       1, &val,
+			       G_MAXUINT);
 
 	g_ptr_array_add(arr, g_value_get_boxed(&prop));
 
 	change_tp_properties(chan, arr);
 
+	g_ptr_array_foreach(arr, _free_prop_value_struct, NULL);
 	g_ptr_array_free(arr, TRUE);
 }
 
@@ -1269,14 +1296,16 @@ void idle_muc_channel_topic_full(IdleMUCChannel *chan, const TpHandle toucher, c
 			0, TP_PROPERTY_SUBJECT_CONTACT,
 			1, &val,
 			G_MAXUINT);
-	g_ptr_array_add(arr, g_value_get_boxed(&prop));
+	/* need to copy it out with g_value_dup_boxed() so we don't over-write
+	 * it when we re-use this GValue for the next property */
+	g_ptr_array_add(arr, g_value_dup_boxed(&prop));
 
 	g_value_set_uint(&val, timestamp);
 	dbus_g_type_struct_set(&prop,
 			0, TP_PROPERTY_SUBJECT_TIMESTAMP,
 			1, &val,
 			G_MAXUINT);
-	g_ptr_array_add(arr, g_value_get_boxed(&prop));
+	g_ptr_array_add(arr, g_value_dup_boxed(&prop));
 
 	g_value_unset(&val);
 	g_value_init(&val, G_TYPE_STRING);
@@ -1285,8 +1314,11 @@ void idle_muc_channel_topic_full(IdleMUCChannel *chan, const TpHandle toucher, c
 							0, TP_PROPERTY_SUBJECT,
 							1, &val,
 							G_MAXUINT);
+	g_ptr_array_add(arr, g_value_get_boxed(&prop));
+
 	change_tp_properties(chan, arr);
 
+	g_ptr_array_foreach(arr, _free_prop_value_struct, NULL);
 	g_ptr_array_free(arr, TRUE);
 }
 
@@ -1693,7 +1725,7 @@ static void idle_muc_channel_get_properties (TpSvcPropertiesInterface *iface, co
 			dbus_g_method_return_error(context, error);
 			g_error_free(error);
 
-			return;;
+			return;
 		}
 	}
 
@@ -1717,6 +1749,7 @@ static void idle_muc_channel_get_properties (TpSvcPropertiesInterface *iface, co
 
 	tp_svc_properties_interface_return_from_get_properties(context, ret);
 
+	g_ptr_array_foreach(ret, _free_prop_value_struct, NULL);
 	g_ptr_array_free(ret, TRUE);
 }
 
@@ -1793,6 +1826,7 @@ static void idle_muc_channel_list_properties (TpSvcPropertiesInterface *iface, D
 
 	tp_svc_properties_interface_return_from_list_properties(context, ret);
 
+	g_ptr_array_foreach(ret, _free_prop_info_struct, NULL);
 	g_ptr_array_free(ret, TRUE);
 }
 
