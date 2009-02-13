@@ -51,7 +51,7 @@ gboolean idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gch
 	return TRUE;
 }
 
-GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *recipient, const gchar *text, GError **error) {
+GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *recipient, const gchar *text, gsize max_msg_len, GError **error) {
 	GPtrArray *messages;
 	const gchar *remaining_text = text;
 	const gchar * const text_end =  text + strlen(text);
@@ -77,7 +77,7 @@ GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *rec
 	}
 
 	messages = g_ptr_array_new();
-	max_bytes = IRC_MSG_MAXLEN - (strlen(header) + strlen(footer));
+	max_bytes = max_msg_len - (strlen(header) + strlen(footer));
 
 	while (remaining_text < text_end) {
 		char *newline = strchr(remaining_text, '\n');
@@ -131,7 +131,8 @@ void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gcha
 		return;
 	}
 
-	messages = idle_text_encode_and_split(type, recipient, text, &error);
+	gsize msg_len = idle_connection_get_max_message_length(conn);
+	messages = idle_text_encode_and_split(type, recipient, text, msg_len, &error);
 	if (messages == NULL) {
 		dbus_g_method_return_error(context, error);
 		g_error_free(error);

@@ -10,6 +10,10 @@ from servicetest import EventPattern, call_async
 import dbus
 
 class LongMessageMangler(BaseIRCServer):
+    host = "my.host.name"
+    def get_relay_prefix(self):
+        return '%s!%s@%s' % (self.nick, self.user, self.host)
+
     def handlePRIVMSG(self, args, prefix):
         #chain up to the base class implementation which simply signals a privmsg event
         #BaseIRCServer.handlePRIVMSG(self, args, prefix)
@@ -18,9 +22,12 @@ class LongMessageMangler(BaseIRCServer):
         sent_message = args[1]
         # 'bounce' the message back to all participants, but truncate to the
         # max IRC message size
-        return_msg = ':%s!idle.test.server PRIVMSG %s :%s' % (self.nick, recipient, sent_message)
+        return_msg = ':%s PRIVMSG %s :%s' % (self.get_relay_prefix(), recipient, sent_message)
         # 510 rather than 512 since sendLine will tack on \r\n
         self.sendLine(return_msg[:510])
+
+    def handleWHOIS(self, args, prefix):
+        self.sendMessage('311', self.nick, self.nick, self.user, self.host, '*', ':Full Name', prefix='idle.test.server')
 
 
 LONG_MESSAGE='one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twenty-one twenty-two twenty-three twenty-four twenty-five twenty-six twenty-seven twenty-eight twenty-nine thirty thirty-one thirty-two thirty-three thirty-four thirty-five thirty-six thirty-seven thirty-eight thirty-nine forty forty-one forty-two forty-three forty-four forty-five forty-six forty-seven forty-eight forty-nine fifty fifty-one fifty-two fifty-three fifty-four fifty-five fifty-six fifty-seven fifty-eight fifty-nine sixty sixty-one sixty-two sixty-three sixty-four sixty-five sixty-six sixty-seven sixty-eight sixty-nine'

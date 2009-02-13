@@ -702,7 +702,9 @@ idle_connection_get_max_message_length(IdleConnection *conn)
 {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	if (priv->relay_prefix != NULL) {
-		return IRC_MSG_MAXLEN - (strlen(priv->relay_prefix) + 1);
+		/* server will add ':<relay_prefix> ' to all messages it relays on to
+		 * other users.  the +2 is for the initial : and the trailing space */
+		return IRC_MSG_MAXLEN - (strlen(priv->relay_prefix) + 2);
 	}
 	return IRC_MSG_MAXLEN;
 }
