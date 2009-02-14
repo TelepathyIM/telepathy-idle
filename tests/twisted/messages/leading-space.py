@@ -51,5 +51,5 @@ def test(q, bus, conn, stream):
     return True
 
 if __name__ == '__main__':
-    exec_test(test, timeout=10, protocol=LeadingSpaceIRCServer)
+    exec_test(test, protocol=LeadingSpaceIRCServer)
 
