@@ -4,8 +4,9 @@ Test that we get an error when attempting to use an invalid nick
 """
 
 import dbus
+from idletest import make_connection
 
-def make_connection(nick):
+def connect(nick):
     bus = dbus.SessionBus()
     params = {
         'account': nick,
@@ -18,49 +19,45 @@ def make_connection(nick):
         'port': dbus.UInt32(6900),
         }
 
-    cm = bus.get_object(
-        'org.freedesktop.Telepathy.ConnectionManager.idle',
-        '/org/freedesktop/Telepathy/ConnectionManager/idle')
-    cm_iface = dbus.Interface(cm, 'org.freedesktop.Telepathy.ConnectionManager')
-
-    connection_name, connection_path = cm_iface.RequestConnection(
-        'irc', params)
+    conn = make_connection(bus, None, params)
+    conn.Connect(reply_handler=None, error_handler=None)
+    conn.Disconnect(reply_handler=None, error_handler=None)
 
 def test():
     try:
-        make_connection('nick with spaces')
+        connect('nick with spaces')
         raise RuntimeError('Invalid nick not rejected')
     except dbus.DBusException, e:
-        pass    # nick rejected properly with an error
+        assert e.get_dbus_name() == 'org.freedesktop.Telepathy.Errors.InvalidHandle'
 
     try:
-        make_connection('') # empty nick
+        connect('') # empty nick
         raise RuntimeError('Invalid nick not rejected')
     except dbus.DBusException, e:
-        pass    # nick rejected properly with an error
+        assert e.get_dbus_name() == 'org.freedesktop.Telepathy.Errors.InvalidHandle'
 
     try:
-        make_connection('#foo') # invalid chars
+        connect('#foo') # invalid chars
         raise RuntimeError('Invalid nick not rejected')
     except dbus.DBusException, e:
-        pass    # nick rejected properly with an error
+        assert e.get_dbus_name() == 'org.freedesktop.Telepathy.Errors.InvalidHandle'
 
     try:
-        make_connection(u'김정은') # unicode
+        connect(u'김정은') # unicode
         raise RuntimeError('Invalid nick not rejected')
     except dbus.DBusException, e:
-        pass    # nick rejected properly with an error
+        assert e.get_dbus_name() == 'org.freedesktop.Telepathy.Errors.InvalidHandle'
 
     try:
-        make_connection('-foo') # '-' not allowed as first char
+        connect('-foo') # '-' not allowed as first char
         raise RuntimeError('Invalid nick not rejected')
     except dbus.DBusException, e:
-        pass    # nick rejected properly with an error
+        assert e.get_dbus_name() == 'org.freedesktop.Telepathy.Errors.InvalidHandle'
 
     # should pass succeed without an exception
-    make_connection('good_nick')
-    make_connection('good-nick')
-    make_connection('{goodnick]`')
+    connect('good_nick')
+    connect('good-nick')
+    connect('{goodnick]`')
 
 if __name__ == '__main__':
     test()
