@@ -48,6 +48,17 @@ core
 cscope.out
 tags
 
-tests/*
-!tests/Makefile.am
-!tests/*.[ch]
+tests/test-ctcp-kill-blingbling
+tests/test-ctcp-tokenize
+tests/test-text-encode-and-split
+tests/test-tokenize-leading-space
+tests/test-tokenize-leading-space.c
+
+tests/twisted/tools/exec-with-log.sh
+tests/twisted/tools/idle-testing.log
+tests/twisted/tools/org.freedesktop.Telepathy.ConnectionManager.idle.service
+tests/twisted/tools/tmp-session-bus.conf
+
+tests/twisted/with-session-bus*.dbus-monitor-logs
+tests/twisted/with-session-bus*.address
+tests/twisted/with-session-bus*.pid

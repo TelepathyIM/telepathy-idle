@@ -369,13 +369,13 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 		opt = 1;
 
 		if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) < 0) {
-			g_warning("%s: failed to set TCP_NODELAY", G_STRFUNC);
+			g_warning("%s: failed to set TCP_NODELAY: %s", G_STRFUNC, g_strerror(errno));
 		}
 
 		opt = 1;
 
 		if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt)) < 0) {
-			g_warning("%s: failed to set SO_KEEPALIVE", G_STRFUNC);
+			g_warning("%s: failed to set SO_KEEPALIVE: %s", G_STRFUNC, g_strerror(errno));
 		}
 
 		return FALSE;
@@ -396,7 +396,7 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 		IDLE_DEBUG("re-using existing socket for trying again");
 
 		errno = 0;
-		connect(fd, next->ai_addr, next->ai_addrlen);
+		rc = connect(fd, next->ai_addr, next->ai_addrlen);
 
 		for (int i = 0; i < 5 && errno == ECONNABORTED; i++) {
 			IDLE_DEBUG("got ECONNABORTED for %ith time", i + 1);
@@ -404,7 +404,7 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 			connect(fd, next->ai_addr, next->ai_addrlen);
 		}
 
-		if (errno != EINPROGRESS) {
+		if ((errno != EINPROGRESS) && (rc == -1)) {
 			IDLE_DEBUG("connect() failed: %s", g_strerror(errno));
 			change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
 			return FALSE;
@@ -454,9 +454,9 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 	}
 
 	errno = 0;
-	connect(fd, cur->ai_addr, cur->ai_addrlen);
+	rc = connect(fd, cur->ai_addr, cur->ai_addrlen);
 
-	if (errno != EINPROGRESS) {
+	if ((errno != EINPROGRESS) && (rc == -1)) {
 		IDLE_DEBUG("initial connect() failed: %s", g_strerror(errno));
 		g_io_channel_shutdown(io_chan, FALSE, NULL);
 		g_io_channel_unref(io_chan);
