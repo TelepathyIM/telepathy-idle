@@ -706,7 +706,15 @@ idle_connection_get_max_message_length(IdleConnection *conn)
 		 * other users.  the +2 is for the initial : and the trailing space */
 		return IRC_MSG_MAXLEN - (strlen(priv->relay_prefix) + 2);
 	}
-	return IRC_MSG_MAXLEN;
+	/* Before we've gotten our user info, we don't know how long our relay
+	 * prefix will be, so just assume worst-case.  The max possible prefix is:
+	 * ':<15 char nick>!<? char username>@<63 char hostname> ' == 1 + 15 + 1 + ?
+	 * + 1 + 63 + 1 == 82 + ?
+	 * I haven't been able to find a definitive reference for the max username
+	 * length, but the testing I've done seems to indicate that 8-10 is a
+	 * common limit.  I'll add some extra buffer to be safe.
+	 * */
+	return IRC_MSG_MAXLEN - 100;
 }
 
 static IdleParserHandlerResult _erroneous_nickname_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
