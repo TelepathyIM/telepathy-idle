@@ -51,10 +51,10 @@ gboolean idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gch
 	return TRUE;
 }
 
-GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *recipient, const gchar *text, GError **error) {
+GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *recipient, const gchar *text, gsize max_msg_len, GError **error) {
 	GPtrArray *messages;
 	const gchar *remaining_text = text;
-	gsize remaining_text_len = strlen(text);
+	const gchar * const text_end =  text + strlen(text);
 	gchar *header;
 	const gchar *footer = "";
 	gsize max_bytes;
@@ -77,39 +77,38 @@ GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *rec
 	}
 
 	messages = g_ptr_array_new();
-	max_bytes = IRC_MSG_MAXLEN - (strlen(header) + strlen(footer));
+	max_bytes = max_msg_len - (strlen(header) + strlen(footer));
 
-	while (remaining_text_len > 0) {
+	while (remaining_text < text_end) {
 		char *newline = strchr(remaining_text, '\n');
-		gsize bytes_to_copy;
-		gsize advance;
+		const char *end_iter;
 		char *message;
 
 		if (newline != NULL && ((unsigned) (newline - remaining_text)) < max_bytes) {
 			/* String up to the next newline is short enough. */
-			bytes_to_copy = (newline - remaining_text);
+			end_iter = newline;
 
-			/* Advance over the newline */
-			advance = bytes_to_copy + 1;
-		} else if (remaining_text_len > max_bytes) {
+		} else if ((text_end - remaining_text) > (gint) max_bytes) {
 			/* Remaining string is too long; take as many bytes as possible */
-			/* FIXME: check we're not breaking a UTF-8 code point in half */
-			bytes_to_copy = max_bytes;
-			advance = max_bytes;
+			end_iter = remaining_text + max_bytes;
+			/* make sure we don't break a UTF-8 code point in half */
+			end_iter = g_utf8_find_prev_char (remaining_text, end_iter);
 		} else {
 			/* Just take it all. */
-			bytes_to_copy = remaining_text_len;
-			advance = remaining_text_len;
+			end_iter = text_end;
 		}
 
-		message = g_strdup_printf("%s%.*s%s", header, (int)bytes_to_copy, remaining_text, footer);
+		message = g_strdup_printf("%s%.*s%s", header, (int)(end_iter - remaining_text), remaining_text, footer);
 		g_ptr_array_add(messages, message);
 
-		remaining_text += advance;
-		remaining_text_len -= advance;
+		remaining_text = end_iter;
+		if (*end_iter == '\n') {
+				/* advance over a newline */
+				remaining_text++;
+		}
 	}
 
-	g_assert (remaining_text_len == 0);
+	g_assert (remaining_text == text_end);
 
 	g_ptr_array_add(messages, NULL);
 
@@ -132,7 +131,8 @@ void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gcha
 		return;
 	}
 
-	messages = idle_text_encode_and_split(type, recipient, text, &error);
+	gsize msg_len = idle_connection_get_max_message_length(conn);
+	messages = idle_text_encode_and_split(type, recipient, text, msg_len, &error);
 	if (messages == NULL) {
 		dbus_g_method_return_error(context, error);
 		g_error_free(error);

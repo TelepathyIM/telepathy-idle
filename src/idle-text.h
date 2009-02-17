@@ -31,7 +31,7 @@
 G_BEGIN_DECLS
 
 gboolean idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gchar **body);
-GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *recipient, const gchar *text, GError **error);
+GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *recipient, const gchar *text, gsize max_msg_len, GError **error);
 void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *ctx);
 
 G_END_DECLS

@@ -146,6 +146,12 @@ struct _IdleConnectionPrivate {
 	char *quit_message;
 	gboolean use_ssl;
 
+	/* the string used by the a server as a prefix to any messages we send that
+	 * it relays to other users.  We need to know this so we can keep our sent
+	 * messages short enough that they still fit in the 512-byte limit even with
+	 * this prefix added */
+	char *relay_prefix;
+
 	/* output message queue */
 	GQueue *msg_queue;
 
@@ -182,6 +188,7 @@ static IdleParserHandlerResult _nickname_in_use_handler(IdleParser *parser, Idle
 static IdleParserHandlerResult _ping_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _version_privmsg_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
+static IdleParserHandlerResult _whois_user_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 
 static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServerConnectionState state, IdleServerConnectionStateReason reason, IdleConnection *conn);
 static void sconn_received_cb(IdleServerConnectionIface *sconn, gchar *raw_msg, IdleConnection *conn);
@@ -336,6 +343,7 @@ static void idle_connection_finalize (GObject *object) {
 	g_free(priv->password);
 	g_free(priv->realname);
 	g_free(priv->charset);
+	g_free(priv->relay_prefix);
 	g_free(priv->quit_message);
 
 	while ((msg = g_queue_pop_head(priv->msg_queue)) != NULL)
@@ -519,6 +527,7 @@ static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error) 
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_ERRONEOUSNICKNAME, _erroneous_nickname_handler, conn);
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_NICKNAMEINUSE, _nickname_in_use_handler, conn);
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WELCOME, _welcome_handler, conn);
+		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISUSER, _whois_user_handler, conn);
 
 		idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
 
@@ -719,6 +728,26 @@ void idle_connection_send(IdleConnection *conn, const gchar *msg) {
 	return _send_with_priority(conn, msg, SERVER_CMD_NORMAL_PRIORITY);
 }
 
+gsize
+idle_connection_get_max_message_length(IdleConnection *conn)
+{
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	if (priv->relay_prefix != NULL) {
+		/* server will add ':<relay_prefix> ' to all messages it relays on to
+		 * other users.  the +2 is for the initial : and the trailing space */
+		return IRC_MSG_MAXLEN - (strlen(priv->relay_prefix) + 2);
+	}
+	/* Before we've gotten our user info, we don't know how long our relay
+	 * prefix will be, so just assume worst-case.  The max possible prefix is:
+	 * ':<15 char nick>!<? char username>@<63 char hostname> ' == 1 + 15 + 1 + ?
+	 * + 1 + 63 + 1 == 82 + ?
+	 * I haven't been able to find a definitive reference for the max username
+	 * length, but the testing I've done seems to indicate that 8-10 is a
+	 * common limit.  I'll add some extra buffer to be safe.
+	 * */
+	return IRC_MSG_MAXLEN - 100;
+}
+
 static IdleParserHandlerResult _erroneous_nickname_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 
@@ -795,6 +824,29 @@ static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMe
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
 
+static IdleParserHandlerResult
+_whois_user_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data)
+{
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+
+	/* message format: <nick> <user> <host> * :<real name> */
+	TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+	TpHandle self = tp_base_connection_get_self_handle(TP_BASE_CONNECTION(conn));
+	if (handle == self) {
+			if (priv->relay_prefix != NULL) {
+					g_free(priv->relay_prefix);
+			}
+			const char* user = g_value_get_string(g_value_array_get_nth(args, 1));
+			const char* host = g_value_get_string(g_value_array_get_nth(args, 2));
+			priv->relay_prefix = g_strdup_printf("%s!%s@%s", priv->nickname, user, host);
+			IDLE_DEBUG("user host prefix = %s", priv->relay_prefix);
+
+			return IDLE_PARSER_HANDLER_RESULT_HANDLED;
+	}
+	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+}
+
 static void irc_handshakes(IdleConnection *conn) {
 	IdleConnectionPrivate *priv;
 	gchar msg[IRC_MSG_MAXLEN + 1];
@@ -813,6 +865,10 @@ static void irc_handshakes(IdleConnection *conn) {
 	idle_connection_send(conn, msg);
 
 	g_snprintf(msg, IRC_MSG_MAXLEN + 1, "USER %s %u * :%s", priv->nickname, 8, priv->realname);
+	idle_connection_send(conn, msg);
+
+	/* gather some information about ourselves */
+	g_snprintf(msg, IRC_MSG_MAXLEN + 1, "WHOIS %s", priv->nickname);
 	idle_connection_send(conn, msg);
 }
 
