@@ -28,6 +28,12 @@ def make_privmsg_event(recipient, msg):
     return event
 
 class BaseIRCServer(irc.IRC):
+    verbose = (os.environ.get('CHECK_TWISTED_VERBOSE', '') != '' or '-v' in sys.argv)
+
+    def log(self, message):
+        if (self.verbose):
+            print(message)
+
     def __init__(self, event_func):
         self.event_func = event_func
         self.authenticated = False
@@ -37,15 +43,15 @@ class BaseIRCServer(irc.IRC):
         self.require_pass = False
 
     def listen(self, port, factory):
-        print ("BaseIRCServer listening...")
+        self.log ("BaseIRCServer listening...")
         return reactor.listenTCP(port, factory)
 
     def connectionMade(self):
-        print ("connection Made")
+        self.log ("connection Made")
         self.event_func(make_connected_event())
 
     def connectionLost(self, reason):
-        print ("connection Lost  %s" % reason)
+        self.log ("connection Lost  %s" % reason)
         self.event_func(make_disconnected_event())
 
     def handlePRIVMSG(self, args, prefix):
@@ -83,20 +89,20 @@ class BaseIRCServer(irc.IRC):
         self.sendMessage('001', self.nick, ':Welcome to the test IRC Network', prefix='idle.test.server')
 
     def dataReceived(self, data):
-        print ("data received: %s" % (data,))
+        self.log ("data received: %s" % (data,))
         (_prefix, _command, _args) = irc.parsemsg(data)
         try:
             f = getattr(self, 'handle%s' % _command)
             try:
                 f(_args, _prefix)
             except Exception, e:
-                print 'handler failed: %s' % e
+                self.log('handler failed: %s' % e)
         except Exception, e:
-            print 'No handler for command %s: %s' % (_command, e)
+            self.log('No handler for command %s: %s' % (_command, e))
 
 class SSLIRCServer(BaseIRCServer):
     def listen(self, port, factory):
-        print ("SSLIRCServer listening...")
+        self.log ("SSLIRCServer listening...")
         return reactor.listenSSL(port, factory,
                 ssl.DefaultOpenSSLContextFactory("tools/idletest.key",
                     "tools/idletest.cert"))
