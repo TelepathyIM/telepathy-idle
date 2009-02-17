@@ -91,6 +91,7 @@ class BaseIRCServer(irc.IRC):
     def dataReceived(self, data):
         self.log ("data received: %s" % (data,))
         (_prefix, _command, _args) = irc.parsemsg(data)
+        self.event_func(make_irc_event('stream-%s' % _command, _args))
         try:
             f = getattr(self, 'handle%s' % _command)
             try:
