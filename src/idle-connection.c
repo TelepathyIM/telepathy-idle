@@ -420,6 +420,10 @@ static gchar *_iface_get_unique_connection_name(TpBaseConnection *self) {
 
 static gboolean _finish_shutdown_idle_func(gpointer data) {
 	TpBaseConnection *conn = TP_BASE_CONNECTION(data);
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	if (priv->force_disconnect_id != 0) {
+		g_source_remove(priv->force_disconnect_id);
+	}
 
 	tp_base_connection_finish_shutdown(conn);
 
