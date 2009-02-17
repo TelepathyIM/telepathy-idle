@@ -441,6 +441,7 @@ static gboolean ssl_connect_io_func(GIOChannel *src, GIOCondition cond, gpointer
 		data->watch_id = 0;
 
 		g_io_channel_shutdown(data->io_chan, FALSE, NULL);
+		g_io_channel_unref(data->io_chan);
 		data->io_chan = NULL;
 
 		close(data->fd);
