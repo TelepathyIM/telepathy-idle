@@ -28,6 +28,12 @@ def make_privmsg_event(recipient, msg):
     return event
 
 class BaseIRCServer(irc.IRC):
+    verbose = (os.environ.get('CHECK_TWISTED_VERBOSE', '') != '' or '-v' in sys.argv)
+
+    def log(self, message):
+        if (self.verbose):
+            print(message)
+
     def __init__(self, event_func):
         self.event_func = event_func
         self.authenticated = False
@@ -37,15 +43,15 @@ class BaseIRCServer(irc.IRC):
         self.require_pass = False
 
     def listen(self, port, factory):
-        print ("BaseIRCServer listening...")
+        self.log ("BaseIRCServer listening...")
         return reactor.listenTCP(port, factory)
 
     def connectionMade(self):
-        print ("connection Made")
+        self.log ("connection Made")
         self.event_func(make_connected_event())
 
     def connectionLost(self, reason):
-        print ("connection Lost  %s" % reason)
+        self.log ("connection Lost  %s" % reason)
         self.event_func(make_disconnected_event())
 
     def handlePRIVMSG(self, args, prefix):
@@ -83,20 +89,21 @@ class BaseIRCServer(irc.IRC):
         self.sendMessage('001', self.nick, ':Welcome to the test IRC Network', prefix='idle.test.server')
 
     def dataReceived(self, data):
-        print ("data received: %s" % (data,))
+        self.log ("data received: %s" % (data,))
         (_prefix, _command, _args) = irc.parsemsg(data)
+        self.event_func(make_irc_event('stream-%s' % _command, _args))
         try:
             f = getattr(self, 'handle%s' % _command)
             try:
                 f(_args, _prefix)
             except Exception, e:
-                print 'handler failed: %s' % e
+                self.log('handler failed: %s' % e)
         except Exception, e:
-            print 'No handler for command %s: %s' % (_command, e)
+            self.log('No handler for command %s: %s' % (_command, e))
 
 class SSLIRCServer(BaseIRCServer):
     def listen(self, port, factory):
-        print ("SSLIRCServer listening...")
+        self.log ("SSLIRCServer listening...")
         return reactor.listenSSL(port, factory,
                 ssl.DefaultOpenSSLContextFactory("tools/idletest.key",
                     "tools/idletest.cert"))
@@ -191,11 +198,16 @@ def exec_test_deferred (funs, params, protocol=None, timeout=None):
             # please ignore the POSIX behind the curtain
             d.addBoth((lambda *args: os._exit(1)))
 
-        #conn.Disconnect()
+        # force Disconnect in case the test crashed and didn't disconnect
+        # properly.  We need to call this async because the BaseIRCServer
+        # class must do something in response to the Disconnect call and if we
+        # call it synchronously, we're blocking ourself from responding to the
+        # quit method.
+        servicetest.call_async(queue, conn, 'Disconnect')
 
         if 'IDLE_TEST_REFDBG' in os.environ:
-            # we have to wait that Gabble timeouts so the process is properly
-            # exited and refdbg can generates its report
+            # we have to wait for the timeout so the process is properly
+            # exited and refdbg can generate its report
             time.sleep(5.5)
 
     except dbus.DBusException, e:
