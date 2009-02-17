@@ -22,18 +22,14 @@ def test(q, bus, conn, stream):
 
     text_chan = dbus.Interface(chan,
         u'org.freedesktop.Telepathy.Channel.Type.Text')
-    # send a whole bunch of messages in a row
-    call_async(q, text_chan, 'Send', 0, '0')
-    call_async(q, text_chan, 'Send', 0, '1')
-    call_async(q, text_chan, 'Send', 0, '2')
-    call_async(q, text_chan, 'Send', 0, '3')
-    call_async(q, text_chan, 'Send', 0, '4')
 
-    q.expect('irc-privmsg', data={'message':'0','recipient':CHANNEL_NAME})
-    q.expect('irc-privmsg', data={'message':'1','recipient':CHANNEL_NAME})
-    q.expect('irc-privmsg', data={'message':'2','recipient':CHANNEL_NAME})
-    q.expect('irc-privmsg', data={'message':'3','recipient':CHANNEL_NAME})
-    q.expect('irc-privmsg', data={'message':'4','recipient':CHANNEL_NAME})
+    # send a whole bunch of messages in a row and make sure they get delivered
+    # in the proper order
+    for i in range(4):
+        call_async(q, text_chan, 'Send', 0, str(i))
+
+    for i in range(4):
+        q.expect('irc-privmsg', data={'message':str(i),'recipient':CHANNEL_NAME})
 
     call_async(q, conn, 'Disconnect')
     return True
