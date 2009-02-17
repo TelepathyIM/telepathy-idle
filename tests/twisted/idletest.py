@@ -197,11 +197,16 @@ def exec_test_deferred (funs, params, protocol=None, timeout=None):
             # please ignore the POSIX behind the curtain
             d.addBoth((lambda *args: os._exit(1)))
 
-        #conn.Disconnect()
+        # force Disconnect in case the test crashed and didn't disconnect
+        # properly.  We need to call this async because the BaseIRCServer
+        # class must do something in response to the Disconnect call and if we
+        # call it synchronously, we're blocking ourself from responding to the
+        # quit method.
+        servicetest.call_async(queue, conn, 'Disconnect')
 
         if 'IDLE_TEST_REFDBG' in os.environ:
-            # we have to wait that Gabble timeouts so the process is properly
-            # exited and refdbg can generates its report
+            # we have to wait for the timeout so the process is properly
+            # exited and refdbg can generate its report
             time.sleep(5.5)
 
     except dbus.DBusException, e:
