@@ -5,6 +5,7 @@ TWISTED_TESTS = \
 		connect/connect-fail-ssl.py \
 		connect/server-quit-ignore.py \
 		connect/server-quit-noclose.py \
+		connect/invalid-nick.py \
 		channels/join-muc-channel.py \
 		messages/message-order.py \
 		messages/leading-space.py \

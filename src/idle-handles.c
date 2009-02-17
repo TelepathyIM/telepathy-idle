@@ -27,18 +27,14 @@
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/handle-repo-dynamic.h>
 
-static gboolean _nickname_is_valid(const gchar *nickname) {
-	gsize len;
-	gunichar ucs4char;
+gboolean idle_nickname_is_valid(const gchar *nickname) {
 	const gchar *char_pos = nickname;
 
-	len = g_utf8_strlen(nickname, -1);
-
-	if (!len)
+	/* FIXME: also check for max length? */
+	if (!nickname || *nickname == '\0')
 		return FALSE;
 
-	while (char_pos != NULL) {
-		ucs4char = g_utf8_get_char_validated(char_pos, -1);
+	while (TRUE) {
 
 		switch (*char_pos) {
 			case '[':
@@ -50,7 +46,12 @@ static gboolean _nickname_is_valid(const gchar *nickname) {
 			case '{':
 			case '|':
 			case '}':
+				break;
+
+			/* - not allowed as first char in a nickname */
 			case '-':
+				if (char_pos == nickname)
+					return FALSE;
 				break;
 
 			case '\0':
@@ -58,12 +59,12 @@ static gboolean _nickname_is_valid(const gchar *nickname) {
 				break;
 
 			default:
-				if (!(g_unichar_isalpha(ucs4char) || ((char_pos != nickname) && g_unichar_isdigit(ucs4char))))
+				if (!(g_ascii_isalpha(*char_pos) || ((char_pos != nickname) && g_ascii_isdigit(*char_pos))))
 					return FALSE;
 				break;
 		}
 
-		char_pos = g_utf8_find_next_char(char_pos, NULL);
+		++char_pos;
 	}
 
 	return TRUE;
@@ -108,7 +109,7 @@ static gboolean _channelname_is_valid(const gchar *channel) {
 }
 
 static gchar *_nick_normalize_func(TpHandleRepoIface *repo, const gchar *id, gpointer ctx, GError **error) {
-	if (!_nickname_is_valid(id)) {
+	if (!idle_nickname_is_valid(id)) {
 		g_set_error(error, TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid nickname");
 		return NULL;
 	}
