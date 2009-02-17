@@ -5,6 +5,7 @@ Test connecting to a IRC channel
 
 from idletest import exec_test
 from servicetest import EventPattern, call_async
+import constants
 import dbus
 
 def test(q, bus, conn, stream):
@@ -21,10 +22,9 @@ def test(q, bus, conn, stream):
             value=('/org/freedesktop/Telepathy/Connection/idle/irc/test_40localhost/MucChannel%d' % room_handles[0],))
     q.expect('dbus-signal', signal='NewChannels',
             args=[[('/org/freedesktop/Telepathy/Connection/idle/irc/test_40localhost/MucChannel%d' % room_handles[0],
-                { u'org.freedesktop.Telepathy.Channel.ChannelType':
-                    u'org.freedesktop.Telepathy.Channel.Type.Text',
-                    u'org.freedesktop.Telepathy.Channel.TargetHandle': room_handles[0],
-                    u'org.freedesktop.Telepathy.Channel.TargetHandleType': 2L})]])
+                { CHANNEL_TYPE: u'org.freedesktop.Telepathy.Channel.Type.Text',
+                    TARGET_HANDLE: room_handles[0],
+                    TARGET_HANDLE_TYPE: 2L})]])
     q.expect('dbus-signal', signal='NewChannel',
             args=['/org/freedesktop/Telepathy/Connection/idle/irc/test_40localhost/MucChannel%d' % room_handles[0],
                 u'org.freedesktop.Telepathy.Channel.Type.Text', 2L, room_handles[0], 1])
