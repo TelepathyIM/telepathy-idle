@@ -440,6 +440,7 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 			break;
 		}
 	}
+	connect_data->cur = cur;
 
 	if (fd == -1) {
 		IDLE_DEBUG("could not socket(): %s", g_strerror(errno));
