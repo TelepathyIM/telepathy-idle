@@ -16,7 +16,9 @@ TWISTED_TESTS = \
 TESTS =
 
 TESTS_ENVIRONMENT = \
-	PYTHONPATH=@abs_top_srcdir@/tests/twisted:@abs_top_builddir@/tests/twisted
+	PYTHONPATH=@abs_top_srcdir@/tests/twisted:@abs_top_builddir@/tests/twisted \
+	IDLE_SSL_KEY=@abs_top_srcdir@/tests/twisted/tools/idletest.key \
+	IDLE_SSL_CERT=@abs_top_srcdir@/tests/twisted/tools/idletest.cert
 
 if WANT_TWISTED_TESTS
 
@@ -40,6 +42,7 @@ EXTRA_DIST = \
 	     $(TWISTED_TESTS) \
 	     servicetest.py \
 	     idletest.py \
+	     constants.py \
 	     $(NULL)
 
 CLEANFILES = idle-[1-9]*.log *.pyc */*.pyc

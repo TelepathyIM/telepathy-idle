@@ -26,6 +26,8 @@ EXTRA_DIST = \
 	$(service_in_files) \
 	$(conf_in_files) \
 	exec-with-log.sh.in \
+	idletest.cert \
+	idletest.key \
 	with-session-bus.sh
 
 CLEANFILES = \

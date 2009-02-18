@@ -104,9 +104,10 @@ class BaseIRCServer(irc.IRC):
 class SSLIRCServer(BaseIRCServer):
     def listen(self, port, factory):
         self.log ("SSLIRCServer listening...")
+        key_file = os.environ.get('IDLE_SSL_KEY', 'tools/idletest.key')
+        cert_file = os.environ.get('IDLE_SSL_CERT', 'tools/idletest.cert')
         return reactor.listenSSL(port, factory,
-                ssl.DefaultOpenSSLContextFactory("tools/idletest.key",
-                    "tools/idletest.cert"))
+                ssl.DefaultOpenSSLContextFactory(key_file, cert_file))
 
 def install_colourer():
     def red(s):
