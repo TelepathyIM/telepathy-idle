@@ -24,7 +24,7 @@ test (TpChannelTextMessageType type,
       gchar *msg)
 {
   gchar *recipient = "ircuser";
-  gchar **output = idle_text_encode_and_split (type, recipient, msg, NULL);
+  gchar **output = idle_text_encode_and_split (type, recipient, msg, 510, NULL);
   GString *reconstituted_msg = g_string_sized_new (strlen (msg));
   int i = -1;
   char *line = NULL, *c = NULL;
