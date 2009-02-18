@@ -120,6 +120,7 @@ enum {
 	PROP_PORT,
 	PROP_PASSWORD,
 	PROP_REALNAME,
+	PROP_USERNAME,
 	PROP_CHARSET,
 	PROP_QUITMESSAGE,
 	PROP_USE_SSL,
@@ -142,6 +143,7 @@ struct _IdleConnectionPrivate {
 	guint port;
 	char *password;
 	char *realname;
+	char *username;
 	char *charset;
 	char *quit_message;
 	gboolean use_ssl;
@@ -243,6 +245,11 @@ static void idle_connection_set_property(GObject *obj, guint prop_id, const GVal
 			priv->realname = g_value_dup_string(value);
 			break;
 
+		case PROP_USERNAME:
+			g_free(priv->username);
+			priv->username = g_value_dup_string(value);
+			break;
+
 		case PROP_CHARSET:
 			g_free(priv->charset);
 			priv->charset = g_value_dup_string(value);
@@ -285,6 +292,10 @@ static void idle_connection_get_property(GObject *obj, guint prop_id, GValue *va
 
 		case PROP_REALNAME:
 			g_value_set_string(value, priv->realname);
+			break;
+
+		case PROP_USERNAME:
+			g_value_set_string(value, priv->username);
 			break;
 
 		case PROP_CHARSET:
@@ -342,6 +353,7 @@ static void idle_connection_finalize (GObject *object) {
 	g_free(priv->server);
 	g_free(priv->password);
 	g_free(priv->realname);
+	g_free(priv->username);
 	g_free(priv->charset);
 	g_free(priv->relay_prefix);
 	g_free(priv->quit_message);
@@ -395,6 +407,9 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 
 	param_spec = g_param_spec_string("realname", "Real name", "The real name of the user connecting to IRC", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB);
 	g_object_class_install_property(object_class, PROP_REALNAME, param_spec);
+
+	param_spec = g_param_spec_string("username", "User name", "The username of the user connecting to IRC", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB);
+	g_object_class_install_property(object_class, PROP_USERNAME, param_spec);
 
 	param_spec = g_param_spec_string("charset", "Character set", "The character set to use to communicate with the outside world", "NULL", G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB | G_PARAM_CONSTRUCT);
 	g_object_class_install_property(object_class, PROP_CHARSET, param_spec);
@@ -504,6 +519,11 @@ static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error) 
 				priv->realname = g_strdup(g_realname);
 			else
 				priv->realname = g_strdup(priv->nickname);
+		}
+
+		if (!priv->username || !priv->username[0]) {
+			g_free(priv->username);
+			priv->username = g_strdup(priv->nickname);
 		}
 
 		sconn = IDLE_SERVER_CONNECTION_IFACE(g_object_new(connection_type, "host", priv->server, "port", priv->port, NULL));
@@ -864,7 +884,7 @@ static void irc_handshakes(IdleConnection *conn) {
 	g_snprintf(msg, IRC_MSG_MAXLEN + 1, "NICK %s", priv->nickname);
 	idle_connection_send(conn, msg);
 
-	g_snprintf(msg, IRC_MSG_MAXLEN + 1, "USER %s %u * :%s", priv->nickname, 8, priv->realname);
+	g_snprintf(msg, IRC_MSG_MAXLEN + 1, "USER %s %u * :%s", priv->username, 8, priv->realname);
 	idle_connection_send(conn, msg);
 
 	/* gather some information about ourselves */

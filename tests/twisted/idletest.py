@@ -151,6 +151,7 @@ def make_connection(bus, event_func, params=None):
         'server': 'localhost',
         'password': '',
         'fullname': 'Test User',
+        'username': 'testuser',
         'charset': 'UTF-8',
         'quit-message': 'happy testing...',
         'use-ssl': dbus.Boolean(False),
