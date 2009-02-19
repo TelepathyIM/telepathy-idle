@@ -28,6 +28,7 @@ ERRORS = 'org.freedesktop.Telepathy.Errors'
 INVALID_ARGUMENT = ERRORS + '.InvalidArgument'
 NOT_IMPLEMENTED = ERRORS + '.NotImplemented'
 NOT_AVAILABLE = ERRORS + '.NotAvailable'
+INVALID_HANDLE = ERRORS + '.InvalidHandle'
 
 TUBE_PARAMETERS = CHANNEL_IFACE_TUBE + '.Parameters'
 TUBE_STATE = CHANNEL_IFACE_TUBE + '.State'

@@ -23,10 +23,6 @@ def make_disconnected_event():
     event = make_irc_event('irc-disconnected', None)
     return event
 
-def make_privmsg_event(recipient, msg):
-    event = make_irc_event('irc-privmsg', {'recipient':recipient, 'message':msg})
-    return event
-
 class BaseIRCServer(irc.IRC):
     verbose = (os.environ.get('CHECK_TWISTED_VERBOSE', '') != '' or '-v' in sys.argv)
 
@@ -53,9 +49,6 @@ class BaseIRCServer(irc.IRC):
     def connectionLost(self, reason):
         self.log ("connection Lost  %s" % reason)
         self.event_func(make_disconnected_event())
-
-    def handlePRIVMSG(self, args, prefix):
-            self.event_func(make_privmsg_event(args[0], ' '.join(args[1:]).rstrip('\r\n')))
 
         #handle 'login' handshake
     def handlePASS(self, args, prefix):
@@ -89,7 +82,6 @@ class BaseIRCServer(irc.IRC):
         self.sendMessage('001', self.nick, ':Welcome to the test IRC Network', prefix='idle.test.server')
 
     def dataReceived(self, data):
-        self.log ("data received: %s" % (data,))
         (_prefix, _command, _args) = irc.parsemsg(data)
         self.event_func(make_irc_event('stream-%s' % _command, _args))
         try:

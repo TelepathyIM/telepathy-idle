@@ -7,6 +7,7 @@ message delivery timeout (Bug #17392)
 
 from idletest import exec_test, BaseIRCServer
 from servicetest import EventPattern, call_async
+from constants import *
 import dbus
 
 class LongMessageMangler(BaseIRCServer):
@@ -15,8 +16,6 @@ class LongMessageMangler(BaseIRCServer):
         return '%s!%s@%s' % (self.nick, self.user, self.host)
 
     def handlePRIVMSG(self, args, prefix):
-        #chain up to the base class implementation which simply signals a privmsg event
-        #BaseIRCServer.handlePRIVMSG(self, args, prefix)
         sender = prefix
         recipient = args[0]
         sent_message = args[1]
@@ -36,15 +35,15 @@ def test(q, bus, conn, stream):
     conn.Connect()
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
     CHANNEL_NAME = '#idletest'
-    room_handles = conn.RequestHandles(2, [CHANNEL_NAME])
-    call_async(q, conn, 'RequestChannel', 'org.freedesktop.Telepathy.Channel.Type.Text', 2, room_handles[0], True)
+    room_handles = conn.RequestHandles(HT_ROOM, [CHANNEL_NAME])
+    call_async(q, conn, 'RequestChannel', CHANNEL_TYPE_TEXT, HT_ROOM,
+            room_handles[0], True)
 
     ret = q.expect('dbus-return', method='RequestChannel')
     q.expect('dbus-signal', signal='MembersChanged')
     chan = bus.get_object(conn.bus_name, ret.value[0])
 
-    text_chan = dbus.Interface(chan,
-        u'org.freedesktop.Telepathy.Channel.Type.Text')
+    text_chan = dbus.Interface(chan, CHANNEL_TYPE_TEXT)
     # send a whole bunch of messages in a row
     call_async(q, text_chan, 'Send', 0, LONG_MESSAGE)
 

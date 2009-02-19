@@ -5,6 +5,7 @@ Test that we get an error when attempting to use an invalid nick
 
 import dbus
 from idletest import make_connection
+from constants import *
 
 def connect(nick):
     bus = dbus.SessionBus()
@@ -28,31 +29,31 @@ def test():
         connect('nick with spaces')
         raise RuntimeError('Invalid nick not rejected')
     except dbus.DBusException, e:
-        assert e.get_dbus_name() == 'org.freedesktop.Telepathy.Errors.InvalidHandle'
+        assert e.get_dbus_name() == INVALID_HANDLE
 
     try:
         connect('') # empty nick
         raise RuntimeError('Invalid nick not rejected')
     except dbus.DBusException, e:
-        assert e.get_dbus_name() == 'org.freedesktop.Telepathy.Errors.InvalidHandle'
+        assert e.get_dbus_name() == INVALID_HANDLE
 
     try:
         connect('#foo') # invalid chars
         raise RuntimeError('Invalid nick not rejected')
     except dbus.DBusException, e:
-        assert e.get_dbus_name() == 'org.freedesktop.Telepathy.Errors.InvalidHandle'
+        assert e.get_dbus_name() == INVALID_HANDLE
 
     try:
         connect(u'김정은') # unicode
         raise RuntimeError('Invalid nick not rejected')
     except dbus.DBusException, e:
-        assert e.get_dbus_name() == 'org.freedesktop.Telepathy.Errors.InvalidHandle'
+        assert e.get_dbus_name() == INVALID_HANDLE
 
     try:
         connect('-foo') # '-' not allowed as first char
         raise RuntimeError('Invalid nick not rejected')
     except dbus.DBusException, e:
-        assert e.get_dbus_name() == 'org.freedesktop.Telepathy.Errors.InvalidHandle'
+        assert e.get_dbus_name() == INVALID_HANDLE
 
     # should pass succeed without an exception
     connect('good_nick')
