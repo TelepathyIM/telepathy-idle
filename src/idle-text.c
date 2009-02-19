@@ -141,12 +141,12 @@ void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gcha
 
 	for(GStrv m = messages; *m != NULL; m++) {
 		idle_connection_send(conn, *m);
+
+		timestamp = time(NULL);
+		tp_svc_channel_type_text_emit_sent(obj, timestamp, type, *m);
 	}
 
 	g_strfreev(messages);
-
-	timestamp = time(NULL);
-	tp_svc_channel_type_text_emit_sent(obj, timestamp, type, text);
 
 	tp_svc_channel_type_text_return_from_send(context);
 }
