@@ -429,7 +429,7 @@ static void _iface_create_handle_repos(TpBaseConnection *self, TpHandleRepoIface
 static gchar *_iface_get_unique_connection_name(TpBaseConnection *self) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(self);
 
-	return g_strdup_printf("%s@%s", priv->nickname, priv->server);
+	return g_strdup_printf("%s@%s%p", priv->nickname, priv->server, self);
 }
 
 static gboolean _finish_shutdown_idle_func(gpointer data) {
