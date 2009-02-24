@@ -766,6 +766,7 @@ static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessa
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 
 	if (old_handle == conn->parent.self_handle) {
+		IDLE_DEBUG("Self renamed: handle was %d, now %d", old_handle, new_handle);
 		tp_base_connection_set_self_handle(TP_BASE_CONNECTION(conn), new_handle);
 	}
 

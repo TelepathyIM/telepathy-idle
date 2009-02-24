@@ -79,7 +79,7 @@ filter_nick(const TpCMParamSpec *paramspec, GValue *value, GError **error)
 	g_assert(G_VALUE_HOLDS_STRING(value));
 
 	const gchar* nick = g_value_get_string (value);
-	if (!idle_nickname_is_valid(nick)) {
+	if (!idle_nickname_is_valid(nick, TRUE)) {
 		g_set_error(error, TP_ERRORS, TP_ERROR_INVALID_HANDLE, "Invalid account name '%s'", nick);
 		return FALSE;
 	}

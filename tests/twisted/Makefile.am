@@ -7,6 +7,7 @@ TWISTED_TESTS = \
 		connect/server-quit-noclose.py \
 		connect/invalid-nick.py \
 		channels/join-muc-channel.py \
+		messages/accept-invalid-nicks.py \
 		messages/message-order.py \
 		messages/leading-space.py \
 		messages/long-message-split.py \

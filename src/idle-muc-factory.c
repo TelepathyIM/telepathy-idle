@@ -581,8 +581,10 @@ static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data) {
 static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer user_data) {
 	TpChannelFactoryIface *iface = TP_CHANNEL_FACTORY_IFACE(user_data);
 	IdleMUCFactoryPrivate *priv = IDLE_MUC_FACTORY_GET_PRIVATE(user_data);
+	IDLE_DEBUG("join-ready with error=%d", err);
 
 	if (err == MUC_CHANNEL_JOIN_ERROR_NONE) {
+		IDLE_DEBUG("emitting NewChannel signal");
 		tp_channel_factory_iface_emit_new_channel(iface, (TpChannelIface *) chan, NULL);
 		return;
 	}

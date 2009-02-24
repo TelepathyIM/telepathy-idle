@@ -629,7 +629,7 @@ static gboolean iface_send_impl(IdleServerConnectionIface *iface, const gchar *c
 			return FALSE;
 
 		case G_IO_STATUS_NORMAL:
-			IDLE_DEBUG("sent \"%s\"", cmd);
+			IDLE_DEBUG("sent \"%s\" to IOChannel %p", cmd, priv->io_chan);
 
 			return TRUE;
 

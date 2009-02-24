@@ -50,6 +50,12 @@ def test():
         assert e.get_dbus_name() == INVALID_HANDLE
 
     try:
+        connect('12foo') # numbers not allowed as first char
+        raise RuntimeError('Invalid nick not rejected')
+    except dbus.DBusException, e:
+        assert e.get_dbus_name() == INVALID_HANDLE
+
+    try:
         connect('-foo') # '-' not allowed as first char
         raise RuntimeError('Invalid nick not rejected')
     except dbus.DBusException, e:

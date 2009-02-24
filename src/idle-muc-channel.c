@@ -675,6 +675,7 @@ static void change_state(IdleMUCChannel *obj, IdleMUCState state) {
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
 	if ((state > MUC_STATE_JOINING) && (!priv->join_ready)) {
+		IDLE_DEBUG("emitting join-ready");
 		g_signal_emit(obj, signals[JOIN_READY], 0, MUC_CHANNEL_JOIN_ERROR_NONE);
 		priv->join_ready = TRUE;
 	}
