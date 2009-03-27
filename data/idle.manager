@@ -4,8 +4,8 @@ BusName = org.freedesktop.Telepathy.ConnectionManager.idle
 ObjectPath = /org/freedesktop/Telepathy/ConnectionManager/idle
 
 [Protocol irc]
-param-account = s required register
-param-server = s required register
+param-account = s required
+param-server = s required
 param-fullname = s
 param-port = q
 param-password = s
