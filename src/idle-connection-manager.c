@@ -94,7 +94,7 @@ static const TpCMParamSpec _params[] = {
 	{"password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL, G_STRUCT_OFFSET(Params, password)},
 	{"fullname", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL, G_STRUCT_OFFSET(Params, fullname)},
 	{"charset", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, "UTF-8", G_STRUCT_OFFSET(Params, charset)},
-	{"quit-message", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, "So long and thanks for all the IRC - telepathy-idle IRC Connection Manager for Telepathy - http://telepathy.freedesktop.org", G_STRUCT_OFFSET(Params, quit_message)},
+	{"quit-message", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL, G_STRUCT_OFFSET(Params, quit_message)},
 	{"use-ssl", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN, TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GINT_TO_POINTER(FALSE), G_STRUCT_OFFSET(Params, use_ssl)},
 	{NULL, NULL, 0, 0, NULL, 0}
 };
