@@ -51,7 +51,29 @@ gboolean idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gch
 	return TRUE;
 }
 
-GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *recipient, const gchar *text, gsize max_msg_len, GStrv *bodies_out, GError **error) {
+/**
+ * idle_text_encode_and_split:
+ * @type: The type of message as per Telepathy
+ * @recipient: The target user or channel
+ * @text: The message body
+ * @max_msg_len: The maximum length of the message on this server (see also
+ *               idle_connection_get_max_message_length())
+ * @bodies_out: Location at which to return the human-readable bodies of each
+ *              part
+ * @error: Location at which to store an error
+ *
+ * Splits @text as necessary to be able to send it over IRC. IRC messages
+ * cannot contain newlines, and have a (server-determined) maximum length.
+ *
+ * Returns: A list of IRC protocol commands representing @text as best possible.
+ */
+GStrv
+idle_text_encode_and_split(TpChannelTextMessageType type,
+		const gchar *recipient,
+		const gchar *text,
+		gsize max_msg_len,
+		GStrv *bodies_out,
+		GError **error) {
 	GPtrArray *messages;
 	GPtrArray *bodies;
 	const gchar *remaining_text = text;
