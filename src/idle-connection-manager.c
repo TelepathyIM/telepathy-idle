@@ -36,6 +36,7 @@ struct _Params {
 	guint16 port;
 	gchar *password;
 	gchar *fullname;
+	gchar *username;
 	gchar *charset;
 	gchar *quit_message;
 	gboolean use_ssl;
@@ -54,6 +55,7 @@ static void _params_free(gpointer ptr) {
 	g_free(params->server);
 	g_free(params->password);
 	g_free(params->fullname);
+	g_free(params->username);
 	g_free(params->charset);
 	g_free(params->quit_message);
 
@@ -93,6 +95,7 @@ static const TpCMParamSpec _params[] = {
 	{"port", DBUS_TYPE_UINT16_AS_STRING, G_TYPE_UINT, TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GINT_TO_POINTER(6667), G_STRUCT_OFFSET(Params, port)},
 	{"password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL, G_STRUCT_OFFSET(Params, password)},
 	{"fullname", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL, G_STRUCT_OFFSET(Params, fullname)},
+	{"username", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL, G_STRUCT_OFFSET(Params, username)},
 	{"charset", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, "UTF-8", G_STRUCT_OFFSET(Params, charset)},
 	{"quit-message", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL, G_STRUCT_OFFSET(Params, quit_message)},
 	{"use-ssl", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN, TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GINT_TO_POINTER(FALSE), G_STRUCT_OFFSET(Params, use_ssl)},
@@ -130,6 +133,7 @@ static TpBaseConnection *_iface_new_connection(TpBaseConnectionManager *self, co
 			"port", params->port,
 			"password", params->password,
 			"realname", params->fullname,
+			"username", params->username,
 			"charset", params->charset,
 			"quit-message", params->quit_message,
 			"use-ssl", params->use_ssl,
