@@ -94,8 +94,8 @@ idle_text_encode_and_split(TpChannelTextMessageType type,
 			header = g_strdup_printf("NOTICE %s :", recipient);
 			break;
 		default:
-			IDLE_DEBUG("invalid message type %u", type);
-			g_set_error(error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid message type %u", type);
+			IDLE_DEBUG("unsupported message type %u", type);
+			g_set_error(error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED, "unsupported message type %u", type);
 			return NULL;
 	}
 
