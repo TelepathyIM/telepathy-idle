@@ -875,9 +875,10 @@ static void irc_handshakes(IdleConnection *conn) {
 
 static void send_quit_request(IdleConnection *conn) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	gchar cmd[IRC_MSG_MAXLEN + 1];
+	gchar cmd[IRC_MSG_MAXLEN + 1] = "QUIT";
 
-	g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "QUIT :%s", priv->quit_message);
+	if (priv->quit_message != NULL)
+		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "QUIT :%s", priv->quit_message);
 
 	_send_with_priority(conn, cmd, SERVER_CMD_MAX_PRIORITY);
 }
