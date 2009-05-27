@@ -48,7 +48,6 @@ gboolean idle_nickname_is_valid(const gchar *nickname, gboolean strict_mode) {
 
 		/* only used for non-strict checks */
 		gunichar ucs4char = g_utf8_get_char_validated(char_pos, -1);
-		IDLE_DEBUG("testing character %d", ucs4char);
 
 		switch (*char_pos) {
 			case '[':
