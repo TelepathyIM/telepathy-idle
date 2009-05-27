@@ -51,8 +51,9 @@ gboolean idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gch
 	return TRUE;
 }
 
-GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *recipient, const gchar *text, gsize max_msg_len, GError **error) {
+GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *recipient, const gchar *text, gsize max_msg_len, GStrv *bodies_out, GError **error) {
 	GPtrArray *messages;
+	GPtrArray *bodies;
 	const gchar *remaining_text = text;
 	const gchar * const text_end =  text + strlen(text);
 	gchar *header;
@@ -77,12 +78,14 @@ GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *rec
 	}
 
 	messages = g_ptr_array_new();
+	bodies = g_ptr_array_new();
 	max_bytes = max_msg_len - (strlen(header) + strlen(footer));
 
 	while (remaining_text < text_end) {
 		char *newline = strchr(remaining_text, '\n');
 		const char *end_iter;
 		char *message;
+		int len;
 
 		if (newline != NULL && ((unsigned) (newline - remaining_text)) < max_bytes) {
 			/* String up to the next newline is short enough. */
@@ -98,8 +101,10 @@ GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *rec
 			end_iter = text_end;
 		}
 
-		message = g_strdup_printf("%s%.*s%s", header, (int)(end_iter - remaining_text), remaining_text, footer);
+		len = (int)(end_iter - remaining_text);
+		message = g_strdup_printf("%s%.*s%s", header, len, remaining_text, footer);
 		g_ptr_array_add(messages, message);
+		g_ptr_array_add(bodies, g_strndup(remaining_text, len));
 
 		remaining_text = end_iter;
 		if (*end_iter == '\n') {
@@ -111,15 +116,23 @@ GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *rec
 	g_assert (remaining_text == text_end);
 
 	g_ptr_array_add(messages, NULL);
+	g_ptr_array_add(bodies, NULL);
+
+	if (bodies_out != NULL) {
+		*bodies_out = (GStrv) g_ptr_array_free(bodies, FALSE);
+	} else {
+		g_ptr_array_free(bodies, TRUE);
+	}
 
 	g_free(header);
 	return (GStrv) g_ptr_array_free(messages, FALSE);
 }
 
 void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *context) {
-	time_t timestamp;
+	time_t timestamp = time(NULL);
 	GError *error = NULL;
 	GStrv messages;
+	GStrv bodies;
 
 	if ((recipient == NULL) || (strlen(recipient) == 0)) {
 		IDLE_DEBUG("invalid recipient");
@@ -132,18 +145,18 @@ void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gcha
 	}
 
 	gsize msg_len = idle_connection_get_max_message_length(conn);
-	messages = idle_text_encode_and_split(type, recipient, text, msg_len, &error);
+	messages = idle_text_encode_and_split(type, recipient, text, msg_len, &bodies, &error);
 	if (messages == NULL) {
 		dbus_g_method_return_error(context, error);
 		g_error_free(error);
 		return;
 	}
 
-	for(GStrv m = messages; *m != NULL; m++) {
-		idle_connection_send(conn, *m);
+	for(guint i = 0; messages[i] != NULL; i++) {
+		g_assert(bodies[i] != NULL);
+		idle_connection_send(conn, messages[i]);
 
-		timestamp = time(NULL);
-		tp_svc_channel_type_text_emit_sent(obj, timestamp, type, *m);
+		tp_svc_channel_type_text_emit_sent(obj, timestamp, type, bodies[i]);
 	}
 
 	g_strfreev(messages);
