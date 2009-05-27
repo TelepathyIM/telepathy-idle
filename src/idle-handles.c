@@ -36,7 +36,7 @@
  * to allow contribute to invalid nicks on IRC, but we want to be able to
  * handle them if another client allows people to use invalid nicks */
 gboolean idle_nickname_is_valid(const gchar *nickname, gboolean strict_mode) {
-	const gchar *char_pos = nickname;
+	const gchar *char_pos;
 
 	IDLE_DEBUG("Validating nickname '%s' with strict mode %d", nickname, strict_mode);
 
@@ -44,8 +44,7 @@ gboolean idle_nickname_is_valid(const gchar *nickname, gboolean strict_mode) {
 	if (!nickname || *nickname == '\0')
 		return FALSE;
 
-	while (*char_pos) {
-
+	for (char_pos = nickname; *char_pos; char_pos = g_utf8_find_next_char(char_pos, NULL)) {
 		/* only used for non-strict checks */
 		gunichar ucs4char = g_utf8_get_char_validated(char_pos, -1);
 
@@ -85,11 +84,6 @@ gboolean idle_nickname_is_valid(const gchar *nickname, gboolean strict_mode) {
 				}
 				break;
 		}
-
-		/* in strict mode, a multi-byte character would have already failed the
-		 * test above, so the following line should be equivalent to ++char, but
-		 * it doesn't seem worthwhile to special-case it */
-		char_pos = g_utf8_find_next_char(char_pos, NULL);
 	}
 
 	return TRUE;
