@@ -24,7 +24,7 @@ INITIATOR_ID = CHANNEL + '.InitiatorID'
 CONN = "org.freedesktop.Telepathy.Connection"
 CONN_IFACE_REQUESTS = CONN + '.Interface.Requests'
 
-ERRORS = 'org.freedesktop.Telepathy.Errors'
+ERRORS = 'org.freedesktop.Telepathy.Error'
 INVALID_ARGUMENT = ERRORS + '.InvalidArgument'
 NOT_IMPLEMENTED = ERRORS + '.NotImplemented'
 NOT_AVAILABLE = ERRORS + '.NotAvailable'
