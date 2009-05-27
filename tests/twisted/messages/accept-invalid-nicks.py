@@ -1,8 +1,7 @@
 # coding: utf-8
 """
-Regression test for a bug where, if you were in a IRC channel that had the same
-name as your nickname (e.g. user 'foo' in room '#foo'), all private 1:1 messages
-to foo would appear to also be coming through room #foo as well (bug #19766)
+Regression test to check that we accept incoming nicks beginning with '-' (in
+particular, "-bip"), which are illegal per the RFC but occur in the wild.
 """
 
 from idletest import exec_test
