@@ -1,3 +1,22 @@
+telepathy-idle 0.1.4 (2009-05-28)
+=================================
+
+The "Caberdrone" release.
+
+Enhancements:
+
+* Added a connection parameter for "username" (fd.o #16499).
+
+* Removed the default quit message advertising Idle (fd.o #20916).
+
+Fixes:
+
+* Parses nicknames in incoming messages more liberally, to allow
+  nicknames like "-bip" which are illegal but appear in the wild.
+
+* Uniquify connections' object paths to permit two connections to the
+  same server with the same username (fd.o #17430).
+
 telepathy-idle 0.1.3 (2009-02-17)
 =================================
 
