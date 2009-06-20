@@ -22,8 +22,6 @@
 
 #include <config.h>
 
-/* strnlen */
-#define __USE_GNU
 #include <string.h>
 #include <time.h>
 

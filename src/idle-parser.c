@@ -18,6 +18,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+/* For strnlen(), which is a GNU extension. */
+#define  _GNU_SOURCE
+
 #include "idle-parser.h"
 
 #include "idle-connection.h"
@@ -26,9 +29,7 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#define __USE_GNU
 #include <string.h>
-#undef __USE_GNU
 #include <stdio.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_PARSER
