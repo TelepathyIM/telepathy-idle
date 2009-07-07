@@ -21,6 +21,7 @@
 
 #include <netdb.h>
 #include <sys/socket.h>
+#include <string.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_DNS
 #include "idle-debug.h"
@@ -106,6 +107,7 @@ static gboolean _resolve_idle_func(struct _idle_helper *helper) {
 	IdleDNSQueryData *data = g_hash_table_lookup(helper->res->queries, GUINT_TO_POINTER(helper->serial));
 	struct addrinfo *info = NULL;
 	struct addrinfo *cur;
+	struct addrinfo hints;
 	int rc;
 	IdleDNSResultReal *results = NULL, *tail = NULL;
 	IdleDNSResultCallback cb;
@@ -115,7 +117,9 @@ static gboolean _resolve_idle_func(struct _idle_helper *helper) {
 	cb = data->cb;
 	user_data = data->user_data;
 
-	rc = getaddrinfo(data->name, service, NULL, &info);
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_socktype = SOCK_STREAM;
+	rc = getaddrinfo(data->name, service, &hints, &info);
 
 	if (rc) {
 		IDLE_DEBUG("getaddrinfo(): %s", gai_strerror(rc));

@@ -18,6 +18,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+/* For strnlen(), which is a GNU extension. */
+#define  _GNU_SOURCE
+
 #include "idle-parser.h"
 
 #include "idle-connection.h"
@@ -26,9 +29,7 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#define __USE_GNU
 #include <string.h>
-#undef __USE_GNU
 #include <stdio.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_PARSER
@@ -59,6 +60,17 @@ struct _MessageSpec {
 	IdleParserMessageCode code;
 };
 
+/* Message spec key:
+ * 'I' - ignore token
+ * 'r' - token is a room name
+ * 'c' - token is a contact (nick)
+ * 'C' - token is a contact (nick) with mode characters
+ * 'v' - following token is repeated multiple times
+ * 's' - token is a string
+ * ':' - Consume all remaining tokens as a single string prefixed by ':'
+ *         (e.g. ':this is a message string')
+ * '.' - Same as ':', but optional
+ */
 static const MessageSpec message_specs[] = {
 	{"PING", "Is", IDLE_PARSER_CMD_PING},
 
@@ -94,6 +106,7 @@ static const MessageSpec message_specs[] = {
 	{"333", "IIIrcd", IDLE_PARSER_NUMERIC_TOPIC_STAMP},
 	{"305", "III", IDLE_PARSER_NUMERIC_UNAWAY},
 	{"001", "IIc", IDLE_PARSER_NUMERIC_WELCOME},
+	{"311", "IIIcssI:", IDLE_PARSER_NUMERIC_WHOISUSER},
 	{"317", "IIIcd", IDLE_PARSER_NUMERIC_WHOISIDLE},
 
 	{NULL, NULL, IDLE_PARSER_LAST_MESSAGE_CODE}

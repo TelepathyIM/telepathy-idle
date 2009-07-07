@@ -1,0 +1,49 @@
+telepathy-idle 0.x.x (UNRELEASED)
+=================================
+
+telepathy-idle 0.1.4 (2009-05-28)
+=================================
+
+The "Caberdrone" release.
+
+Enhancements:
+
+* Added a connection parameter for "username" (fd.o #16499).
+
+* Removed the default quit message advertising Idle (fd.o #20916).
+
+Fixes:
+
+* Parses nicknames in incoming messages more liberally, to allow
+  nicknames like "-bip" which are illegal but appear in the wild.
+
+* Uniquify connections' object paths to permit two connections to the
+  same server with the same username (fd.o #17430).
+
+telepathy-idle 0.1.3 (2009-02-17)
+=================================
+
+Dependencies:
+
+* telepathy-glib 0.7.15
+
+Enhancements:
+
+* Added automated test infrastructure
+
+Fixes:
+
+* Fixed a bunch of memory leaks reported by valgrind
+* handle buggy servers that don't quit properly
+* Fix parsing error that resulting in not receiving any messages that started
+  with a leading space (Bug #17390)
+* Handle user renames in room channels properly
+* Validate nicknames properly when attempting to create a new connection
+* Fix bug where data was lost due to improper splitting of long messages
+  (Bug #17392)
+* Don't split utf-8 codepoints in half when splitting long messages (Bug #13532)
+* Fix bug where a user named 'foo' that was a member of a channel of the same
+  name ('#foo') would have private messages delivered to both the private chat
+  and the group chat (Bug #19766)
+* Fix some infinite loop failures when connections fail
+* Fixed various warnings

@@ -4,8 +4,8 @@ BusName = org.freedesktop.Telepathy.ConnectionManager.idle
 ObjectPath = /org/freedesktop/Telepathy/ConnectionManager/idle
 
 [Protocol irc]
-param-account = s required register
-param-server = s required register
+param-account = s required
+param-server = s required
 param-fullname = s
 param-port = q
 param-password = s
@@ -14,5 +14,4 @@ param-quit-message = s
 param-use-ssl = b
 default-port = 6667
 default-charset = UTF-8
-default-quit-message = So long and thanks for all the IRC - telepathy-idle IRC Connection Manager for Telepathy - http://telepathy.freedesktop.org
 default-use-ssl = false

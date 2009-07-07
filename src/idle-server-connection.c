@@ -55,7 +55,6 @@ enum {
 struct _AsyncConnectData {
 	guint watch_id;
 
-	guint fd;
 	GIOChannel *io_chan;
 
 	IdleDNSResult *res;
@@ -71,11 +70,6 @@ static void async_connect_data_destroy(struct _AsyncConnectData *data) {
 	if (data->watch_id) {
 		g_source_remove(data->watch_id);
 		data->watch_id = 0;
-	}
-
-	if (data->fd) {
-		close(data->fd);
-		data->fd = 0;
 	}
 
 	if (data->io_chan) {
@@ -351,14 +345,13 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 	IdleDNSResult *cur = connect_data->cur;
 	IdleDNSResult *next = cur->ai_next;
 
-	g_assert(getsockopt(connect_data->fd, SOL_SOCKET, SO_ERROR, &optval, &optlen) == 0);
+	fd = g_io_channel_unix_get_fd(connect_data->io_chan);
+	g_assert(getsockopt(fd, SOL_SOCKET, SO_ERROR, &optval, &optlen) == 0);
 
 	if (optval == 0) {
 		int opt;
 
 		IDLE_DEBUG("connected!");
-
-		fd = connect_data->fd;
 
 		change_state(conn, SERVER_CONNECTION_STATE_CONNECTED, SERVER_CONNECTION_STATE_REASON_REQUESTED);
 
@@ -369,7 +362,6 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 		priv->io_chan = connect_data->io_chan;
 
 		connect_data->io_chan = NULL;
-		connect_data->fd = 0;
 
 		async_connect_data_destroy(priv->connect_data);
 		priv->connect_data = NULL;
@@ -404,12 +396,12 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 		IDLE_DEBUG("re-using existing socket for trying again");
 
 		errno = 0;
-		rc = connect(connect_data->fd, next->ai_addr, next->ai_addrlen);
+		rc = connect(fd, next->ai_addr, next->ai_addrlen);
 
 		for (int i = 0; i < 5 && errno == ECONNABORTED; i++) {
 			IDLE_DEBUG("got ECONNABORTED for %ith time", i + 1);
 			errno = 0;
-			connect(connect_data->fd, next->ai_addr, next->ai_addrlen);
+			connect(fd, next->ai_addr, next->ai_addrlen);
 		}
 
 		if ((errno != EINPROGRESS) && (rc == -1)) {
@@ -440,6 +432,7 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 			break;
 		}
 	}
+	connect_data->cur = cur;
 
 	if (fd == -1) {
 		IDLE_DEBUG("could not socket(): %s", g_strerror(errno));
@@ -457,7 +450,6 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 		IDLE_DEBUG("failed to set socket to non-blocking mode: %s", g_strerror(errno));
 		g_io_channel_shutdown(io_chan, FALSE, NULL);
 		g_io_channel_unref(io_chan);
-		close(fd);
 		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
 		return FALSE;
 	}
@@ -469,7 +461,6 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 		IDLE_DEBUG("initial connect() failed: %s", g_strerror(errno));
 		g_io_channel_shutdown(io_chan, FALSE, NULL);
 		g_io_channel_unref(io_chan);
-		close(fd);
 		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
 		return FALSE;
 	}
@@ -477,9 +468,6 @@ static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer dat
 	g_io_channel_shutdown(connect_data->io_chan, FALSE, NULL);
 	g_io_channel_unref(connect_data->io_chan);
 	connect_data->io_chan = io_chan;
-
-	close(connect_data->fd);
-	connect_data->fd = fd;
 
 	connect_data->watch_id = g_io_add_watch(io_chan, G_IO_OUT | G_IO_ERR, connect_io_func, conn);
 
@@ -550,7 +538,6 @@ static void dns_result_callback(guint unused, IdleDNSResult *results, gpointer u
 	g_io_channel_set_encoding(io_chan, NULL, NULL);
 	g_io_channel_set_buffered(io_chan, FALSE);
 
-	priv->connect_data->fd = fd;
 	priv->connect_data->io_chan = io_chan;
 	priv->connect_data->res = results;
 	priv->connect_data->cur = cur;
@@ -573,7 +560,6 @@ static gboolean iface_disconnect_impl_full(IdleServerConnectionIface *iface, GEr
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(iface);
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 	GError *io_error = NULL;
-	int fd;
 	GIOStatus status;
 
 	g_assert(priv != NULL);
@@ -590,16 +576,11 @@ static gboolean iface_disconnect_impl_full(IdleServerConnectionIface *iface, GEr
 	}
 
 	if (priv->io_chan != NULL) {
-		fd = g_io_channel_unix_get_fd(priv->io_chan);
 		status = g_io_channel_shutdown(priv->io_chan, TRUE, &io_error);
 
 		if (status != G_IO_STATUS_NORMAL && io_error) {
 			IDLE_DEBUG("g_io_channel_shutdown failed: %s", io_error->message);
 			g_error_free(io_error);
-		}
-
-		if (close(fd)) {
-			IDLE_DEBUG("unable to close fd: %s", g_strerror(errno));
 		}
 
 		g_io_channel_unref(priv->io_chan);
@@ -648,7 +629,7 @@ static gboolean iface_send_impl(IdleServerConnectionIface *iface, const gchar *c
 			return FALSE;
 
 		case G_IO_STATUS_NORMAL:
-			IDLE_DEBUG("sent \"%s\"", cmd);
+			IDLE_DEBUG("sent \"%s\" to IOChannel %p", cmd, priv->io_chan);
 
 			return TRUE;
 

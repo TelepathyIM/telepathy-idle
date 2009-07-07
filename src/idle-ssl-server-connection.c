@@ -70,7 +70,6 @@ struct _AsyncConnectData {
 
 	guint watch_id;
 	GIOChannel *io_chan;
-	guint fd;
 
 	IdleDNSResult *res;
 	IdleDNSResult *cur;
@@ -95,11 +94,6 @@ static void async_connect_data_destroy(AsyncConnectData *data) {
 		data->io_chan = NULL;
 	}
 
-	if (data->fd) {
-		close(data->fd);
-		data->fd = 0;
-	}
-
 	if (data->res) {
 		idle_dns_result_destroy(data->res);
 		data->res = NULL;
@@ -114,7 +108,6 @@ struct _IdleSSLServerConnectionPrivate {
 	guint port;
 
 	GIOChannel *io_chan;
-	int fd;
 	SSL *ssl;
 	BIO *bio;
 
@@ -138,7 +131,6 @@ static void idle_ssl_server_connection_init(IdleSSLServerConnection *conn) {
 	priv->port = 0;
 
 	priv->io_chan = NULL;
-	priv->fd = 0;
 	priv->ssl = NULL;
 	priv->bio = NULL;
 
@@ -361,9 +353,6 @@ static void ssl_async_connecting_finished_cb(IdleSSLServerConnection *conn, gboo
 	if (!success)
 		return ssl_conn_change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
 
-	priv->fd = priv->connect_data->fd;
-	priv->connect_data->fd = 0;
-
 	priv->io_chan = priv->connect_data->io_chan;
 	priv->connect_data->io_chan = NULL;
 
@@ -374,14 +363,15 @@ static void ssl_async_connecting_finished_cb(IdleSSLServerConnection *conn, gboo
 
 	priv->read_watch_id = g_io_add_watch(priv->io_chan, G_IO_IN | G_IO_PRI | G_IO_ERR | G_IO_HUP, ssl_io_func, conn);
 
-	if (fcntl(priv->fd, F_SETFL, 0))
+	gint fd = g_io_channel_unix_get_fd(priv->io_chan);
+	if (fcntl(fd, F_SETFL, 0))
 		IDLE_DEBUG("failed to set socket back to blocking mode");
 
 	opt = 1;
-	setsockopt(priv->fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
 
 	opt = 1;
-	setsockopt(priv->fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
+	setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
 
 	ctx = ssl_conn_get_ctx();
 
@@ -397,7 +387,7 @@ static void ssl_async_connecting_finished_cb(IdleSSLServerConnection *conn, gboo
 		return ssl_async_connecting_finished_cb(conn, FALSE);
 	}
 
-	status = SSL_set_fd(priv->ssl, priv->fd);
+	status = SSL_set_fd(priv->ssl, fd);
 
 	if (!status) {
 		IDLE_DEBUG("failed to set SSL socket");
@@ -431,8 +421,9 @@ static gboolean ssl_connect_io_func(GIOChannel *src, GIOCondition cond, gpointer
 	AsyncConnectData *data = (AsyncConnectData *)(user_data);
 	int optval;
 	socklen_t optlen = sizeof(optval);
+	gint fd = g_io_channel_unix_get_fd(data->io_chan);
 
-	g_assert(getsockopt(data->fd, SOL_SOCKET, SO_ERROR, &optval, &optlen) == 0);
+	g_assert(getsockopt(fd, SOL_SOCKET, SO_ERROR, &optval, &optlen) == 0);
 
 	if (optval == 0) {
 		data->finished_cb(data->conn, TRUE);
@@ -441,10 +432,11 @@ static gboolean ssl_connect_io_func(GIOChannel *src, GIOCondition cond, gpointer
 		data->watch_id = 0;
 
 		g_io_channel_shutdown(data->io_chan, FALSE, NULL);
+		g_io_channel_unref(data->io_chan);
 		data->io_chan = NULL;
 
-		close(data->fd);
-		data->fd = 0;
+		/* try the next address */
+		data->cur = data->cur->ai_next;
 
 		ssl_do_connect(data);
 	}
@@ -490,7 +482,6 @@ static void ssl_do_connect(AsyncConnectData *data) {
 	g_io_channel_set_encoding(io_chan, NULL, NULL);
 	g_io_channel_set_buffered(io_chan, FALSE);
 
-	data->fd = fd;
 	data->io_chan = io_chan;
 	data->watch_id = g_io_add_watch(io_chan, G_IO_OUT | G_IO_ERR, ssl_connect_io_func, data);
 }
@@ -580,11 +571,6 @@ static gboolean iface_ssl_disconnect_impl_full(IdleServerConnectionIface *iface,
 		g_io_channel_unref(priv->io_chan);
 
 		priv->io_chan = NULL;
-	}
-
-	if (priv->fd) {
-		close(priv->fd);
-		priv->fd = 0;
 	}
 
 	ssl_conn_change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, reason);

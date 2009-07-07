@@ -24,7 +24,8 @@ test (TpChannelTextMessageType type,
       gchar *msg)
 {
   gchar *recipient = "ircuser";
-  gchar **output = idle_text_encode_and_split (type, recipient, msg, NULL);
+  gchar **bodies;
+  gchar **output = idle_text_encode_and_split (type, recipient, msg, 510, &bodies, NULL);
   GString *reconstituted_msg = g_string_sized_new (strlen (msg));
   int i = -1;
   char *line = NULL, *c = NULL;
@@ -86,6 +87,11 @@ test (TpChannelTextMessageType type,
         {
           fail ("resulting line missing suffix '%s'",
               g_strescape (expected_suffixes[type], ""));
+        }
+
+      if (strncmp (c, bodies[i], strlen (c) - strlen (expected_suffixes[type])))
+        {
+          fail ("body of '%s' doesn't match alleged body '%s'", c, bodies[i]);
         }
 
       g_string_append_len (reconstituted_msg, c,

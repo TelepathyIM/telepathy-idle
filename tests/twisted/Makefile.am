@@ -3,16 +3,25 @@ TWISTED_TESTS = \
 		connect/connect-success-ssl.py \
 		connect/connect-fail.py \
 		connect/connect-fail-ssl.py \
+		connect/server-quit-ignore.py \
+		connect/server-quit-noclose.py \
+		connect/invalid-nick.py \
 		channels/join-muc-channel.py \
 		channels/requests-create.py \
+		messages/accept-invalid-nicks.py \
 		messages/message-order.py \
 		messages/leading-space.py \
+		messages/long-message-split.py \
+		messages/room-contact-mixup.py \
+		messages/split-msg-sent-signal.py \
 		$(NULL)
 
 TESTS =
 
 TESTS_ENVIRONMENT = \
-	PYTHONPATH=@abs_top_srcdir@/tests/twisted:@abs_top_builddir@/tests/twisted
+	PYTHONPATH=@abs_top_srcdir@/tests/twisted:@abs_top_builddir@/tests/twisted \
+	IDLE_SSL_KEY=@abs_top_srcdir@/tests/twisted/tools/idletest.key \
+	IDLE_SSL_CERT=@abs_top_srcdir@/tests/twisted/tools/idletest.cert
 
 if WANT_TWISTED_TESTS
 
@@ -36,6 +45,7 @@ EXTRA_DIST = \
 	     $(TWISTED_TESTS) \
 	     servicetest.py \
 	     idletest.py \
+	     constants.py \
 	     $(NULL)
 
 CLEANFILES = idle-[1-9]*.log *.pyc */*.pyc

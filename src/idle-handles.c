@@ -27,18 +27,26 @@
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/handle-repo-dynamic.h>
 
-static gboolean _nickname_is_valid(const gchar *nickname) {
-	gsize len;
-	gunichar ucs4char;
-	const gchar *char_pos = nickname;
+#define IDLE_DEBUG_FLAG IDLE_DEBUG_PARSER
+#include "idle-debug.h"
 
-	len = g_utf8_strlen(nickname, -1);
+/* When strict_mode is true, we validate the nick strictly against the IRC
+ * RFCs (e.g. only ascii characters, no leading '-'.  When strict_mode is
+ * false, we releax the requirements slightly.  This is because we don't want
+ * to allow contribute to invalid nicks on IRC, but we want to be able to
+ * handle them if another client allows people to use invalid nicks */
+gboolean idle_nickname_is_valid(const gchar *nickname, gboolean strict_mode) {
+	const gchar *char_pos;
 
-	if (!len)
+	IDLE_DEBUG("Validating nickname '%s' with strict mode %d", nickname, strict_mode);
+
+	/* FIXME: also check for max length? */
+	if (!nickname || *nickname == '\0')
 		return FALSE;
 
-	while (char_pos != NULL) {
-		ucs4char = g_utf8_get_char_validated(char_pos, -1);
+	for (char_pos = nickname; *char_pos; char_pos = g_utf8_find_next_char(char_pos, NULL)) {
+		/* only used for non-strict checks */
+		gunichar ucs4char = g_utf8_get_char_validated(char_pos, -1);
 
 		switch (*char_pos) {
 			case '[':
@@ -50,20 +58,32 @@ static gboolean _nickname_is_valid(const gchar *nickname) {
 			case '{':
 			case '|':
 			case '}':
-			case '-':
 				break;
 
-			case '\0':
-				return TRUE;
+			/* '-' is technically not allowed as first char in a nickname */
+			case '-':
+				if (strict_mode) {
+						if (char_pos == nickname)
+							return FALSE;
+				}
 				break;
 
 			default:
-				if (!(g_unichar_isalpha(ucs4char) || ((char_pos != nickname) && g_unichar_isdigit(ucs4char))))
-					return FALSE;
+				if (strict_mode) {
+						/* only accept ascii characters in strict mode */
+						if (!(g_ascii_isalpha(*char_pos) || ((char_pos != nickname) && g_ascii_isdigit(*char_pos)))) {
+								IDLE_DEBUG("invalid character '%c'", *char_pos);
+								return FALSE;
+						}
+				} else {
+						/* allow unicode and digits as first char in non-strict mode */
+						if (!(g_unichar_isalpha(ucs4char) || g_unichar_isdigit(ucs4char))) {
+								IDLE_DEBUG("invalid character %d", ucs4char);
+								return FALSE;
+						}
+				}
 				break;
 		}
-
-		char_pos = g_utf8_find_next_char(char_pos, NULL);
 	}
 
 	return TRUE;
@@ -108,7 +128,7 @@ static gboolean _channelname_is_valid(const gchar *channel) {
 }
 
 static gchar *_nick_normalize_func(TpHandleRepoIface *repo, const gchar *id, gpointer ctx, GError **error) {
-	if (!_nickname_is_valid(id)) {
+	if (!idle_nickname_is_valid(id, FALSE)) {
 		g_set_error(error, TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid nickname");
 		return NULL;
 	}
@@ -120,12 +140,6 @@ static gchar *_nick_normalize_func(TpHandleRepoIface *repo, const gchar *id, gpo
 
 static gchar *_channel_normalize_func(TpHandleRepoIface *repo, const gchar *id, gpointer ctx, GError **error) {
 	gchar *channel = g_strdup(id);
-
-	if ((channel[0] != '#') && (channel[0] != '!') && (channel[0] != '&') && (channel[0] != '+')) {
-		gchar *tmp = channel;
-		channel = g_strdup_printf("#%s", channel);
-		g_free(tmp);
-	}
 
 	if (!_channelname_is_valid(channel)) {
 		g_set_error(error, TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid channel ID");

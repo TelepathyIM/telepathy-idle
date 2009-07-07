@@ -25,6 +25,7 @@
 #include <telepathy-glib/enums.h>
 
 #include "idle-connection.h"
+#include "idle-handles.h" /* to check for valid nick */
 
 G_DEFINE_TYPE(IdleConnectionManager, idle_connection_manager, TP_TYPE_BASE_CONNECTION_MANAGER)
 
@@ -35,6 +36,7 @@ struct _Params {
 	guint16 port;
 	gchar *password;
 	gchar *fullname;
+	gchar *username;
 	gchar *charset;
 	gchar *quit_message;
 	gboolean use_ssl;
@@ -53,6 +55,7 @@ static void _params_free(gpointer ptr) {
 	g_free(params->server);
 	g_free(params->password);
 	g_free(params->fullname);
+	g_free(params->username);
 	g_free(params->charset);
 	g_free(params->quit_message);
 
@@ -71,14 +74,30 @@ enum {
 	LAST_PARAM
 };
 
+gboolean
+filter_nick(const TpCMParamSpec *paramspec, GValue *value, GError **error)
+{
+	g_assert(value);
+	g_assert(G_VALUE_HOLDS_STRING(value));
+
+	const gchar* nick = g_value_get_string (value);
+	if (!idle_nickname_is_valid(nick, TRUE)) {
+		g_set_error(error, TP_ERRORS, TP_ERROR_INVALID_HANDLE, "Invalid account name '%s'", nick);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 static const TpCMParamSpec _params[] = {
-	{"account", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, TP_CONN_MGR_PARAM_FLAG_REQUIRED, NULL, G_STRUCT_OFFSET(Params, account)},
+	{"account", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, TP_CONN_MGR_PARAM_FLAG_REQUIRED, NULL, G_STRUCT_OFFSET(Params, account), filter_nick},
 	{"server",  DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, TP_CONN_MGR_PARAM_FLAG_REQUIRED, NULL, G_STRUCT_OFFSET(Params, server)},
 	{"port", DBUS_TYPE_UINT16_AS_STRING, G_TYPE_UINT, TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GINT_TO_POINTER(6667), G_STRUCT_OFFSET(Params, port)},
 	{"password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL, G_STRUCT_OFFSET(Params, password)},
 	{"fullname", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL, G_STRUCT_OFFSET(Params, fullname)},
+	{"username", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL, G_STRUCT_OFFSET(Params, username)},
 	{"charset", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, "UTF-8", G_STRUCT_OFFSET(Params, charset)},
-	{"quit-message", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, "So long and thanks for all the IRC - telepathy-idle IRC Connection Manager for Telepathy - http://telepathy.freedesktop.org", G_STRUCT_OFFSET(Params, quit_message)},
+	{"quit-message", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL, G_STRUCT_OFFSET(Params, quit_message)},
 	{"use-ssl", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN, TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GINT_TO_POINTER(FALSE), G_STRUCT_OFFSET(Params, use_ssl)},
 	{NULL, NULL, 0, 0, NULL, 0}
 };
@@ -114,6 +133,7 @@ static TpBaseConnection *_iface_new_connection(TpBaseConnectionManager *self, co
 			"port", params->port,
 			"password", params->password,
 			"realname", params->fullname,
+			"username", params->username,
 			"charset", params->charset,
 			"quit-message", params->quit_message,
 			"use-ssl", params->use_ssl,
