@@ -89,6 +89,8 @@ void idle_muc_channel_topic_full(IdleMUCChannel *chan, const TpHandle handle, co
 void idle_muc_channel_topic_touch(IdleMUCChannel *chan, const TpHandle handle, const guint timestamp);
 void idle_muc_channel_topic_unset(IdleMUCChannel *chan);
 
+gboolean idle_muc_channel_is_ready(IdleMUCChannel *chan);
+
 G_END_DECLS
 
 #endif /* #ifndef __IDLE_MUC_CHANNEL_H__*/

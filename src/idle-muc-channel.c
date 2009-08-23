@@ -737,6 +737,17 @@ static void change_state(IdleMUCChannel *obj, IdleMUCState state) {
 	IDLE_DEBUG("IdleMUCChannel %u changed to state %s", priv->handle, ascii_muc_states[state]);
 }
 
+gboolean idle_muc_channel_is_ready(IdleMUCChannel *obj) {
+	IdleMUCChannelPrivate *priv;
+
+	g_return_val_if_fail(obj != NULL, FALSE);
+	g_return_val_if_fail(IDLE_IS_MUC_CHANNEL(obj), FALSE);
+
+	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+
+	return priv->join_ready;
+}
+
 static IdleMUCChannelTPProperty to_prop_id(IRCChannelModeFlags flag) {
 	switch (flag) {
 		case MODE_FLAG_INVITE_ONLY:
