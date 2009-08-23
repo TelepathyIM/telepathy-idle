@@ -50,6 +50,11 @@ typedef struct _IdleMUCManagerPrivate IdleMUCManagerPrivate;
 struct _IdleMUCManagerPrivate {
 	IdleConnection *conn;
 	GHashTable *channels;
+
+	/* Map from IdleMUCChannel * (borrowed from channels) to a GSList * of
+	 * request tokens. */
+	GHashTable *queued_requests;
+
 	gulong status_changed_id;
 	gboolean dispose_has_run;
 };
@@ -84,7 +89,7 @@ static gboolean _muc_manager_request_channel (TpChannelManager *manager, gpointe
 static gboolean _muc_manager_ensure_channel (TpChannelManager *manager, gpointer request_token, GHashTable *request_properties);
 static gboolean _muc_manager_request (IdleMUCManager *self, gpointer request_token, GHashTable *request_properties, gboolean require_new);
 
-static IdleMUCChannel *_muc_manager_new_channel(IdleMUCManager *manager, TpHandle handle, gpointer request_token);
+static IdleMUCChannel *_muc_manager_new_channel(IdleMUCManager *manager, TpHandle handle);
 
 static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data);
 static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer user_data);
@@ -126,6 +131,7 @@ static void idle_muc_manager_init(IdleMUCManager *obj) {
 	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(obj);
 
 	priv->channels = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_object_unref);
+	priv->queued_requests = g_hash_table_new(NULL, NULL);
 }
 
 static void idle_muc_manager_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec) {
@@ -270,7 +276,7 @@ static IdleParserHandlerResult _invite_handler(IdleParser *parser, IdleParserMes
 	idle_connection_emit_queued_aliases_changed(priv->conn);
 
 	if (!chan) {
-		chan = _muc_manager_new_channel(manager, room_handle, NULL);
+		chan = _muc_manager_new_channel(manager, room_handle);
 		tp_channel_manager_emit_new_channel(TP_CHANNEL_MANAGER(user_data), (TpExportableChannel *) chan, NULL);
 		idle_muc_channel_invited(chan, inviter_handle);
 	}
@@ -294,8 +300,8 @@ static IdleParserHandlerResult _join_handler(IdleParser *parser, IdleParserMessa
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (!chan) {
-		/* XXX: emit request_already_satisified?  use request_channel API? */
-		chan = _muc_manager_new_channel(manager, room_handle, NULL);
+		chan = _muc_manager_new_channel(manager, room_handle);
+		tp_channel_manager_emit_new_channel(TP_CHANNEL_MANAGER(user_data), (TpExportableChannel *) chan, NULL);
 	}
 
 	idle_muc_channel_join(chan, joiner_handle);
@@ -619,11 +625,13 @@ _muc_manager_foreach_channel_class (TpChannelManager *manager,
 }
 
 
-static IdleMUCChannel *_muc_manager_new_channel(IdleMUCManager *manager, TpHandle handle, gpointer request_token)
+static IdleMUCChannel *_muc_manager_new_channel(IdleMUCManager *manager, TpHandle handle)
 {
 	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(manager);
 	IdleMUCChannel *chan;
 	gchar *object_path;
+
+	g_assert(g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(handle)) == NULL);
 
 	object_path = g_strdup_printf("%s/MucChannel%u", priv->conn->parent.object_path, handle);
 	chan = g_object_new(IDLE_TYPE_MUC_CHANNEL, "connection", priv->conn, "object-path", object_path, "handle", handle, NULL);
@@ -635,20 +643,41 @@ static IdleMUCChannel *_muc_manager_new_channel(IdleMUCManager *manager, TpHandl
 
 	g_free(object_path);
 
-	GSList* tokens = NULL;
-	if (request_token != NULL)
-		tokens = g_slist_prepend (tokens, request_token);
-
-	tp_channel_manager_emit_new_channel (manager, TP_EXPORTABLE_CHANNEL (chan),
-										 tokens);
-
-	g_slist_free (tokens);
-
 	return chan;
 }
 
+static void associate_request(IdleMUCManager *manager, IdleMUCChannel *chan, gpointer request) {
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(manager);
+	GSList *reqs = g_hash_table_lookup(priv->queued_requests, chan);
+
+	g_hash_table_steal(priv->queued_requests, chan);
+	g_hash_table_insert(priv->queued_requests, chan, g_slist_prepend(reqs, request));
+}
+
+static GSList *take_request_tokens(IdleMUCManager *manager, IdleMUCChannel *chan) {
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(manager);
+	GSList *reqs = g_hash_table_lookup(priv->queued_requests, chan);
+
+	g_hash_table_steal(priv->queued_requests, chan);
+
+	return g_slist_reverse(reqs);
+}
+
 static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data) {
-	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
+	IdleMUCManager *manager = IDLE_MUC_MANAGER(user_data);
+	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(manager);
+	GSList *reqs = take_request_tokens(user_data, chan);
+
+	/* If there are any tokens for this channel when it closes, the request
+	 * didn't finish before we killed the channel.
+	 */
+	for (GSList *l = reqs; l != NULL; l = l->next) {
+		tp_channel_manager_emit_request_failed(manager, l->data, TP_ERRORS,
+			TP_ERROR_DISCONNECTED,
+			"Unable to complete this channel request, we're disconnecting!");
+	}
+
+	g_slist_free(reqs);
 
 	if (priv->channels) {
 		TpHandle handle;
@@ -660,10 +689,11 @@ static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data) {
 static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer user_data) {
 	TpChannelManager *manager = TP_CHANNEL_MANAGER(user_data);
 	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
+	GSList *reqs = take_request_tokens(user_data, chan);
 
 	if (err == MUC_CHANNEL_JOIN_ERROR_NONE) {
-		tp_channel_manager_emit_new_channel(manager, (TpExportableChannel *) chan, NULL);
-		return;
+		tp_channel_manager_emit_new_channel(manager, (TpExportableChannel *) chan, reqs);
+		goto out;
 	}
 
 	gint err_code = 0;
@@ -693,15 +723,15 @@ static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer use
 			break;
 	}
 
-	/* XXX: old: tp_channel_factory_iface_emit_channel_error().  is this a
-	 * suitable replacement?
-	 * FIXME: eventually we need to hook up the request_token so that this error
-	 * is associated with the proper request
-	 */
-	tp_channel_manager_emit_request_failed(manager, NULL, TP_ERRORS, err_code, err_msg);
+	for (GSList *l = reqs; reqs != NULL; reqs = reqs->next) {
+		tp_channel_manager_emit_request_failed(manager, l->data, TP_ERRORS, err_code, err_msg);
+	}
 
 	if (priv->channels)
 		g_hash_table_remove(priv->channels, GUINT_TO_POINTER(handle));
+
+out:
+	g_slist_free (reqs);
 }
 
 
@@ -786,19 +816,21 @@ _muc_manager_request (IdleMUCManager *self,
 							 "That channel has already been created (or requested)");
 				goto error;
 			}
-			else
+			else if (idle_muc_channel_is_ready (channel))
 			{
 				tp_channel_manager_emit_request_already_satisfied (self,
 																   request_token,
 																   TP_EXPORTABLE_CHANNEL (channel));
+				return TRUE;
 			}
 		}
 		else
 		{
-			channel = _muc_manager_new_channel (self, handle,
-												request_token);
+			channel = _muc_manager_new_channel (self, handle);
+			idle_muc_channel_join_attempt(channel);
 		}
-		idle_muc_channel_join_attempt(channel);
+
+		associate_request(self, channel, request_token);
 
 		return TRUE;
 	}
