@@ -72,20 +72,20 @@ ALL_LIBS = \
 	@TELEPATHY_LIBS@
 
 %-signals-marshal.h: %-signals-marshal.list Makefile
-	glib-genmarshal --header --prefix=$(subst -,_,$*)_marshal $< > $*-signals-marshal.h
+	$(AM_V_GEN)glib-genmarshal --header --prefix=$(subst -,_,$*)_marshal $< > $*-signals-marshal.h
 
 %-signals-marshal.c: %-signals-marshal.list Makefile
-	glib-genmarshal --body --prefix=$(subst -,_,$*)_marshal $< > $*-signals-marshal.c
+	$(AM_V_GEN)glib-genmarshal --body --prefix=$(subst -,_,$*)_marshal $< > $*-signals-marshal.c
 
 %-marshal.h: %-marshal.list Makefile
-	glib-genmarshal --header --prefix=$(subst -,_,$*)_marshal $< > $*-marshal.h
+	$(AM_V_GEN)glib-genmarshal --header --prefix=$(subst -,_,$*)_marshal $< > $*-marshal.h
 
 %-marshal.c: %-marshal.list Makefile
-	glib-genmarshal --body --prefix=$(subst -,_,$*)_marshal $< > $*-marshal.c
+	$(AM_V_GEN)glib-genmarshal --body --prefix=$(subst -,_,$*)_marshal $< > $*-marshal.c
 
 man_MANS = telepathy-idle.8
 
 EXTRA_DIST = telepathy-idle.8.in
 
 %.8: %.8.in Makefile
-	sed -e 's,[@]libexecdir[@],@libexecdir@,' < $< > $@
+	$(AM_V_GEN)sed -e 's,[@]libexecdir[@],@libexecdir@,' < $< > $@

@@ -34,18 +34,19 @@ DROP_NAMESPACE = sed -e 's@xmlns:tp="http://telepathy\.freedesktop\.org/wiki/Dbu
 XSLTPROCFLAGS = --nonet --novalid
 
 _gen/all.xml: all.xml $(wildcard *.xml)
-	$(mkdir_p) _gen
-	$(XSLTPROC) $(XSLTPROCFLAGS) --xinclude $(tools_dir)/identity.xsl \
+	@$(mkdir_p) _gen
+	$(AM_V_GEN)$(XSLTPROC) $(XSLTPROCFLAGS) \
+		--xinclude $(tools_dir)/identity.xsl \
 		$< > $@
 
 extensions.html: _gen/all.xml $(tools_dir)/doc-generator.xsl
-	$(XSLTPROC) $(XSLTPROCFLAGS) \
+	$(AM_V_GEN)$(XSLTPROC) $(XSLTPROCFLAGS) \
 		$(tools_dir)/doc-generator.xsl \
 		$< > $@
 
 _gen/svc.c _gen/svc.h: _gen/all.xml \
 	$(tools_dir)/glib-ginterface-gen.py
-	$(PYTHON) $(tools_dir)/glib-ginterface-gen.py \
+	$(AM_V_GEN)$(PYTHON) $(tools_dir)/glib-ginterface-gen.py \
 		--filename=_gen/svc --signal-marshal-prefix=_idle_ext \
 		--include='<telepathy-glib/dbus.h>' \
 		--include='"_gen/signals-marshal.h"' \
@@ -53,22 +54,22 @@ _gen/svc.c _gen/svc.h: _gen/all.xml \
 		$< Idle_Svc_
 
 _gen/signals-marshal.list: _gen/all.xml $(tools_dir)/glib-signals-marshal-gen.py
-	$(PYTHON) $(tools_dir)/glib-signals-marshal-gen.py $< > $@
+	$(AM_V_GEN)$(PYTHON) $(tools_dir)/glib-signals-marshal-gen.py $< > $@
 
 _gen/signals-marshal.h: _gen/signals-marshal.list
-	$(GLIB_GENMARSHAL) --header --prefix=_idle_ext_marshal $< > $@
+	$(AM_V_GEN)$(GLIB_GENMARSHAL) --header --prefix=_idle_ext_marshal $< > $@
 
 _gen/signals-marshal.c: _gen/signals-marshal.list
-	$(GLIB_GENMARSHAL) --body --prefix=_idle_ext_marshal $< > $@
+	$(AM_V_GEN)$(GLIB_GENMARSHAL) --body --prefix=_idle_ext_marshal $< > $@
 
 _gen/enums.h: _gen/all.xml $(tools_dir)/c-constants-generator.xsl
-	$(XSLTPROC) $(XSLTPROCFLAGS) \
+	$(AM_V_GEN)$(XSLTPROC) $(XSLTPROCFLAGS) \
 		--stringparam mixed-case-prefix Idle \
 		$(tools_dir)/c-constants-generator.xsl \
 		$< > $@
 
 _gen/interfaces.h: _gen/all.xml $(tools_dir)/c-interfaces-generator.xsl
-	$(XSLTPROC) $(XSLTPROCFLAGS) \
+	$(AM_V_GEN)$(XSLTPROC) $(XSLTPROCFLAGS) \
 		--stringparam mixed-case-prefix Idle \
 		$(tools_dir)/c-interfaces-generator.xsl \
 		$< > $@
