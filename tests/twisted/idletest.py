@@ -71,7 +71,7 @@ class BaseIRCServer(irc.IRC):
         self.sendMessage('353', '%s = %s' % (self.nick, room), ":%s" % ' '.join(members),
                 prefix='idle.test.server')
         #namereply end
-        self.sendMessage('366', self.nick, room, ':End if /NAMES list', prefix='idle.test.server')
+        self.sendMessage('366', self.nick, room, ':End of /NAMES list', prefix='idle.test.server')
 
     def handleQUIT(self, args, prefix):
         quit_msg = ' '.join(args).rstrip('\r\n')
