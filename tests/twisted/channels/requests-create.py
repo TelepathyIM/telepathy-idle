@@ -13,6 +13,10 @@ def test(q, bus, conn, stream):
     conn.Connect()
     q.expect('dbus-signal', signal='StatusChanged', args=[0,1])
 
+    ifs = conn.GetInterfaces()
+
+    assert cs.CONN_IFACE_REQUESTS in ifs
+
     nick = 'foo'
     call_async(q, conn, 'RequestHandles', cs.HT_CONTACT, [nick])
     event = q.expect('dbus-return', method='RequestHandles')
