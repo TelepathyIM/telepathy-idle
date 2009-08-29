@@ -89,7 +89,7 @@ def test(q, bus, conn, stream):
     assert chans[0] == (path, props)
 
     chan = make_channel_proxy(conn, path, 'Channel')
-    chan.Close()
+    chan.RemoveMembers([self_handle], "", dbus_interface=cs.CHANNEL_IFACE_GROUP)
 
     q.expect('stream-PART')
     stream.sendPart('#idletest', stream.nick)

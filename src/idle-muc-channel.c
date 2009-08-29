@@ -297,6 +297,7 @@ static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectC
 	dbus_g_connection_register_g_object(bus, priv->object_path, obj);
 
 	tp_group_mixin_init(obj, G_STRUCT_OFFSET(IdleMUCChannel, group), contact_handles, priv->connection->parent.self_handle);
+	tp_group_mixin_change_flags(obj, TP_CHANNEL_GROUP_FLAG_PROPERTIES, 0);
 
 	tp_text_mixin_init(obj, G_STRUCT_OFFSET(IdleMUCChannel, text), contact_handles);
 	tp_text_mixin_set_message_types(obj,
@@ -523,6 +524,8 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
 
 	idle_muc_channel_class->dbus_props_class.interfaces = prop_interfaces;
 	tp_dbus_properties_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleMUCChannelClass, dbus_props_class));
+	tp_group_mixin_init_dbus_properties (object_class);
+	tp_group_mixin_class_allow_self_removal (object_class);
 }
 
 void idle_muc_channel_dispose (GObject *object) {
