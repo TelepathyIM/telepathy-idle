@@ -350,8 +350,10 @@ static void ssl_async_connecting_finished_cb(IdleSSLServerConnection *conn, gboo
 	int status;
 	int opt;
 
-	if (!success)
-		return ssl_conn_change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
+	if (!success) {
+		ssl_conn_change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
+		return;
+	}
 
 	priv->io_chan = priv->connect_data->io_chan;
 	priv->connect_data->io_chan = NULL;
@@ -377,35 +379,40 @@ static void ssl_async_connecting_finished_cb(IdleSSLServerConnection *conn, gboo
 
 	if (!ctx) {
 		IDLE_DEBUG("failed to get SSL context object");
-		return ssl_async_connecting_finished_cb(conn, FALSE);
+		ssl_async_connecting_finished_cb(conn, FALSE);
+		return;
 	}
 
 	priv->ssl = SSL_new(ctx);
 
 	if (!priv->ssl) {
 		IDLE_DEBUG("failed to create SSL object");
-		return ssl_async_connecting_finished_cb(conn, FALSE);
+		ssl_async_connecting_finished_cb(conn, FALSE);
+		return;
 	}
 
 	status = SSL_set_fd(priv->ssl, fd);
 
 	if (!status) {
 		IDLE_DEBUG("failed to set SSL socket");
-		return ssl_async_connecting_finished_cb(conn, FALSE);
+		ssl_async_connecting_finished_cb(conn, FALSE);
+		return;
 	}
 
 	status = SSL_connect(priv->ssl);
 
 	if (status <= 0) {
 		IDLE_DEBUG("SSL_connect failed with status %i (error %i)", status, SSL_get_error(priv->ssl, status));
-		return ssl_async_connecting_finished_cb(conn, FALSE);
+		ssl_async_connecting_finished_cb(conn, FALSE);
+		return;
 	}
 
 	cert = SSL_get_peer_certificate(priv->ssl);
 
 	if (!cert) {
 		IDLE_DEBUG("failed to get SSL peer certificate");
-		return ssl_async_connecting_finished_cb(conn, FALSE);
+		ssl_async_connecting_finished_cb(conn, FALSE);
+		return;
 	}
 
 	/* TODO sometime in the future implement certificate verification */
@@ -459,7 +466,8 @@ static void ssl_do_connect(AsyncConnectData *data) {
 
 	if (fd == -1) {
 		IDLE_DEBUG("failed: %s", g_strerror(errno));
-		return data->finished_cb(data->conn, FALSE);
+		data->finished_cb(data->conn, FALSE);
+		return;
 	}
 
 	rc = fcntl(fd, F_SETFL, O_NONBLOCK);
@@ -467,7 +475,8 @@ static void ssl_do_connect(AsyncConnectData *data) {
 	if (rc != 0) {
 		IDLE_DEBUG("failed to set socket to non-blocking mode: %s", g_strerror(errno));
 		close(fd);
-		return data->finished_cb(data->conn, FALSE);
+		data->finished_cb(data->conn, FALSE);
+		return;
 	}
 
 	rc = connect(fd, data->cur->ai_addr, data->cur->ai_addrlen);
@@ -475,7 +484,8 @@ static void ssl_do_connect(AsyncConnectData *data) {
 	if ((errno != EINPROGRESS) && (rc == -1)) {
 		IDLE_DEBUG("connect() failed: %s", g_strerror(errno));
 		close(fd);
-		return data->finished_cb(data->conn, FALSE);
+		data->finished_cb(data->conn, FALSE);
+		return;
 	}
 
 	io_chan = g_io_channel_unix_new(fd);
@@ -502,7 +512,7 @@ static void ssl_dns_result_cb(guint unused, IdleDNSResult *results, gpointer use
 	data->cur = results;
 	data->finished_cb = ssl_async_connecting_finished_cb;
 
-	return ssl_do_connect(data);
+	ssl_do_connect(data);
 }
 
 static gboolean iface_ssl_connect_impl(IdleServerConnectionIface *iface, GError **error) {

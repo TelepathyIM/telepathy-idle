@@ -743,7 +743,7 @@ static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint pr
 }
 
 void idle_connection_send(IdleConnection *conn, const gchar *msg) {
-	return _send_with_priority(conn, msg, SERVER_CMD_NORMAL_PRIORITY);
+	_send_with_priority(conn, msg, SERVER_CMD_NORMAL_PRIORITY);
 }
 
 gsize

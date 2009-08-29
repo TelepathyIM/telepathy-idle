@@ -962,15 +962,15 @@ static void _network_member_left(IdleMUCChannel *chan, TpHandle leaver, TpHandle
 }
 
 void idle_muc_channel_part(IdleMUCChannel *chan, TpHandle leaver, const gchar *message) {
-	return _network_member_left(chan, leaver, leaver, message, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+	_network_member_left(chan, leaver, leaver, message, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 }
 
 void idle_muc_channel_kick(IdleMUCChannel *chan, TpHandle kicked, TpHandle kicker, const gchar *message) {
-	return _network_member_left(chan, kicked, kicker, message, TP_CHANNEL_GROUP_CHANGE_REASON_KICKED);
+	_network_member_left(chan, kicked, kicker, message, TP_CHANNEL_GROUP_CHANGE_REASON_KICKED);
 }
 
 void idle_muc_channel_quit(IdleMUCChannel *chan, TpHandle quitter, const gchar *message) {
-	return _network_member_left(chan, quitter, quitter, message, TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE);
+	_network_member_left(chan, quitter, quitter, message, TP_CHANNEL_GROUP_CHANGE_REASON_OFFLINE);
 }
 
 void idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter) {
@@ -1409,7 +1409,7 @@ static void send_join_request(IdleMUCChannel *obj, const gchar *password) {
 }
 
 void idle_muc_channel_join_attempt(IdleMUCChannel *obj) {
-	return send_join_request(obj, NULL);
+	send_join_request(obj, NULL);
 }
 
 static gboolean send_invite_request(IdleMUCChannel *obj, TpHandle handle, GError **error) {

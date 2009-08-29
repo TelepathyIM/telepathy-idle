@@ -242,7 +242,8 @@ void idle_parser_receive(IdleParser *parser, const gchar *msg) {
 }
 
 void idle_parser_add_handler(IdleParser *parser, IdleParserMessageCode code, IdleParserMessageHandler handler, gpointer user_data) {
-	return idle_parser_add_handler_with_priority(parser, code, handler, user_data, IDLE_PARSER_HANDLER_PRIORITY_DEFAULT);
+	idle_parser_add_handler_with_priority(parser, code, handler, user_data, IDLE_PARSER_HANDLER_PRIORITY_DEFAULT);
+	return;
 }
 
 static gint _message_handler_closure_priority_compare(gconstpointer a, gconstpointer b) {
