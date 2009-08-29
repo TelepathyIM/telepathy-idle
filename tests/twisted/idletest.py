@@ -63,8 +63,19 @@ class BaseIRCServer(irc.IRC):
 
     def handleJOIN(self, args, prefix):
         room = args[0]
+        self.sendJoin(room, [self.nick])
+
+    def sendJoin(self, room, members=[]):
+        members.append(self.nick)
+
         self.sendMessage('JOIN', room, prefix=self.nick)
-        self._sendNameReply(room, [self.nick])
+        self._sendNameReply(room, members)
+
+    def sendPart(self, room, nick, message=None):
+        if message is not None:
+            self.sendMessage('PART', room, message, prefix=nick)
+        else:
+            self.sendMessage('PART', room, prefix=nick)
 
     def _sendNameReply(self, room, members):
         #namereply
