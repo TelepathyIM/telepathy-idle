@@ -66,9 +66,14 @@ enum {
 enum {
 	PROP_CONNECTION = 1,
 	PROP_OBJECT_PATH,
+	PROP_INTERFACES,
 	PROP_CHANNEL_TYPE,
 	PROP_HANDLE_TYPE,
 	PROP_HANDLE,
+	PROP_TARGET_ID,
+	PROP_REQUESTED,
+	PROP_INITIATOR_HANDLE,
+	PROP_INITIATOR_ID,
 	PROP_CHANNEL_DESTROYED,
 	PROP_CHANNEL_PROPERTIES,
 	LAST_PROPERTY_ENUM
@@ -164,6 +169,12 @@ typedef struct {
 	guint flags;
 } TPProperty;
 
+static const gchar *muc_channel_interfaces[] = {
+	TP_IFACE_CHANNEL_INTERFACE_PASSWORD,
+	TP_IFACE_CHANNEL_INTERFACE_GROUP,
+	TP_IFACE_PROPERTIES_INTERFACE,
+	NULL
+};
 
 static const TPPropertySignature property_signatures[] = {
 	{"invite-only", G_TYPE_BOOLEAN},
@@ -222,6 +233,9 @@ struct _IdleMUCChannelPrivate {
 	TpHandle handle;
 	const gchar *channel_name;
 
+	TpHandle initiator;
+	gboolean requested;
+
 	IdleMUCState state;
 
 	IRCChannelModeState mode_state;
@@ -276,6 +290,9 @@ static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectC
 	g_assert(tp_handle_is_valid(room_handles, priv->handle, NULL));
 	priv->channel_name = tp_handle_inspect(room_handles, priv->handle);
 
+	if (priv->initiator)
+		tp_handle_ref(room_handles, priv->initiator);
+
 	bus = tp_get_bus();
 	dbus_g_connection_register_g_object(bus, priv->object_path, obj);
 
@@ -310,6 +327,10 @@ static void idle_muc_channel_get_property(GObject *object, guint property_id, GV
 			g_value_set_string(value, priv->object_path);
 			break;
 
+		case PROP_INTERFACES:
+			g_value_set_static_boxed(value, muc_channel_interfaces);
+			break;
+
 		case PROP_CHANNEL_TYPE:
 			g_value_set_string(value, TP_IFACE_CHANNEL_TYPE_TEXT);
 			break;
@@ -322,6 +343,31 @@ static void idle_muc_channel_get_property(GObject *object, guint property_id, GV
 			g_value_set_uint(value, priv->handle);
 			break;
 
+		case PROP_TARGET_ID:
+			g_value_set_string(value, priv->channel_name);
+			break;
+
+		case PROP_REQUESTED:
+			g_value_set_boolean(value, priv->requested);
+			break;
+
+		case PROP_INITIATOR_HANDLE:
+			g_value_set_uint(value, priv->initiator);
+			break;
+
+		case PROP_INITIATOR_ID:
+			if (priv->initiator != 0) {
+				TpHandleRepoIface *handles = tp_base_connection_get_handles(
+					TP_BASE_CONNECTION(priv->connection),
+					TP_HANDLE_TYPE_CONTACT);
+				g_value_set_string(value,
+					tp_handle_inspect(handles, priv->initiator));
+			} else {
+				g_value_set_static_string(value, "");
+			}
+
+			break;
+
 		case PROP_CHANNEL_DESTROYED:
 			/* TODO: this should be FALSE if there are still pending messages, so
 			 *       the channel manager can respawn the channel.
@@ -330,13 +376,22 @@ static void idle_muc_channel_get_property(GObject *object, guint property_id, GV
 			break;
 
 		case PROP_CHANNEL_PROPERTIES:
-			g_value_take_boxed (value,
-								tp_dbus_properties_mixin_make_properties_hash (object,
-									TP_IFACE_CHANNEL, "TargetHandle",
-									TP_IFACE_CHANNEL, "TargetHandleType",
-									TP_IFACE_CHANNEL, "ChannelType",
-									NULL));
+		{
+			GHashTable *props =
+				tp_dbus_properties_mixin_make_properties_hash (
+					object,
+					TP_IFACE_CHANNEL, "Interfaces",
+					TP_IFACE_CHANNEL, "ChannelType",
+					TP_IFACE_CHANNEL, "TargetHandleType",
+					TP_IFACE_CHANNEL, "TargetHandle",
+					TP_IFACE_CHANNEL, "TargetID",
+					TP_IFACE_CHANNEL, "InitiatorHandle",
+					TP_IFACE_CHANNEL, "InitiatorID",
+					TP_IFACE_CHANNEL, "Requested",
+					NULL);
+			g_value_take_boxed (value, props);
 			break;
+		}
 
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -368,6 +423,14 @@ static void idle_muc_channel_set_property(GObject *object, guint property_id, co
 		case PROP_HANDLE:
 			priv->handle = g_value_get_uint(value);
 			IDLE_DEBUG("setting handle to %u", priv->handle);
+			break;
+
+		case PROP_INITIATOR_HANDLE:
+			priv->initiator = g_value_get_uint(value);
+			break;
+
+		case PROP_REQUESTED:
+			priv->requested = g_value_get_boolean(value);
 			break;
 
 		case PROP_CHANNEL_TYPE:
@@ -406,15 +469,47 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
 	param_spec = g_param_spec_object ("connection", "IdleConnection object", "The IdleConnection object that owns this MUCChannel object.", IDLE_TYPE_CONNECTION, G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
 	g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
 
+	param_spec = g_param_spec_boxed ("interfaces", "Extra D-Bus interfaces",
+		"Interfaces implemented by this object besides Channel",
+		G_TYPE_STRV, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_INTERFACES, param_spec);
+
+	param_spec = g_param_spec_string ("target-id", "Room's identifier",
+		"The name of the IRC channel",
+		NULL, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_TARGET_ID, param_spec);
+
+	param_spec = g_param_spec_boolean ("requested", "Requested?",
+		"True if this channel was requested by the local user",
+		FALSE,
+		G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_REQUESTED, param_spec);
+
+	param_spec = g_param_spec_uint ("initiator-handle", "Initiator's handle",
+		"The contact who initiated the channel",
+		0, G_MAXUINT32, 0,
+		G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_INITIATOR_HANDLE, param_spec);
+
+	param_spec = g_param_spec_string ("initiator-id", "Initiator's bare JID",
+		"The string obtained by inspecting the initiator-handle",
+		NULL, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_INITIATOR_ID, param_spec);
+
 	signals[JOIN_READY] = g_signal_new("join-ready", G_OBJECT_CLASS_TYPE(idle_muc_channel_class), G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED, 0, NULL, NULL, g_cclosure_marshal_VOID__UINT, G_TYPE_NONE, 1, G_TYPE_UINT);
 
 	tp_group_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleMUCChannelClass, group_class), add_member, remove_member);
 	tp_text_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleMUCChannelClass, text_class));
 
 	static TpDBusPropertiesMixinPropImpl channel_props[] = {
+		{ "Interfaces", "interfaces", NULL },
+		{ "ChannelType", "channel-type", NULL },
 		{ "TargetHandleType", "handle-type", NULL },
 		{ "TargetHandle", "handle", NULL },
-		{ "ChannelType", "channel-type", NULL },
+		{ "TargetID", "target-id", NULL },
+		{ "InitiatorHandle", "initiator-handle", NULL },
+		{ "InitiatorID", "initiator-id", NULL },
+		{ "Requested", "requested", NULL },
 		{ NULL }
 	};
 	static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
@@ -451,6 +546,9 @@ void idle_muc_channel_finalize (GObject *object) {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (self);
 	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_ROOM);
 	tp_handle_unref(handles, priv->handle);
+
+	if (priv->initiator)
+		tp_handle_unref(handles, priv->initiator);
 
 	if (priv->object_path)
 		g_free(priv->object_path);
@@ -1699,13 +1797,7 @@ static void idle_muc_channel_get_handle (TpSvcChannel *iface, DBusGMethodInvocat
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
 static void idle_muc_channel_get_interfaces (TpSvcChannel *obj, DBusGMethodInvocation *context) {
-	const gchar *interfaces[] = {
-		TP_IFACE_CHANNEL_INTERFACE_PASSWORD,
-		TP_IFACE_CHANNEL_INTERFACE_GROUP,
-		TP_IFACE_PROPERTIES_INTERFACE,
-		NULL};
-
-	tp_svc_channel_return_from_get_interfaces(context, interfaces);
+	tp_svc_channel_return_from_get_interfaces(context, muc_channel_interfaces);
 }
 
 /**
