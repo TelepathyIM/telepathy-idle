@@ -571,6 +571,14 @@ void idle_muc_channel_finalize (GObject *object) {
 	G_OBJECT_CLASS (idle_muc_channel_parent_class)->finalize (object);
 }
 
+IdleMUCChannel *idle_muc_channel_new(IdleConnection *conn, const gchar *object_path, TpHandle handle) {
+	return g_object_new(IDLE_TYPE_MUC_CHANNEL,
+		"connection", conn,
+		"object-path", object_path,
+		"handle", handle,
+		NULL);
+}
+
 static void muc_channel_tp_properties_init(IdleMUCChannel *chan) {
 	IdleMUCChannelPrivate *priv;
 	TPProperty *props;

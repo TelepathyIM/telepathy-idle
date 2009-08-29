@@ -29,6 +29,8 @@
 #include <telepathy-glib/text-mixin.h>
 #include <telepathy-glib/dbus-properties-mixin.h>
 
+#include "idle-connection.h"
+
 G_BEGIN_DECLS
 
 typedef struct _IdleMUCChannel IdleMUCChannel;
@@ -69,6 +71,8 @@ GType idle_muc_channel_get_type(void);
 	(G_TYPE_CHECK_CLASS_TYPE((klass), IDLE_TYPE_MUC_CHANNEL))
 #define IDLE_MUC_CHANNEL_GET_CLASS(obj) \
 	(G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelClass))
+
+IdleMUCChannel *idle_muc_channel_new(IdleConnection *conn, const gchar *object_path, TpHandle handle);
 
 void idle_muc_channel_badchannelkey(IdleMUCChannel *chan);
 void idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter);
