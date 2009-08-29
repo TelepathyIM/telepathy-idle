@@ -81,7 +81,7 @@ static gboolean _im_manager_create_channel(TpChannelManager *manager, gpointer r
 static gboolean _im_manager_request_channel(TpChannelManager *manager, gpointer request_token, GHashTable *request_properties);
 static gboolean _im_manager_ensure_channel(TpChannelManager *manager, gpointer request_token, GHashTable *request_properties);
 static gboolean _im_manager_requestotron (IdleIMManager *self, gpointer request_token, GHashTable *request_properties, gboolean require_new);
-static IdleIMChannel *_im_manager_new_channel (IdleIMManager *mgr, TpHandle handle, gpointer request);
+static IdleIMChannel *_im_manager_new_channel (IdleIMManager *mgr, TpHandle handle, TpHandle initiator, gpointer request);
 
 static void _im_channel_closed_cb (IdleIMChannel *chan, gpointer user_data);
 
@@ -189,7 +189,7 @@ static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleP
 	}
 
 	if (!(chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(handle))))
-		chan = _im_manager_new_channel(manager, handle, NULL);
+		chan = _im_manager_new_channel(manager, handle, handle, NULL);
 
 	idle_im_channel_receive(chan, type, handle, body);
 
@@ -375,7 +375,7 @@ _im_manager_requestotron (IdleIMManager *self,
 
 	if (channel == NULL)
 	{
-		_im_manager_new_channel (self, handle, request_token);
+		_im_manager_new_channel (self, handle, base_conn->self_handle, request_token);
 		return TRUE;
 	}
 
@@ -421,6 +421,7 @@ _im_channel_closed_cb (IdleIMChannel *chan,
 static IdleIMChannel *
 _im_manager_new_channel (IdleIMManager *mgr,
 						 TpHandle handle,
+						 TpHandle initiator,
 						 gpointer request)
 {
 	IdleIMManagerPrivate *priv = IDLE_IM_MANAGER_GET_PRIVATE (mgr);
@@ -443,6 +444,7 @@ _im_manager_new_channel (IdleIMManager *mgr,
 						 "connection", priv->conn,
 						 "object-path", object_path,
 						 "handle", handle,
+						 "initiator-handle", initiator,
 						 NULL);
 	g_free (object_path);
 	g_hash_table_insert (priv->channels, GUINT_TO_POINTER (handle), chan);

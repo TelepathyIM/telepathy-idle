@@ -51,13 +51,20 @@ G_DEFINE_TYPE_WITH_CODE(IdleIMChannel, idle_im_channel, G_TYPE_OBJECT,
 enum {
 	PROP_CONNECTION = 1,
 	PROP_OBJECT_PATH,
+	PROP_INTERFACES,
 	PROP_CHANNEL_TYPE,
 	PROP_HANDLE_TYPE,
 	PROP_HANDLE,
+	PROP_TARGET_ID,
+	PROP_REQUESTED,
+	PROP_INITIATOR_HANDLE,
+	PROP_INITIATOR_ID,
 	PROP_CHANNEL_DESTROYED,
 	PROP_CHANNEL_PROPERTIES,
 	LAST_PROPERTY_ENUM
 };
+
+const gchar *im_channel_interfaces[] = {NULL};
 
 /* private structure */
 typedef struct _IdleIMChannelPrivate IdleIMChannelPrivate;
@@ -66,6 +73,7 @@ struct _IdleIMChannelPrivate {
 	IdleConnection *connection;
 	gchar *object_path;
 	TpHandle handle;
+	TpHandle initiator;
 
 	gboolean closed;
 
@@ -91,6 +99,7 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 
 	handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
 	tp_handle_ref(handles, priv->handle);
+	tp_handle_ref(handles, priv->initiator);
 	g_assert(tp_handle_is_valid(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), priv->handle, NULL));
 
 	bus = tp_get_bus();
@@ -109,12 +118,15 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 static void idle_im_channel_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec) {
 	IdleIMChannel *chan;
 	IdleIMChannelPrivate *priv;
+	TpHandleRepoIface *handles;
 
 	g_assert(object != NULL);
 	g_assert(IDLE_IS_IM_CHANNEL(object));
 
 	chan = IDLE_IM_CHANNEL(object);
 	priv = IDLE_IM_CHANNEL_GET_PRIVATE(chan);
+	handles = tp_base_connection_get_handles(
+		TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
 
 	switch (property_id) {
 		case PROP_CONNECTION:
@@ -123,6 +135,10 @@ static void idle_im_channel_get_property(GObject *object, guint property_id, GVa
 
 		case PROP_OBJECT_PATH:
 			g_value_set_string(value, priv->object_path);
+			break;
+
+		case PROP_INTERFACES:
+			g_value_set_static_boxed(value, im_channel_interfaces);
 			break;
 
 		case PROP_CHANNEL_TYPE:
@@ -137,6 +153,24 @@ static void idle_im_channel_get_property(GObject *object, guint property_id, GVa
 			g_value_set_uint(value, priv->handle);
 			break;
 
+		case PROP_TARGET_ID:
+			g_value_set_string(value,
+				tp_handle_inspect(handles, priv->handle));
+			break;
+
+		case PROP_REQUESTED:
+			g_value_set_boolean(value, priv->initiator != priv->handle);
+			break;
+
+		case PROP_INITIATOR_HANDLE:
+			g_value_set_uint(value, priv->initiator);
+			break;
+
+		case PROP_INITIATOR_ID:
+			g_value_set_string(value,
+				tp_handle_inspect(handles, priv->initiator));
+			break;
+
 		case PROP_CHANNEL_DESTROYED:
 			/* TODO: this should be FALSE if there are still pending messages, so
 			 *       the channel manager can respawn the channel.
@@ -145,13 +179,22 @@ static void idle_im_channel_get_property(GObject *object, guint property_id, GVa
 			break;
 
 		case PROP_CHANNEL_PROPERTIES:
-			g_value_take_boxed (value,
-								tp_dbus_properties_mixin_make_properties_hash (object,
-									TP_IFACE_CHANNEL, "TargetHandle",
-									TP_IFACE_CHANNEL, "TargetHandleType",
-									TP_IFACE_CHANNEL, "ChannelType",
-									NULL));
+		{
+			GHashTable *props =
+				tp_dbus_properties_mixin_make_properties_hash (
+					object,
+					TP_IFACE_CHANNEL, "Interfaces",
+					TP_IFACE_CHANNEL, "ChannelType",
+					TP_IFACE_CHANNEL, "TargetHandleType",
+					TP_IFACE_CHANNEL, "TargetHandle",
+					TP_IFACE_CHANNEL, "TargetID",
+					TP_IFACE_CHANNEL, "InitiatorHandle",
+					TP_IFACE_CHANNEL, "InitiatorID",
+					TP_IFACE_CHANNEL, "Requested",
+					NULL);
+			g_value_take_boxed (value, props);
 			break;
+		}
 
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -182,6 +225,10 @@ static void idle_im_channel_set_property(GObject *object, guint property_id, con
 
 		case PROP_HANDLE:
 			priv->handle = g_value_get_uint(value);
+			break;
+
+		case PROP_INITIATOR_HANDLE:
+			priv->initiator = g_value_get_uint(value);
 			break;
 
 		case PROP_CHANNEL_TYPE:
@@ -227,10 +274,42 @@ static void idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_clas
 									 G_PARAM_STATIC_BLURB);
 	g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
 
+	param_spec = g_param_spec_boxed ("interfaces", "Extra D-Bus interfaces",
+		"Interfaces implemented by this object besides Channel",
+		G_TYPE_STRV, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_INTERFACES, param_spec);
+
+	param_spec = g_param_spec_string ("target-id", "Contact's identifier",
+		"The name of the person we're speaking to",
+		NULL, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_TARGET_ID, param_spec);
+
+	param_spec = g_param_spec_boolean ("requested", "Requested?",
+		"True if this channel was requested by the local user",
+		FALSE,
+		G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_REQUESTED, param_spec);
+
+	param_spec = g_param_spec_uint ("initiator-handle", "Initiator's handle",
+		"The contact who initiated the channel",
+		0, G_MAXUINT32, 0,
+		G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_INITIATOR_HANDLE, param_spec);
+
+	param_spec = g_param_spec_string ("initiator-id", "Initiator's bare JID",
+		"The string obtained by inspecting the initiator-handle",
+		NULL, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_INITIATOR_ID, param_spec);
+
 	static TpDBusPropertiesMixinPropImpl channel_props[] = {
+		{ "Interfaces", "interfaces", NULL },
+		{ "ChannelType", "channel-type", NULL },
 		{ "TargetHandleType", "handle-type", NULL },
 		{ "TargetHandle", "handle", NULL },
-		{ "ChannelType", "channel-type", NULL },
+		{ "TargetID", "target-id", NULL },
+		{ "InitiatorHandle", "initiator-handle", NULL },
+		{ "InitiatorID", "initiator-id", NULL },
+		{ "Requested", "requested", NULL },
 		{ NULL }
 	};
 	static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
@@ -272,6 +351,7 @@ void idle_im_channel_finalize (GObject *object) {
 
 	handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
 	tp_handle_unref(handles, priv->handle);
+	tp_handle_unref(handles, priv->initiator);
 
 	if (priv->object_path)
 		g_free(priv->object_path);
@@ -375,9 +455,7 @@ static void idle_im_channel_get_handle (TpSvcChannel *iface, DBusGMethodInvocati
  * Returns: TRUE if successful, FALSE if an error was thrown.
  */
 static void idle_im_channel_get_interfaces(TpSvcChannel *iface, DBusGMethodInvocation *context) {
-	const gchar *interfaces[] = {NULL};
-
-	tp_svc_channel_return_from_get_interfaces(context, interfaces);
+	tp_svc_channel_return_from_get_interfaces(context, im_channel_interfaces);
 }
 
 /**
