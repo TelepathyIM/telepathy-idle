@@ -89,7 +89,7 @@ static gboolean _muc_manager_request_channel (TpChannelManager *manager, gpointe
 static gboolean _muc_manager_ensure_channel (TpChannelManager *manager, gpointer request_token, GHashTable *request_properties);
 static gboolean _muc_manager_request (IdleMUCManager *self, gpointer request_token, GHashTable *request_properties, gboolean require_new);
 
-static IdleMUCChannel *_muc_manager_new_channel(IdleMUCManager *manager, TpHandle handle);
+static IdleMUCChannel *_muc_manager_new_channel(IdleMUCManager *manager, TpHandle handle, TpHandle initiator, gboolean requested);
 
 static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data);
 static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer user_data);
@@ -276,7 +276,7 @@ static IdleParserHandlerResult _invite_handler(IdleParser *parser, IdleParserMes
 	idle_connection_emit_queued_aliases_changed(priv->conn);
 
 	if (!chan) {
-		chan = _muc_manager_new_channel(manager, room_handle);
+		chan = _muc_manager_new_channel(manager, room_handle, inviter_handle, FALSE);
 		tp_channel_manager_emit_new_channel(TP_CHANNEL_MANAGER(user_data), (TpExportableChannel *) chan, NULL);
 		idle_muc_channel_invited(chan, inviter_handle);
 	}
@@ -300,7 +300,9 @@ static IdleParserHandlerResult _join_handler(IdleParser *parser, IdleParserMessa
 	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (!chan) {
-		chan = _muc_manager_new_channel(manager, room_handle);
+		/* TODO: If we're in "bouncer mode", maybe these should be Requested:
+		 * True? At least for the initial batch? */
+		chan = _muc_manager_new_channel(manager, room_handle, 0, FALSE);
 		tp_channel_manager_emit_new_channel(TP_CHANNEL_MANAGER(user_data), (TpExportableChannel *) chan, NULL);
 	}
 
@@ -625,7 +627,7 @@ _muc_manager_foreach_channel_class (TpChannelManager *manager,
 }
 
 
-static IdleMUCChannel *_muc_manager_new_channel(IdleMUCManager *manager, TpHandle handle)
+static IdleMUCChannel *_muc_manager_new_channel(IdleMUCManager *manager, TpHandle handle, TpHandle initiator, gboolean requested)
 {
 	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(manager);
 	IdleMUCChannel *chan;
@@ -634,7 +636,7 @@ static IdleMUCChannel *_muc_manager_new_channel(IdleMUCManager *manager, TpHandl
 	g_assert(g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(handle)) == NULL);
 
 	object_path = g_strdup_printf("%s/MucChannel%u", priv->conn->parent.object_path, handle);
-	chan = idle_muc_channel_new(priv->conn, object_path, handle);
+	chan = idle_muc_channel_new(priv->conn, object_path, handle, initiator, requested);
 
 	g_signal_connect(chan, "closed", (GCallback) _channel_closed_cb, manager);
 	g_signal_connect(chan, "join-ready", (GCallback) _channel_join_ready_cb, manager);
@@ -826,7 +828,7 @@ _muc_manager_request (IdleMUCManager *self,
 		}
 		else
 		{
-			channel = _muc_manager_new_channel (self, handle);
+			channel = _muc_manager_new_channel (self, handle, base_conn->self_handle, TRUE);
 			idle_muc_channel_join_attempt(channel);
 		}
 

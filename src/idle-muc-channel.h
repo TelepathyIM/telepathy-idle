@@ -72,7 +72,7 @@ GType idle_muc_channel_get_type(void);
 #define IDLE_MUC_CHANNEL_GET_CLASS(obj) \
 	(G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelClass))
 
-IdleMUCChannel *idle_muc_channel_new(IdleConnection *conn, const gchar *object_path, TpHandle handle);
+IdleMUCChannel *idle_muc_channel_new(IdleConnection *conn, const gchar *object_path, TpHandle handle, TpHandle initiator, gboolean requested);
 
 void idle_muc_channel_badchannelkey(IdleMUCChannel *chan);
 void idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter);
