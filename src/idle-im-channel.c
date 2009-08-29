@@ -172,10 +172,7 @@ static void idle_im_channel_get_property(GObject *object, guint property_id, GVa
 			break;
 
 		case PROP_CHANNEL_DESTROYED:
-			/* TODO: this should be FALSE if there are still pending messages, so
-			 *       the channel manager can respawn the channel.
-			 */
-			g_value_set_boolean (value, TRUE);
+			g_value_set_boolean (value, priv->closed);
 			break;
 
 		case PROP_CHANNEL_PROPERTIES:
@@ -390,9 +387,34 @@ static void idle_im_channel_close (TpSvcChannel *iface, DBusGMethodInvocation *c
 	g_assert(IDLE_IS_IM_CHANNEL(obj));
 
 	priv = IDLE_IM_CHANNEL_GET_PRIVATE(obj);
-	priv->closed = TRUE;
 
 	IDLE_DEBUG("called on %p", obj);
+
+	/* The IM manager will resurrect the channel if we have pending
+	 * messages. When we're resurrected, we want the initiator
+	 * to be the contact who sent us those messages, if it isn't already */
+	if (tp_text_mixin_has_pending_messages((GObject *)obj, NULL)) {
+		IDLE_DEBUG("Not really closing, I still have pending messages");
+
+		if (priv->initiator != priv->handle) {
+			TpHandleRepoIface *contact_repo =
+				tp_base_connection_get_handles(
+					(TpBaseConnection *) priv->connection,
+					TP_HANDLE_TYPE_CONTACT);
+
+			g_assert(priv->initiator != 0);
+			g_assert(priv->handle != 0);
+
+			tp_handle_unref(contact_repo, priv->initiator);
+			priv->initiator = priv->handle;
+			tp_handle_ref(contact_repo, priv->initiator);
+		}
+
+		tp_text_mixin_set_rescued((GObject *) obj);
+	} else {
+		IDLE_DEBUG ("Actually closing, I have no pending messages");
+		priv->closed = TRUE;
+	}
 
 	tp_svc_channel_emit_closed(iface);
 

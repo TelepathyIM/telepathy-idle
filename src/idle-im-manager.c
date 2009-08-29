@@ -411,9 +411,23 @@ _im_channel_closed_cb (IdleIMChannel *chan,
 
 	if (priv->channels)
 	{
-		g_object_get (chan, "handle", &handle, NULL);
-		IDLE_DEBUG ("Removing channel with handle %u", handle);
-		g_hash_table_remove (priv->channels, GUINT_TO_POINTER (handle));
+		gboolean really_destroyed;
+
+		g_object_get (chan,
+			"handle", &handle,
+			"channel-destroyed", &really_destroyed,
+			NULL);
+
+		if (really_destroyed)
+		{
+			IDLE_DEBUG ("removing channel with handle %u", handle);
+			g_hash_table_remove (priv->channels, GUINT_TO_POINTER (handle));
+		} else {
+			IDLE_DEBUG ("reopening channel with handle %u due to pending messages",
+				handle);
+			tp_channel_manager_emit_new_channel (self,
+				(TpExportableChannel *) chan, NULL);
+		}
 	}
 }
 

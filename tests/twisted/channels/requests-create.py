@@ -5,7 +5,7 @@ Most of this test was borrowed from a gabble test and modified to fit idle
 """
 
 from idletest import exec_test
-from servicetest import EventPattern, call_async, tp_name_prefix
+from servicetest import EventPattern, call_async, make_channel_proxy
 import dbus
 import constants as cs
 
@@ -42,7 +42,7 @@ def test(q, bus, conn, stream):
         )
 
     assert len(ret.value) == 2
-    emitted_props = ret.value[1]
+    path, emitted_props = ret.value
     assert emitted_props[cs.CHANNEL_TYPE] == cs.CHANNEL_TYPE_TEXT
     assert emitted_props[cs.TARGET_HANDLE_TYPE] == cs.HT_CONTACT
     assert emitted_props[cs.TARGET_HANDLE] == foo_handle
@@ -68,6 +68,36 @@ def test(q, bus, conn, stream):
 
     assert new_sig.args[0][0] in properties['Channels'], \
             (new_sig.args[0][0], properties['Channels'])
+
+    chan = make_channel_proxy(conn, path, 'Channel')
+
+    stream.sendMessage('PRIVMSG', stream.nick, ":oh hai", prefix=nick)
+    q.expect('dbus-signal', signal='Received')
+
+    # Without acknowledging the message, we close the channel:
+    chan.Close()
+
+    # It should close and respawn!
+    q.expect('dbus-signal', signal='ChannelClosed')
+    chans, = q.expect('dbus-signal', signal='NewChannels').args
+    assert len(chans) == 1
+    new_props = chans[0][1]
+
+    # It should look pretty similar...
+    assert new_props[cs.CHANNEL_TYPE] == cs.CHANNEL_TYPE_TEXT
+    assert new_props[cs.TARGET_HANDLE_TYPE] == cs.HT_CONTACT
+    assert new_props[cs.TARGET_HANDLE] == foo_handle
+    assert new_props[cs.TARGET_ID] == nick
+
+    # ...but this time they started it...
+    assert not new_props[cs.REQUESTED]
+    assert new_props[cs.INITIATOR_HANDLE] == foo_handle
+    assert new_props[cs.INITIATOR_ID] == nick
+
+    # ...and it's got some messages in it!
+    ms = chan.ListPendingMessages(False, dbus_interface=cs.CHANNEL_TYPE_TEXT)
+    assert len(ms) == 1
+    assert ms[0][5] == 'oh hai'
 
     call_async(q, conn, 'Disconnect')
     q.expect('dbus-signal', signal='StatusChanged', args=[2, 1])
