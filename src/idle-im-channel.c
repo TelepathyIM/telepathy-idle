@@ -40,12 +40,14 @@
 
 static void _channel_iface_init(gpointer, gpointer);
 static void _text_iface_init(gpointer, gpointer);
+static void _destroyable_iface_init(gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE(IdleIMChannel, idle_im_channel, G_TYPE_OBJECT,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL, _channel_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, _text_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_IFACE, NULL);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_EXPORTABLE_CHANNEL, NULL);)
+		G_IMPLEMENT_INTERFACE(TP_TYPE_EXPORTABLE_CHANNEL, NULL);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE, _destroyable_iface_init);)
 
 /* property enum */
 enum {
@@ -511,6 +513,18 @@ static void idle_im_channel_send(TpSvcChannelTypeText *iface, guint type, const 
 	idle_text_send((GObject *)(obj), type, recipient, text, priv->connection, context);
 }
 
+static void idle_im_channel_destroy(TpSvcChannelInterfaceDestroyable *iface, DBusGMethodInvocation *context) {
+	IdleIMChannel *obj = (IdleIMChannel *)(iface);
+	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE(obj);
+
+	IDLE_DEBUG ("called on %p with %spending messages", obj,
+		tp_text_mixin_has_pending_messages((GObject *)obj, NULL) ? "" : "no ");
+
+	priv->closed = TRUE;
+	tp_svc_channel_emit_closed(iface);
+	tp_svc_channel_interface_destroyable_return_from_destroy(context);
+}
+
 static void _channel_iface_init(gpointer g_iface, gpointer iface_data) {
 	TpSvcChannelClass *klass = (TpSvcChannelClass *)g_iface;
 
@@ -533,3 +547,9 @@ static void _text_iface_init(gpointer g_iface, gpointer iface_data) {
 #undef IMPLEMENT
 }
 
+static void _destroyable_iface_init(gpointer klass, gpointer iface_data) {
+#define IMPLEMENT(x) tp_svc_channel_interface_destroyable_implement_##x (\
+		klass, idle_im_channel_##x)
+	IMPLEMENT (destroy);
+#undef IMPLEMENT
+}

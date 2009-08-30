@@ -103,6 +103,16 @@ def test(q, bus, conn, stream):
     assert len(ms) == 1
     assert ms[0][5] == 'oh hai'
 
+    # Without acknowledging the message, we destroy the channel:
+    chan.Destroy(dbus_interface=cs.CHANNEL_IFACE_DESTROYABLE)
+
+    q.expect('dbus-signal', signal='ChannelClosed')
+
+    # It should be gone for good this time.
+    channels = conn.Get(cs.CONN_IFACE_REQUESTS, 'Channels',
+            dbus_interface=cs.PROPERTIES_IFACE)
+    assert channels == [], channels
+
     call_async(q, conn, 'Disconnect')
     q.expect('dbus-signal', signal='StatusChanged', args=[2, 1])
 
