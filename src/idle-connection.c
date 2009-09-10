@@ -32,14 +32,14 @@
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/svc-connection.h>
-#include <telepathy-glib/channel-factory-iface.h>
+#include <telepathy-glib/channel-manager.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_CONNECTION
 #include "idle-ctcp.h"
 #include "idle-debug.h"
 #include "idle-handles.h"
-#include "idle-im-factory.h"
-#include "idle-muc-factory.h"
+#include "idle-im-manager.h"
+#include "idle-muc-manager.h"
 #include "idle-parser.h"
 #include "idle-server-connection.h"
 #include "idle-server-connection-iface.h"
@@ -176,7 +176,7 @@ struct _IdleConnectionPrivate {
 #define IDLE_CONNECTION_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), IDLE_TYPE_CONNECTION, IdleConnectionPrivate))
 
 static void _iface_create_handle_repos(TpBaseConnection *self, TpHandleRepoIface **repos);
-static GPtrArray *_iface_create_channel_factories(TpBaseConnection *self);
+static GPtrArray *_iface_create_channel_managers(TpBaseConnection *self);
 static gchar *_iface_get_unique_connection_name(TpBaseConnection *self);
 static void _iface_disconnected(TpBaseConnection *self);
 static void _iface_shut_down(TpBaseConnection *self);
@@ -371,6 +371,7 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 	static const gchar *interfaces_always_present[] = {
 		TP_IFACE_CONNECTION_INTERFACE_ALIASING,
 		IDLE_IFACE_CONNECTION_INTERFACE_RENAMING,
+		TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
 		NULL};
 
 	g_type_class_add_private(klass, sizeof(IdleConnectionPrivate));
@@ -383,7 +384,8 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 
 	parent_class->create_handle_repos = _iface_create_handle_repos;
 	parent_class->get_unique_connection_name = _iface_get_unique_connection_name;
-	parent_class->create_channel_factories = _iface_create_channel_factories;
+	parent_class->create_channel_factories = NULL;
+	parent_class->create_channel_managers = _iface_create_channel_managers;
 	parent_class->connecting = NULL;
 	parent_class->connected = NULL;
 	parent_class->disconnected = _iface_disconnected;
@@ -419,17 +421,17 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 	g_object_class_install_property(object_class, PROP_USE_SSL, param_spec);
 }
 
-static GPtrArray *_iface_create_channel_factories(TpBaseConnection *self) {
-	GPtrArray *factories = g_ptr_array_sized_new(1);
-	GObject *factory;
+static GPtrArray *_iface_create_channel_managers(TpBaseConnection *self) {
+	GPtrArray *managers = g_ptr_array_sized_new(1);
+	GObject *manager;
 
-	factory = g_object_new(IDLE_TYPE_IM_FACTORY, "connection", self, NULL);
-	g_ptr_array_add(factories, factory);
+	manager = g_object_new(IDLE_TYPE_IM_MANAGER, "connection", self, NULL);
+	g_ptr_array_add(managers, manager);
 
-	factory = g_object_new(IDLE_TYPE_MUC_FACTORY, "connection", self, NULL);
-	g_ptr_array_add(factories, factory);
+	manager = g_object_new(IDLE_TYPE_MUC_MANAGER, "connection", self, NULL);
+	g_ptr_array_add(managers, manager);
 
-	return factories;
+	return managers;
 }
 
 static void _iface_create_handle_repos(TpBaseConnection *self, TpHandleRepoIface **repos) {

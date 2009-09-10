@@ -63,15 +63,26 @@ class BaseIRCServer(irc.IRC):
 
     def handleJOIN(self, args, prefix):
         room = args[0]
+        self.sendJoin(room, [self.nick])
+
+    def sendJoin(self, room, members=[]):
+        members.append(self.nick)
+
         self.sendMessage('JOIN', room, prefix=self.nick)
-        self._sendNameReply(room, [self.nick])
+        self._sendNameReply(room, members)
+
+    def sendPart(self, room, nick, message=None):
+        if message is not None:
+            self.sendMessage('PART', room, message, prefix=nick)
+        else:
+            self.sendMessage('PART', room, prefix=nick)
 
     def _sendNameReply(self, room, members):
         #namereply
         self.sendMessage('353', '%s = %s' % (self.nick, room), ":%s" % ' '.join(members),
                 prefix='idle.test.server')
         #namereply end
-        self.sendMessage('366', self.nick, room, ':End if /NAMES list', prefix='idle.test.server')
+        self.sendMessage('366', self.nick, room, ':End of /NAMES list', prefix='idle.test.server')
 
     def handleQUIT(self, args, prefix):
         quit_msg = ' '.join(args).rstrip('\r\n')

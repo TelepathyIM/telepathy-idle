@@ -27,6 +27,9 @@
 #include <telepathy-glib/group-mixin.h>
 #include <telepathy-glib/handle.h>
 #include <telepathy-glib/text-mixin.h>
+#include <telepathy-glib/dbus-properties-mixin.h>
+
+#include "idle-connection.h"
 
 G_BEGIN_DECLS
 
@@ -37,6 +40,7 @@ struct _IdleMUCChannelClass {
 	GObjectClass parent_class;
 	TpGroupMixinClass group_class;
 	TpTextMixinClass text_class;
+	TpDBusPropertiesMixinClass dbus_props_class;
 };
 
 struct _IdleMUCChannel {
@@ -68,6 +72,8 @@ GType idle_muc_channel_get_type(void);
 #define IDLE_MUC_CHANNEL_GET_CLASS(obj) \
 	(G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelClass))
 
+IdleMUCChannel *idle_muc_channel_new(IdleConnection *conn, const gchar *object_path, TpHandle handle, TpHandle initiator, gboolean requested);
+
 void idle_muc_channel_badchannelkey(IdleMUCChannel *chan);
 void idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter);
 gboolean idle_muc_channel_is_modechar(char c);
@@ -86,6 +92,8 @@ void idle_muc_channel_topic(IdleMUCChannel *chan, const gchar *topic);
 void idle_muc_channel_topic_full(IdleMUCChannel *chan, const TpHandle handle, const guint timestamp, const gchar *topic);
 void idle_muc_channel_topic_touch(IdleMUCChannel *chan, const TpHandle handle, const guint timestamp);
 void idle_muc_channel_topic_unset(IdleMUCChannel *chan);
+
+gboolean idle_muc_channel_is_ready(IdleMUCChannel *chan);
 
 G_END_DECLS
 
