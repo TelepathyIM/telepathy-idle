@@ -228,21 +228,6 @@ static void connection_status_changed_cb (IdleConnection* conn,
 	}
 }
 
-/*
-static void _iface_connecting(TpChannelFactoryIface *iface) {
-	IdleIMFactoryPrivate *priv = IDLE_IM_FACTORY_GET_PRIVATE(iface);
-
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_NOTICE_USER, _notice_privmsg_handler, iface);
-	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_USER, _notice_privmsg_handler, iface);
-}
-
-static void _iface_disconnected(TpChannelFactoryIface *iface) {
-	IdleIMFactoryPrivate *priv = IDLE_IM_FACTORY_GET_PRIVATE(iface);
-
-	idle_parser_remove_handlers_by_data(priv->conn->parser, iface);
-}
-*/
-
 struct _ForeachHelperData {
 	TpExportableChannelFunc func;
 	gpointer user_data;
