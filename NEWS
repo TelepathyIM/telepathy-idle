@@ -1,5 +1,25 @@
-telepathy-idle 0.x.x (UNRELEASED)
+telepathy-idle 0.1.5 (UNRELEASED)
 =================================
+
+Enhancements:
+
+* Use automake 1.11's silent build option. Use --enable-silent-rules
+  to enable it. (wjt)
+
+* Implement Destroyable for IM channels. (wjt)
+
+* Implement o.fd.Tp.Connection.Interface.Requests. (jonner & wjt)
+
+* Allow parting MUCs with RemoveMembers. (wjt)
+
+Fixes:
+
+* fd.o #22291: Define _GNU_SOURCE not __USE_GNU to get strnlen(3),
+  which was causing a build failure on openSUSE, which has a glibc
+  from the future. (Vincent Untz)
+
+* fd.o #22958: Don't explicitly return void in void functions as Sun's
+  C compiler doesn't support this. (Elaine Xiong)
 
 telepathy-idle 0.1.4 (2009-05-28)
 =================================
