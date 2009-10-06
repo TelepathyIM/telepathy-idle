@@ -62,18 +62,6 @@ static void _params_free(gpointer ptr) {
 	g_slice_free(Params, params);
 }
 
-enum {
-	PARAM_ACCOUNT,
-	PARAM_SERVER,
-	PARAM_PORT,
-	PARAM_PASSWORD,
-	PARAM_FULLNAME,
-	PARAM_CHARSET,
-	PARAM_QUIT_MESSAGE,
-	PARAM_USE_SSL,
-	LAST_PARAM
-};
-
 gboolean
 filter_nick(const TpCMParamSpec *paramspec, GValue *value, GError **error)
 {
