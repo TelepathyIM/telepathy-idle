@@ -7,6 +7,7 @@ ObjectPath = /org/freedesktop/Telepathy/ConnectionManager/idle
 param-account = s required
 param-server = s required
 param-fullname = s
+param-username = s
 param-port = q
 param-password = s
 param-charset = s
