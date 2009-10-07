@@ -182,6 +182,7 @@ void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gcha
 	}
 
 	g_strfreev(messages);
+	g_strfreev(bodies);
 
 	tp_svc_channel_type_text_return_from_send(context);
 }
