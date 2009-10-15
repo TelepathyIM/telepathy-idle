@@ -22,7 +22,7 @@ m4_define([idle_version],
                  [idle_base_version].[idle_nano_version])])
 
 AC_INIT([telepathy-idle], [idle_version],
-        [https://bugs.freedesktop.org/enter_bug.cgi?product=Telepathy&component=telepathy-idle])
+        [https://bugs.freedesktop.org/enter_bug.cgi?product=Telepathy&component=idle])
 
 AC_CONFIG_MACRO_DIR([m4])
 
