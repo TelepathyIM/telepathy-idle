@@ -33,6 +33,8 @@ static TpBaseConnectionManager *_construct_cm() {
 }
 
 int main(int argc, char **argv) {
+	tp_debug_divert_messages (g_getenv ("IDLE_LOGFILE"));
+
 	idle_debug_init();
 
 	return tp_run_connection_manager("telepathy-idle", VERSION, _construct_cm, argc, argv);
