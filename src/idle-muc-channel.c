@@ -306,6 +306,18 @@ static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectC
 			TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE,
 			G_MAXUINT);
 
+	if (priv->requested) {
+		/* Add ourself to 'remote-pending' while we are joining the channel */
+		TpIntSet *remote;
+
+		g_assert (priv->initiator == priv->connection->parent.self_handle);
+
+		remote = tp_intset_new_containing (priv->initiator);
+		tp_group_mixin_change_members (obj, "", NULL, NULL, NULL, remote,
+			priv->initiator, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+		tp_intset_destroy (remote);
+	}
+
 	return obj;
 }
 
