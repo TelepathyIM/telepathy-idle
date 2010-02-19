@@ -1,9 +1,28 @@
-telepathy-idle x.x.x (UNRELEASED)
+telepathy-idle 0.1.6 (2010-02-19)
 =================================
+
+The “No. Some of it's Cointreau.” release.
+
+Dependencies:
+
+* telepathy-glib 0.8.0
 
 Enhancements:
 
+* Implement IDLE_LOGFILE to divert output to a file. (cassidy)
+
+* Implement Debug interface. (cassidy)
+
 Fixes:
+
+* Add username parameter to the manager file. (cassidy)
+
+* Fix some memory leaks. (jonner)
+
+* Add ourself to remote-pending when creating a room channel.
+  (fd.o #25039, cassidy)
+
+* Flag password parameter as secret (fd.o #24559, smcv)
 
 telepathy-idle 0.1.5 (2009-09-14)
 =================================
