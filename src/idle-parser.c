@@ -404,7 +404,7 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 		goto cleanup;
 	}
 
-	IDLE_DEBUG("succesfully parsed");
+	IDLE_DEBUG("successfully parsed");
 
 	while (link) {
 		MessageHandlerClosure *closure = link->data;
