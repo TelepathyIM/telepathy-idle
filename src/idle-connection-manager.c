@@ -26,6 +26,7 @@
 
 #include "idle-connection.h"
 #include "idle-handles.h" /* to check for valid nick */
+#include "idle-debug.h"
 
 G_DEFINE_TYPE(IdleConnectionManager, idle_connection_manager, TP_TYPE_BASE_CONNECTION_MANAGER)
 
@@ -100,12 +101,23 @@ static TpBaseConnection *_iface_new_connection(TpBaseConnectionManager *self, co
 static void idle_connection_manager_init(IdleConnectionManager *obj) {
 }
 
+static void
+idle_connection_manager_finalize (GObject *object)
+{
+	idle_debug_free ();
+
+	G_OBJECT_CLASS (idle_connection_manager_parent_class)->finalize (object);
+}
+
 static void idle_connection_manager_class_init(IdleConnectionManagerClass *klass) {
+	GObjectClass *object_class = G_OBJECT_CLASS (klass);
 	TpBaseConnectionManagerClass *parent_class = TP_BASE_CONNECTION_MANAGER_CLASS(klass);
 
 	parent_class->new_connection = _iface_new_connection;
 	parent_class->cm_dbus_name = "idle";
 	parent_class->protocol_params = _protocols;
+
+	object_class->finalize = idle_connection_manager_finalize;
 }
 
 static TpBaseConnection *_iface_new_connection(TpBaseConnectionManager *self, const gchar *proto, TpIntSet *params_present, void *parsed_params, GError **error) {

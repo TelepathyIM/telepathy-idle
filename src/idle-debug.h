@@ -35,6 +35,8 @@ typedef enum {
 void idle_debug_init();
 void idle_debug(IdleDebugFlags flag, const gchar *format, ...) G_GNUC_PRINTF(2, 3);
 
+void idle_debug_free (void);
+
 #endif
 
 #ifdef IDLE_DEBUG_FLAG

@@ -22,6 +22,7 @@
 
 #include <telepathy-glib/run.h>
 #include <telepathy-glib/debug.h>
+#include <telepathy-glib/debug-sender.h>
 
 #include "idle-connection-manager.h"
 #include "idle-debug.h"
@@ -33,10 +34,18 @@ static TpBaseConnectionManager *_construct_cm() {
 }
 
 int main(int argc, char **argv) {
+	TpDebugSender *debug_sender;
+	int result;
+
+	g_type_init ();
 	tp_debug_divert_messages (g_getenv ("IDLE_LOGFILE"));
 
 	idle_debug_init();
 
-	return tp_run_connection_manager("telepathy-idle", VERSION, _construct_cm, argc, argv);
-}
+	debug_sender = tp_debug_sender_dup ();
 
+	result = tp_run_connection_manager("telepathy-idle", VERSION, _construct_cm, argc, argv);
+
+	g_object_unref (debug_sender);
+	return result;
+}
