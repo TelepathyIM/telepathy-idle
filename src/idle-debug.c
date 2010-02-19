@@ -50,12 +50,15 @@ void idle_debug_init() {
 }
 
 void idle_debug(IdleDebugFlags flag, const gchar *format, ...) {
-	if (!(_flags & flag))
-		return;
-
+	gchar *message;
 	va_list args;
-	va_start(args, format);
-	g_logv(G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, format, args);
-	va_end(args);
-}
 
+	va_start (args, format);
+	message = g_strdup_vprintf (format, args);
+	va_end (args);
+
+	if (_flags & flag)
+		g_log (G_LOG_DOMAIN, G_LOG_LEVEL_DEBUG, "%s", message);
+
+	g_free (message);
+}
