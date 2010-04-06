@@ -100,7 +100,7 @@ static gboolean _channelname_is_valid(const gchar *channel) {
 		return FALSE;
 
 	if (channel[0] == '!') {
-		for (int i = 0; i < 5; i++) {
+		for (gsize i = 0; i < 5 && i + 1 < len; i++) {
 			if (!g_ascii_isupper(channel[i + 1]) && !isdigit(channel[i + 1]))
 				return FALSE;
 		}
