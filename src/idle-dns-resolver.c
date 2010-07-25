@@ -47,7 +47,7 @@ void idle_dns_result_destroy(IdleDNSResult *result) {
 	if (real->addrinfo)
 		freeaddrinfo(real->addrinfo);
 
-	g_slice_free(IdleDNSResult, result);
+	g_slice_free(IdleDNSResultReal, real);
 }
 
 typedef struct _IdleDNSQueryData IdleDNSQueryData;
