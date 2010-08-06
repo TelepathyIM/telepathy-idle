@@ -232,6 +232,7 @@ static void connection_status_changed_cb (IdleConnection* conn,
 
 		default:
 			/* Nothing to do. */
+			break;
 	}
 }
 
