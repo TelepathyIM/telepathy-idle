@@ -10,6 +10,7 @@ TWISTED_TESTS = \
 		channels/requests-create.py \
 		channels/requests-muc.py \
 		messages/accept-invalid-nicks.py \
+		messages/messages-iface.py \
 		messages/message-order.py \
 		messages/leading-space.py \
 		messages/long-message-split.py \

@@ -1,0 +1,83 @@
+"""
+Test Messages interface implementation
+"""
+
+from idletest import exec_test
+from servicetest import EventPattern, call_async
+import constants as cs
+import dbus
+
+def test_sending(q, bus, conn, stream, chan):
+    # Send a message using Text API
+    text_chan = dbus.Interface(chan, cs.CHANNEL_TYPE_TEXT)
+
+    call_async (q, text_chan, 'Send', cs.MT_NORMAL, "Hi!")
+
+    q.expect_many(
+        EventPattern('dbus-signal', interface=cs.CHANNEL_IFACE_MESSAGES, signal='MessageSent'),
+        EventPattern('dbus-signal', interface=cs.CHANNEL_TYPE_TEXT, signal='Sent'),
+        EventPattern('dbus-return', method='Send'))
+
+    # Send a message using Messages API
+    msg_iface = dbus.Interface(chan, cs.CHANNEL_IFACE_MESSAGES)
+
+    message = [
+        {'message-type': cs.MT_NORMAL },
+        {'content-type': 'text/plain',
+         'content': 'What\'s up?',}]
+
+    call_async(q, msg_iface, 'SendMessage', message, 0)
+
+    q.expect_many(
+        EventPattern('dbus-signal', interface=cs.CHANNEL_IFACE_MESSAGES, signal='MessageSent'),
+        EventPattern('dbus-signal', interface=cs.CHANNEL_TYPE_TEXT, signal='Sent'),
+        EventPattern('dbus-return', method='SendMessage'))
+
+def test(q, bus, conn, stream):
+    conn.Connect()
+    q.expect('dbus-signal', signal='StatusChanged',
+        args=[cs.CONN_STATUS_CONNECTED, cs.CSR_REQUESTED])
+
+    # test MUC channel
+    call_async(q, conn.Requests, 'CreateChannel',
+        {cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_TEXT,
+        cs.TARGET_HANDLE_TYPE: cs.HT_ROOM,
+        cs.TARGET_ID: '#test'})
+
+    ret = q.expect('dbus-return', method='CreateChannel')
+
+    q.expect('dbus-signal', signal='MembersChanged')
+    chan = bus.get_object(conn.bus_name, ret.value[0])
+
+    test_sending(q, bus, conn, stream, chan)
+
+    # Receive a message on the channel
+    stream.sendMessage('PRIVMSG', '#test', ":pony!", prefix='alice')
+    q.expect_many(
+        EventPattern('dbus-signal', interface=cs.CHANNEL_TYPE_TEXT, signal='Received'),
+        EventPattern('dbus-signal', interface=cs.CHANNEL_IFACE_MESSAGES,
+            signal='MessageReceived'))
+
+    # test private channel
+    call_async(q, conn.Requests, 'CreateChannel',
+        {cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_TEXT,
+        cs.TARGET_HANDLE_TYPE: cs.HT_CONTACT,
+        cs.TARGET_ID: 'alice'})
+
+    ret = q.expect('dbus-return', method='CreateChannel')
+    chan = bus.get_object(conn.bus_name, ret.value[0])
+
+    test_sending(q, bus, conn, stream, chan)
+
+    # Receive a private message from Alice
+    stream.sendMessage('PRIVMSG', stream.nick, ":badger!", prefix='alice')
+    q.expect_many(
+        EventPattern('dbus-signal', interface=cs.CHANNEL_TYPE_TEXT, signal='Received'),
+        EventPattern('dbus-signal', interface=cs.CHANNEL_IFACE_MESSAGES,
+            signal='MessageReceived'))
+
+    # we're done
+    call_async(q, conn, 'Disconnect')
+
+if __name__ == '__main__':
+    exec_test(test)
