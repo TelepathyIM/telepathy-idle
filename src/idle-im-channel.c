@@ -39,15 +39,19 @@
 #include "idle-text.h"
 
 static void _channel_iface_init(gpointer, gpointer);
-static void _text_iface_init(gpointer, gpointer);
 static void _destroyable_iface_init(gpointer, gpointer);
+
+static void idle_im_channel_send (GObject *obj, TpMessage *message, TpMessageSendingFlags flags);
 
 G_DEFINE_TYPE_WITH_CODE(IdleIMChannel, idle_im_channel, G_TYPE_OBJECT,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL, _channel_iface_init);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, _text_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, tp_message_mixin_text_iface_init);
+		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_MESSAGES, tp_message_mixin_messages_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_IFACE, NULL);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_EXPORTABLE_CHANNEL, NULL);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE, _destroyable_iface_init);)
+
+#define NUM_SUPPORTED_MESSAGE_TYPES 3
 
 /* property enum */
 enum {
@@ -95,11 +99,23 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 	IdleIMChannelPrivate *priv;
 	DBusGConnection *bus;
 	TpHandleRepoIface *handles;
+	TpBaseConnection *conn;
+	TpChannelTextMessageType types[NUM_SUPPORTED_MESSAGE_TYPES] = {
+			TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
+			TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION,
+			TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE,
+	};
+	const gchar * supported_content_types[] = {
+			"text/plain",
+			NULL
+	};
 
 	obj = G_OBJECT_CLASS(idle_im_channel_parent_class)->constructor(type, n_props, props);
 	priv = IDLE_IM_CHANNEL_GET_PRIVATE(IDLE_IM_CHANNEL(obj));
 
-	handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
+	conn = TP_BASE_CONNECTION(priv->connection);
+
+	handles = tp_base_connection_get_handles(conn, TP_HANDLE_TYPE_CONTACT);
 	tp_handle_ref(handles, priv->handle);
 	tp_handle_ref(handles, priv->initiator);
 	g_assert(tp_handle_is_valid(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), priv->handle, NULL));
@@ -107,12 +123,13 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 	bus = tp_get_bus();
 	dbus_g_connection_register_g_object(bus, priv->object_path, obj);
 
-	tp_text_mixin_init(obj, G_STRUCT_OFFSET(IdleIMChannel, text), handles);
-	tp_text_mixin_set_message_types(obj,
-			TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
-			TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION,
-			TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE,
-			G_MAXUINT);
+	/* initialize message mixin */
+	tp_message_mixin_init (obj, G_STRUCT_OFFSET (IdleIMChannel, message_mixin),
+			conn);
+	tp_message_mixin_implement_sending (obj, idle_im_channel_send,
+			NUM_SUPPORTED_MESSAGE_TYPES, types, 0,
+			TP_DELIVERY_REPORTING_SUPPORT_FLAG_RECEIVE_FAILURES,
+			supported_content_types);
 
 	return obj;
 }
@@ -321,8 +338,8 @@ static void idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_clas
 	};
 
 	idle_im_channel_class->dbus_props_class.interfaces = prop_interfaces;
-	tp_text_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleIMChannelClass, text_class));
 	tp_dbus_properties_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleIMChannelClass, dbus_props_class));
+	tp_message_mixin_init_dbus_properties (object_class);
 }
 
 void idle_im_channel_dispose (GObject *object) {
@@ -355,18 +372,31 @@ void idle_im_channel_finalize (GObject *object) {
 	if (priv->object_path)
 		g_free(priv->object_path);
 
-	tp_text_mixin_finalize(object);
+	tp_message_mixin_finalize (object);
 
 	G_OBJECT_CLASS(idle_im_channel_parent_class)->finalize (object);
 }
 
 gboolean idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *text) {
-	time_t stamp = time(NULL);
+	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE (chan);
+	TpBaseConnection *base_conn = TP_BASE_CONNECTION (priv->connection);
+	TpMessage *msg;
 
-	g_assert(chan != NULL);
-	g_assert(IDLE_IS_IM_CHANNEL(chan));
+	msg = tp_message_new (base_conn, 2, 2);
 
-	return tp_text_mixin_receive(G_OBJECT(chan), type, sender, stamp, text);
+	/* Header */
+	if (type != TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL)
+		tp_message_set_uint32 (msg, 0, "message-type", type);
+
+	tp_message_set_handle (msg, 0, "message-sender", TP_HANDLE_TYPE_CONTACT, sender);
+	tp_message_set_uint64 (msg, 0, "message-received", time (NULL));
+
+	/* Body */
+	tp_message_set_string (msg, 1, "content-type", "text/plain");
+	tp_message_set_string (msg, 1, "content", text);
+
+	tp_message_mixin_take_received (G_OBJECT (chan), msg);
+	return TRUE;
 }
 
 /**
@@ -395,7 +425,7 @@ static void idle_im_channel_close (TpSvcChannel *iface, DBusGMethodInvocation *c
 	/* The IM manager will resurrect the channel if we have pending
 	 * messages. When we're resurrected, we want the initiator
 	 * to be the contact who sent us those messages, if it isn't already */
-	if (tp_text_mixin_has_pending_messages((GObject *)obj, NULL)) {
+	if (tp_message_mixin_has_pending_messages ((GObject *)obj, NULL)) {
 		IDLE_DEBUG("Not really closing, I still have pending messages");
 
 		if (priv->initiator != priv->handle) {
@@ -412,7 +442,7 @@ static void idle_im_channel_close (TpSvcChannel *iface, DBusGMethodInvocation *c
 			tp_handle_ref(contact_repo, priv->initiator);
 		}
 
-		tp_text_mixin_set_rescued((GObject *) obj);
+		tp_message_mixin_set_rescued ((GObject *) obj);
 	} else {
 		IDLE_DEBUG ("Actually closing, I have no pending messages");
 		priv->closed = TRUE;
@@ -485,32 +515,16 @@ static void idle_im_channel_get_interfaces(TpSvcChannel *iface, DBusGMethodInvoc
 /**
  * idle_im_channel_send
  *
- * Implements DBus method Send
- * on interface org.freedesktop.Telepathy.Channel.Type.Text
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
+ * Indirectly implements (via TpMessageMixin) D-Bus method Send on interface
+ * org.freedesktop.Telepathy.Channel.Type.Text and D-Bus method SendMessage on
+ * Channel.Interface.Messages
  */
-static void idle_im_channel_send(TpSvcChannelTypeText *iface, guint type, const gchar * text, DBusGMethodInvocation *context) {
-	IdleIMChannel *obj = (IdleIMChannel *)(iface);
-	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE(obj);
+static void idle_im_channel_send (GObject *obj, TpMessage *message, TpMessageSendingFlags flags) {
+	IdleIMChannel *self = (IdleIMChannel *) obj;
+	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE(self);
 	const gchar *recipient = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), priv->handle);
-	GError *error;
 
-	if ((recipient == NULL) || (recipient[0] == '\0')) {
-		IDLE_DEBUG("invalid recipient");
-
-		error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "invalid recipient");
-		dbus_g_method_return_error(context, error);
-		g_error_free(error);
-
-		return;
-	}
-
-	idle_text_send((GObject *)(obj), type, recipient, text, priv->connection, context);
+	idle_text_send (obj, message, flags, recipient, priv->connection);
 }
 
 static void idle_im_channel_destroy(TpSvcChannelInterfaceDestroyable *iface, DBusGMethodInvocation *context) {
@@ -518,7 +532,7 @@ static void idle_im_channel_destroy(TpSvcChannelInterfaceDestroyable *iface, DBu
 	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE(obj);
 
 	IDLE_DEBUG ("called on %p with %spending messages", obj,
-		tp_text_mixin_has_pending_messages((GObject *)obj, NULL) ? "" : "no ");
+		tp_message_mixin_has_pending_messages ((GObject *)obj, NULL) ? "" : "no ");
 
 	priv->closed = TRUE;
 	tp_svc_channel_emit_closed(iface);
@@ -534,16 +548,6 @@ static void _channel_iface_init(gpointer g_iface, gpointer iface_data) {
 	IMPLEMENT(get_channel_type);
 	IMPLEMENT(get_handle);
 	IMPLEMENT(get_interfaces);
-#undef IMPLEMENT
-}
-
-static void _text_iface_init(gpointer g_iface, gpointer iface_data) {
-	TpSvcChannelTypeTextClass *klass = (TpSvcChannelTypeTextClass *)(g_iface);
-
-	tp_text_mixin_iface_init(g_iface, iface_data);
-#define IMPLEMENT(x) tp_svc_channel_type_text_implement_##x (\
-		klass, idle_im_channel_##x)
-	IMPLEMENT(send);
 #undef IMPLEMENT
 }
 
