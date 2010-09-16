@@ -193,7 +193,7 @@ void idle_text_send(GObject *obj, TpMessage *message, TpMessageSendingFlags flag
 	if (tp_strdiff (content_type, "text/plain"))
 		INVALID_ARGUMENT ("message must be text/plain");
 
-	if (text == NULL)
+	if (tp_str_empty (text))
 		INVALID_ARGUMENT ("content must be a UTF-8 string");
 
 	/* Okay, it's valid. Let's send it. */
