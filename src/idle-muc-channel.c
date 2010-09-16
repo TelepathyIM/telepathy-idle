@@ -58,8 +58,6 @@ G_DEFINE_TYPE_WITH_CODE(IdleMUCChannel, idle_muc_channel, G_TYPE_OBJECT,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_EXPORTABLE_CHANNEL, NULL);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_IFACE, NULL);)
 
-#define NUM_SUPPORTED_MESSAGE_TYPES 3
-
 /* signal enum */
 enum {
 	JOIN_READY,
@@ -290,7 +288,7 @@ static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectC
 	TpBaseConnection *conn = TP_BASE_CONNECTION(priv->connection);
 	TpHandleRepoIface *room_handles = tp_base_connection_get_handles(conn, TP_HANDLE_TYPE_ROOM);
 	TpHandleRepoIface *contact_handles = tp_base_connection_get_handles(conn, TP_HANDLE_TYPE_CONTACT);
-	TpChannelTextMessageType types[NUM_SUPPORTED_MESSAGE_TYPES] = {
+	TpChannelTextMessageType types[] = {
 			TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
 			TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION,
 			TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE,
@@ -317,7 +315,7 @@ static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectC
 	tp_message_mixin_init (obj, G_STRUCT_OFFSET (IdleMUCChannel, message_mixin),
 			conn);
 	tp_message_mixin_implement_sending (obj, idle_muc_channel_send,
-			NUM_SUPPORTED_MESSAGE_TYPES, types, 0,
+			G_N_ELEMENTS (types), types, 0,
 			TP_DELIVERY_REPORTING_SUPPORT_FLAG_RECEIVE_FAILURES,
 			supported_content_types);
 

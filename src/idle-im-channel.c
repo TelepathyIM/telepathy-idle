@@ -51,8 +51,6 @@ G_DEFINE_TYPE_WITH_CODE(IdleIMChannel, idle_im_channel, G_TYPE_OBJECT,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_EXPORTABLE_CHANNEL, NULL);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE, _destroyable_iface_init);)
 
-#define NUM_SUPPORTED_MESSAGE_TYPES 3
-
 /* property enum */
 enum {
 	PROP_CONNECTION = 1,
@@ -100,7 +98,7 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 	DBusGConnection *bus;
 	TpHandleRepoIface *handles;
 	TpBaseConnection *conn;
-	TpChannelTextMessageType types[NUM_SUPPORTED_MESSAGE_TYPES] = {
+	TpChannelTextMessageType types[] = {
 			TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
 			TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION,
 			TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE,
@@ -127,7 +125,7 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 	tp_message_mixin_init (obj, G_STRUCT_OFFSET (IdleIMChannel, message_mixin),
 			conn);
 	tp_message_mixin_implement_sending (obj, idle_im_channel_send,
-			NUM_SUPPORTED_MESSAGE_TYPES, types, 0,
+			G_N_ELEMENTS (types), types, 0,
 			TP_DELIVERY_REPORTING_SUPPORT_FLAG_RECEIVE_FAILURES,
 			supported_content_types);
 
