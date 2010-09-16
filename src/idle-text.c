@@ -190,7 +190,7 @@ void idle_text_send(GObject *obj, TpMessage *message, TpMessageSendingFlags flag
 	content_type = tp_asv_get_string (part, "content-type");
 	text = tp_asv_get_string (part, "content");
 
-	if (content_type == NULL || tp_strdiff (content_type, "text/plain"))
+	if (tp_strdiff (content_type, "text/plain"))
 		INVALID_ARGUMENT ("message must be text/plain");
 
 	if (text == NULL)
