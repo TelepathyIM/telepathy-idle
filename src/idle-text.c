@@ -165,7 +165,7 @@ void idle_text_send(GObject *obj, TpMessage *message, TpMessageSendingFlags flag
 		IDLE_DEBUG (msg , ## __VA_ARGS__); \
 		g_set_error (&error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, \
 				msg , ## __VA_ARGS__); \
-		goto despair_island; \
+		goto failed; \
 	} G_STMT_END
 
 	g_return_if_fail (recipient != NULL);
@@ -201,7 +201,7 @@ void idle_text_send(GObject *obj, TpMessage *message, TpMessageSendingFlags flag
 	gsize msg_len = idle_connection_get_max_message_length(conn);
 	messages = idle_text_encode_and_split(type, recipient, text, msg_len, &bodies, &error);
 	if (messages == NULL)
-		goto despair_island;
+		goto failed;
 
 	for(guint i = 0; messages[i] != NULL; i++) {
 		g_assert(bodies[i] != NULL);
@@ -214,7 +214,7 @@ void idle_text_send(GObject *obj, TpMessage *message, TpMessageSendingFlags flag
 	tp_message_mixin_sent (obj, message, flags, "", NULL);
 	return;
 
-despair_island:
+failed:
 	g_assert (error != NULL);
 	tp_message_mixin_sent (obj, message, 0, NULL, error);
 	g_error_free (error);
