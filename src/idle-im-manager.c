@@ -73,7 +73,7 @@ static void _im_manager_close_all(IdleIMManager *manager);
 static void connection_status_changed_cb (IdleConnection* conn, guint status, guint reason, IdleIMManager *self);
 
 static void _im_manager_foreach(TpChannelManager *manager, TpExportableChannelFunc func, gpointer user_data);
-static void _im_manager_foreach_class (TpChannelManager* manager, TpChannelManagerChannelClassFunc func, gpointer user_data);
+static void _im_manager_type_foreach_class (GType type, TpChannelManagerTypeChannelClassFunc func, gpointer user_data);
 
 //static TpChannelManagerRequestStatus _iface_request(TpChannelFactoryIface *iface, const gchar *chan_type, TpHandleType handle_type, guint handle, gpointer request, TpChannelIface **new_chan, GError **error);
 
@@ -251,8 +251,8 @@ static void _im_manager_foreach(TpChannelManager *manager, TpExportableChannelFu
 }
 
 
-static void _im_manager_foreach_class (TpChannelManager* manager,
-									   TpChannelManagerChannelClassFunc func,
+static void _im_manager_type_foreach_class (GType type,
+									   TpChannelManagerTypeChannelClassFunc func,
 									   gpointer user_data)
 {
 	GHashTable *table;
@@ -269,7 +269,7 @@ static void _im_manager_foreach_class (TpChannelManager* manager,
 	g_value_set_uint (value, TP_HANDLE_TYPE_CONTACT);
 	g_hash_table_insert (table, (gpointer) im_channel_fixed_properties[1], value);
 
-	func (manager, table, im_channel_allowed_properties, user_data);
+	func (type, table, im_channel_allowed_properties, user_data);
 
 	g_hash_table_destroy (table);
 }
@@ -465,7 +465,7 @@ static void _im_manager_iface_init(gpointer g_iface, gpointer iface_data) {
 	TpChannelManagerIface *iface = g_iface;
 
 	iface->foreach_channel = _im_manager_foreach;
-	iface->foreach_channel_class = _im_manager_foreach_class;
+	iface->type_foreach_channel_class = _im_manager_type_foreach_class;
 	iface->request_channel = _im_manager_request_channel;
 	iface->create_channel = _im_manager_create_channel;
 	iface->ensure_channel = _im_manager_ensure_channel;
