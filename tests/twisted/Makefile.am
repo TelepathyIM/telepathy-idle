@@ -1,4 +1,5 @@
 TWISTED_TESTS = \
+		cm/protocol.py \
 		connect/connect-success.py \
 		connect/connect-success-ssl.py \
 		connect/connect-fail.py \
