@@ -63,6 +63,7 @@ void idle_connection_canon_nick_receive(IdleConnection *conn, TpHandle handle, c
 void idle_connection_emit_queued_aliases_changed(IdleConnection *conn);
 void idle_connection_send(IdleConnection *conn, const gchar *msg);
 gsize idle_connection_get_max_message_length(IdleConnection *conn);
+const gchar * const *idle_connection_get_implemented_interfaces (void);
 
 G_END_DECLS
 
