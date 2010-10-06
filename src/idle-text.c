@@ -23,7 +23,7 @@
 #include <time.h>
 #include <string.h>
 
-#include <telepathy-glib/text-mixin.h>
+#include <telepathy-glib/dbus.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_TEXT
 #include "idle-ctcp.h"
@@ -150,40 +150,98 @@ idle_text_encode_and_split(TpChannelTextMessageType type,
 	return (GStrv) g_ptr_array_free(messages, FALSE);
 }
 
-void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *context) {
-	time_t timestamp = time(NULL);
+void idle_text_send(GObject *obj, TpMessage *message, TpMessageSendingFlags flags, const gchar *recipient, IdleConnection *conn) {
 	GError *error = NULL;
+	const GHashTable *part;
+	TpChannelTextMessageType type = TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL;
+	gboolean result = TRUE;
+	const gchar *content_type, *text;
+	guint n_parts;
 	GStrv messages;
 	GStrv bodies;
 
-	if ((recipient == NULL) || (strlen(recipient) == 0)) {
-		IDLE_DEBUG("invalid recipient");
+	#define INVALID_ARGUMENT(msg, ...) \
+	G_STMT_START { \
+		IDLE_DEBUG (msg , ## __VA_ARGS__); \
+		g_set_error (&error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, \
+				msg , ## __VA_ARGS__); \
+		goto failed; \
+	} G_STMT_END
 
-		error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "invalid recipient");
-		dbus_g_method_return_error(context, error);
-		g_error_free(error);
+	g_return_if_fail (recipient != NULL);
 
-		return;
-	}
+	part = tp_message_peek (message, 0);
+
+	if (tp_asv_lookup (part, "message-type") != NULL)
+		type = tp_asv_get_uint32 (part, "message-type", &result);
+
+	if (!result)
+		INVALID_ARGUMENT ("message-type must be a 32-bit unsigned integer");
+
+	if (type >= NUM_TP_CHANNEL_TEXT_MESSAGE_TYPES)
+		INVALID_ARGUMENT ("invalid message type: %u", type);
+
+	n_parts = tp_message_count_parts (message);
+
+	if (n_parts != 2)
+		INVALID_ARGUMENT ("message must contain exactly 1 part, not %u", (n_parts - 1));
+
+	part = tp_message_peek (message, 1);
+	content_type = tp_asv_get_string (part, "content-type");
+	text = tp_asv_get_string (part, "content");
+
+	if (tp_strdiff (content_type, "text/plain"))
+		INVALID_ARGUMENT ("message must be text/plain");
+
+	if (tp_str_empty (text))
+		INVALID_ARGUMENT ("content must be a UTF-8 string");
+
+	/* Okay, it's valid. Let's send it. */
 
 	gsize msg_len = idle_connection_get_max_message_length(conn);
 	messages = idle_text_encode_and_split(type, recipient, text, msg_len, &bodies, &error);
-	if (messages == NULL) {
-		dbus_g_method_return_error(context, error);
-		g_error_free(error);
-		return;
-	}
+	if (messages == NULL)
+		goto failed;
 
 	for(guint i = 0; messages[i] != NULL; i++) {
 		g_assert(bodies[i] != NULL);
 		idle_connection_send(conn, messages[i]);
-
-		tp_svc_channel_type_text_emit_sent(obj, timestamp, type, bodies[i]);
 	}
 
 	g_strfreev(messages);
 	g_strfreev(bodies);
 
-	tp_svc_channel_type_text_return_from_send(context);
+	tp_message_mixin_sent (obj, message, flags, "", NULL);
+	return;
+
+failed:
+	g_assert (error != NULL);
+	tp_message_mixin_sent (obj, message, 0, NULL, error);
+	g_error_free (error);
 }
 
+gboolean
+idle_text_received (GObject *chan,
+	TpBaseConnection *base_conn,
+	TpChannelTextMessageType type,
+	const gchar *text,
+	TpHandle sender)
+{
+	TpMessage *msg;
+
+	msg = tp_message_new (base_conn, 2, 2);
+
+	/* Header */
+	if (type != TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL)
+		tp_message_set_uint32 (msg, 0, "message-type", type);
+
+	tp_message_set_handle (msg, 0, "message-sender", TP_HANDLE_TYPE_CONTACT, sender);
+	tp_message_set_uint64 (msg, 0, "message-received", time (NULL));
+
+	/* Body */
+	tp_message_set_string (msg, 1, "content-type", "text/plain");
+	tp_message_set_string (msg, 1, "content", text);
+
+	tp_message_mixin_take_received (chan, msg);
+	return TRUE;
+}

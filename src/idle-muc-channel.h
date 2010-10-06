@@ -26,7 +26,7 @@
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/group-mixin.h>
 #include <telepathy-glib/handle.h>
-#include <telepathy-glib/text-mixin.h>
+#include <telepathy-glib/message-mixin.h>
 #include <telepathy-glib/dbus-properties-mixin.h>
 
 #include "idle-connection.h"
@@ -39,14 +39,13 @@ typedef struct _IdleMUCChannelClass IdleMUCChannelClass;
 struct _IdleMUCChannelClass {
 	GObjectClass parent_class;
 	TpGroupMixinClass group_class;
-	TpTextMixinClass text_class;
 	TpDBusPropertiesMixinClass dbus_props_class;
 };
 
 struct _IdleMUCChannel {
 	GObject parent;
 	TpGroupMixin group;
-	TpTextMixin text;
+	TpMessageMixin message_mixin;
 };
 
 typedef enum {

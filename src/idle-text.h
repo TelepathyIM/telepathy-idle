@@ -26,13 +26,21 @@
 #define DBUS_API_SUBJECT_TO_CHANGE
 #include <dbus/dbus-glib.h>
 
+#include <telepathy-glib/message-mixin.h>
+
 #include "idle-connection.h"
 
 G_BEGIN_DECLS
 
 gboolean idle_text_decode(const gchar *text, TpChannelTextMessageType *type, gchar **body);
 GStrv idle_text_encode_and_split(TpChannelTextMessageType type, const gchar *recipient, const gchar *text, gsize max_msg_len, GStrv *bodies_out, GError **error);
-void idle_text_send(GObject *obj, guint type, const gchar *recipient, const gchar *text, IdleConnection *conn, DBusGMethodInvocation *ctx);
+void idle_text_send(GObject *obj, TpMessage *message, TpMessageSendingFlags flags, const gchar *recipient, IdleConnection *conn);
+
+gboolean idle_text_received (GObject *chan,
+	TpBaseConnection *base_conn,
+	TpChannelTextMessageType type,
+	const gchar *text,
+	TpHandle sender);
 
 G_END_DECLS
 
