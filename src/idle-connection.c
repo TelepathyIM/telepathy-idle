@@ -1391,6 +1391,37 @@ static gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gc
 	return TRUE;
 }
 
+#define U_FFFD_REPLACEMENT_CHARACTER_UTF8 "\357\277\275"
+
+static gchar *
+idle_salvage_utf8 (gchar *supposed_utf8, gssize bytes)
+{
+	GString *salvaged = g_string_sized_new (bytes);
+	const gchar *end;
+	gchar *ret;
+	gsize ret_len;
+
+	while (!g_utf8_validate (supposed_utf8, bytes, &end)) {
+		gssize valid_bytes = end - supposed_utf8;
+
+		g_string_append_len (salvaged, supposed_utf8, valid_bytes);
+		g_string_append_len (salvaged, U_FFFD_REPLACEMENT_CHARACTER_UTF8, 3);
+
+		supposed_utf8 += (valid_bytes + 1);
+		bytes -= (valid_bytes + 1);
+	}
+
+	g_string_append_len (salvaged, supposed_utf8, bytes);
+
+	ret_len = salvaged->len;
+	ret = g_string_free (salvaged, FALSE);
+
+	/* It had better be valid now… */
+	g_return_val_if_fail (g_utf8_validate (ret, ret_len, NULL), ret);
+	return ret;
+}
+
+
 static gchar *
 idle_connection_ntoh(IdleConnection *obj, const gchar *input) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(obj);
@@ -1415,6 +1446,16 @@ idle_connection_ntoh(IdleConnection *obj, const gchar *input) {
 			if (*p & (1 << 7))
 				*p = '?';
 		}
+	} else if (!g_utf8_validate (ret, bytes_written, NULL)) {
+		/* Annoyingly g_convert(UTF-8, UTF-8) doesn't filter out well-formed
+		 * non-characters, so we have to do some further processing.
+		 */
+		gchar *salvaged;
+
+		IDLE_DEBUG("Invalid UTF-8, salvaging what we can...");
+		salvaged = idle_salvage_utf8(ret, bytes_written);
+		g_free(ret);
+		ret = salvaged;
 	}
 
 	return ret;

@@ -17,6 +17,7 @@ TWISTED_TESTS = \
 		channels/muc-channel-topic.py \
 		messages/accept-invalid-nicks.py \
 		messages/contactinfo-request.py \
+		messages/invalid-utf8.py \
 		messages/messages-iface.py \
 		messages/message-order.py \
 		messages/leading-space.py \
