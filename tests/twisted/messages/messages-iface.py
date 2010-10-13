@@ -33,6 +33,15 @@ def test_sending(q, bus, conn, stream, chan):
         EventPattern('dbus-signal', interface=cs.CHANNEL_TYPE_TEXT, signal='Sent'),
         EventPattern('dbus-return', method='SendMessage'))
 
+def test_dbus_properties (chan):
+    props = chan.GetAll(cs.CHANNEL_IFACE_MESSAGES,
+        dbus_interface=cs.PROPERTIES_IFACE)
+
+    assert props['SupportedContentTypes'] == ['text/plain']
+    assert props['MessagePartSupportFlags'] == 0
+    # Don't check props['DeliveryReportingSupport'] as tp-glib uses to forget
+    # this property
+
 def test(q, bus, conn, stream):
     conn.Connect()
     q.expect('dbus-signal', signal='StatusChanged',
@@ -58,6 +67,8 @@ def test(q, bus, conn, stream):
         EventPattern('dbus-signal', interface=cs.CHANNEL_IFACE_MESSAGES,
             signal='MessageReceived'))
 
+    test_dbus_properties(chan)
+
     # test private channel
     call_async(q, conn.Requests, 'CreateChannel',
         {cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_TEXT,
@@ -75,6 +86,8 @@ def test(q, bus, conn, stream):
         EventPattern('dbus-signal', interface=cs.CHANNEL_TYPE_TEXT, signal='Received'),
         EventPattern('dbus-signal', interface=cs.CHANNEL_IFACE_MESSAGES,
             signal='MessageReceived'))
+
+    test_dbus_properties(chan)
 
     # we're done
     call_async(q, conn, 'Disconnect')

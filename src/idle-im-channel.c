@@ -31,6 +31,7 @@
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/svc-channel.h>
+#include <telepathy-glib/svc-generic.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_IM
 #include "idle-connection.h"
@@ -49,7 +50,8 @@ G_DEFINE_TYPE_WITH_CODE(IdleIMChannel, idle_im_channel, G_TYPE_OBJECT,
 		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_MESSAGES, tp_message_mixin_messages_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_IFACE, NULL);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_EXPORTABLE_CHANNEL, NULL);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE, _destroyable_iface_init);)
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE, _destroyable_iface_init)
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_DBUS_PROPERTIES, tp_dbus_properties_mixin_iface_init);)
 
 /* property enum */
 enum {
