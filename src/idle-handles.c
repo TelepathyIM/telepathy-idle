@@ -127,7 +127,7 @@ static gboolean _channelname_is_valid(const gchar *channel) {
 	return TRUE;
 }
 
-static gchar *_nick_normalize_func(TpHandleRepoIface *repo, const gchar *id, gpointer ctx, GError **error) {
+gchar *idle_normalize_nickname (const gchar *id, GError **error) {
 	if (!idle_nickname_is_valid(id, FALSE)) {
 		g_set_error(error, TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid nickname");
 		return NULL;
@@ -136,6 +136,10 @@ static gchar *_nick_normalize_func(TpHandleRepoIface *repo, const gchar *id, gpo
 	gchar *normalized = g_utf8_strdown(id, -1);
 
 	return normalized;
+}
+
+static gchar *_nick_normalize_func(TpHandleRepoIface *repo, const gchar *id, gpointer ctx, GError **error) {
+	return idle_normalize_nickname (id, error);
 }
 
 static gchar *_channel_normalize_func(TpHandleRepoIface *repo, const gchar *id, gpointer ctx, GError **error) {

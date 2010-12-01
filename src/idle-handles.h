@@ -29,6 +29,8 @@ G_BEGIN_DECLS
 void idle_handle_repos_init(TpHandleRepoIface **handles);
 gboolean idle_nickname_is_valid(const gchar *nickname, gboolean strict_mode);
 
+gchar *idle_normalize_nickname (const gchar *nickname, GError **error);
+
 G_END_DECLS
 
 #endif /* __IDLE_HANDLES_H__ */

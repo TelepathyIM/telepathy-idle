@@ -30,6 +30,8 @@ libidle_convenience_la_SOURCES = \
 	idle-muc-manager.h \
 	idle-parser.c \
 	idle-parser.h \
+	protocol.c \
+	protocol.h \
 	idle-server-connection.c \
 	idle-server-connection.h \
 	idle-server-connection-iface.c \

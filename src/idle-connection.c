@@ -364,15 +364,21 @@ static void idle_connection_finalize (GObject *object) {
 	G_OBJECT_CLASS(idle_connection_parent_class)->finalize(object);
 }
 
+static const gchar * interfaces_always_present[] = {
+	TP_IFACE_CONNECTION_INTERFACE_ALIASING,
+	IDLE_IFACE_CONNECTION_INTERFACE_RENAMING,
+	TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
+	NULL};
+
+const gchar * const *idle_connection_get_implemented_interfaces (void) {
+	/* we don't have any conditionally-implemented interfaces yet */
+	return interfaces_always_present;
+}
+
 static void idle_connection_class_init(IdleConnectionClass *klass) {
 	GObjectClass *object_class = G_OBJECT_CLASS(klass);
 	TpBaseConnectionClass *parent_class = TP_BASE_CONNECTION_CLASS(klass);
 	GParamSpec *param_spec;
-	static const gchar *interfaces_always_present[] = {
-		TP_IFACE_CONNECTION_INTERFACE_ALIASING,
-		IDLE_IFACE_CONNECTION_INTERFACE_RENAMING,
-		TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
-		NULL};
 
 	g_type_class_add_private(klass, sizeof(IdleConnectionPrivate));
 
