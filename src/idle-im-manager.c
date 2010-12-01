@@ -219,12 +219,20 @@ static void connection_status_changed_cb (IdleConnection* conn,
 {
 	IdleIMManagerPrivate *priv = IDLE_IM_MANAGER_GET_PRIVATE(self);
 
-	if (status == TP_CONNECTION_STATUS_DISCONNECTED) {
-		idle_parser_remove_handlers_by_data(priv->conn->parser, self);
-		_im_manager_close_all (self);
-	} else if (status == TP_CONNECTION_STATUS_CONNECTED) {
-		idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_NOTICE_USER, _notice_privmsg_handler, self);
-		idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_USER, _notice_privmsg_handler, self);
+	switch (status) {
+		case TP_CONNECTION_STATUS_DISCONNECTED:
+			idle_parser_remove_handlers_by_data(priv->conn->parser, self);
+			_im_manager_close_all (self);
+			break;
+
+		case TP_CONNECTION_STATUS_CONNECTED:
+			idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_NOTICE_USER, _notice_privmsg_handler, self);
+			idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_USER, _notice_privmsg_handler, self);
+			break;
+
+		default:
+			/* Nothing to do. */
+			break;
 	}
 }
 

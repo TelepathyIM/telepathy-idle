@@ -97,7 +97,7 @@ static void idle_im_channel_finalize (GObject *object);
 static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectConstructParam *props) {
 	GObject *obj;
 	IdleIMChannelPrivate *priv;
-	DBusGConnection *bus;
+	TpDBusDaemon *bus;
 	TpHandleRepoIface *handles;
 	TpBaseConnection *conn;
 	TpChannelTextMessageType types[] = {
@@ -120,8 +120,8 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 	tp_handle_ref(handles, priv->initiator);
 	g_assert(tp_handle_is_valid(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), priv->handle, NULL));
 
-	bus = tp_get_bus();
-	dbus_g_connection_register_g_object(bus, priv->object_path, obj);
+	bus = tp_base_connection_get_dbus_daemon (conn);
+	tp_dbus_daemon_register_object (bus, priv->object_path, obj);
 
 	/* initialize message mixin */
 	tp_message_mixin_init (obj, G_STRUCT_OFFSET (IdleIMChannel, message_mixin),

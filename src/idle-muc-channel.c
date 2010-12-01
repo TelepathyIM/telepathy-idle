@@ -286,7 +286,7 @@ static void idle_muc_channel_finalize (GObject *object);
 static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectConstructParam *props) {
 	GObject *obj = G_OBJECT_CLASS(idle_muc_channel_parent_class)->constructor(type, n_props, props);
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
-	DBusGConnection *bus;
+	TpDBusDaemon *bus;
 	TpBaseConnection *conn = TP_BASE_CONNECTION(priv->connection);
 	TpHandleRepoIface *room_handles = tp_base_connection_get_handles(conn, TP_HANDLE_TYPE_ROOM);
 	TpHandleRepoIface *contact_handles = tp_base_connection_get_handles(conn, TP_HANDLE_TYPE_CONTACT);
@@ -307,8 +307,8 @@ static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectC
 	if (priv->initiator)
 		tp_handle_ref(room_handles, priv->initiator);
 
-	bus = tp_get_bus();
-	dbus_g_connection_register_g_object(bus, priv->object_path, obj);
+	bus = tp_base_connection_get_dbus_daemon (conn);
+	tp_dbus_daemon_register_object (bus, priv->object_path, obj);
 
 	tp_group_mixin_init(obj, G_STRUCT_OFFSET(IdleMUCChannel, group), contact_handles, priv->connection->parent.self_handle);
 	tp_group_mixin_change_flags(obj, TP_CHANNEL_GROUP_FLAG_PROPERTIES, 0);
