@@ -10,6 +10,7 @@ TWISTED_TESTS = \
 		channels/join-muc-channel.py \
 		channels/requests-create.py \
 		channels/requests-muc.py \
+		channels/muc-channel-topic.py \
 		messages/accept-invalid-nicks.py \
 		messages/messages-iface.py \
 		messages/message-order.py \

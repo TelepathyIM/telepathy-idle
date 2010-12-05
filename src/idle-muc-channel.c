@@ -116,6 +116,8 @@ typedef enum {
 	LAST_MODE_FLAG_ENUM
 } IRCChannelModeFlags;
 
+#define MODE_FLAGS_OP \
+   (MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE)
 
 typedef struct {
 	IRCChannelModeFlags flags;
@@ -628,7 +630,10 @@ static void muc_channel_tp_properties_init(IdleMUCChannel *chan) {
 
 		g_value_init(value, property_signatures[i].type);
 
-		props[i].flags = 0;
+		if (i == TP_PROPERTY_SUBJECT)
+			props[i].flags = TP_PROPERTY_FLAG_WRITE;
+		else
+			props[i].flags = 0;
 	}
 }
 
@@ -965,7 +970,10 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 
 		for (int i = 0; flags_helper[i] != LAST_TP_PROPERTY_ENUM; i++) {
 			guint prop_id = flags_helper[i];
-			g_array_append_val(flags_to_change, prop_id);
+			/* Only handle subject flags here if it's op setable only */
+			if (prop_id != TP_PROPERTY_SUBJECT ||
+					(flags & MODE_FLAG_TOPIC_ONLY_SETTABLE_BY_OPS))
+				g_array_append_val(flags_to_change, prop_id);
 		}
 
 		prop_flags = TP_PROPERTY_FLAG_WRITE;
@@ -982,6 +990,20 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 
 			set_tp_property_flags(obj, flags_to_change, 0, prop_flags);
 		}
+	} else if ((combined & MODE_FLAG_TOPIC_ONLY_SETTABLE_BY_OPS)
+			&& !(priv->mode_state.flags & MODE_FLAGS_OP)) {
+		/* We're not ops and the MODE_FLAG_TOPIC_ONLY_SETTABLE_BY_OPS flag was
+		 * changed */
+		GArray *flags_to_change;
+		guint prop_id = TP_PROPERTY_SUBJECT;
+
+		flags_to_change = g_array_new(FALSE, FALSE, sizeof(guint));
+		g_array_append_val(flags_to_change, prop_id);
+
+		if (add & MODE_FLAG_TOPIC_ONLY_SETTABLE_BY_OPS)
+			set_tp_property_flags(obj, flags_to_change, 0, TP_PROPERTY_FLAG_WRITE);
+		else
+			set_tp_property_flags(obj, flags_to_change, TP_PROPERTY_FLAG_WRITE, 0);
 	}
 
 	for (int i = 1; i < LAST_MODE_FLAG_ENUM; i <<= 1) {
