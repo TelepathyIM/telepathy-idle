@@ -97,6 +97,9 @@ def test(q, bus, conn, stream):
     change_channel_mode (stream, '+n')
     change_channel_mode (stream, '+n')
 
+    change_channel_mode (stream, '+to ' + stream.nick)
+    change_channel_mode (stream, '-to ' + stream.nick)
+
     sync_dbus(bus, q, conn)
     q.unforbid_events(forbidden)
 
