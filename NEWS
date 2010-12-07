@@ -1,9 +1,23 @@
-telepathy-idle 0.1.7 (UNRELEASED)
+telepathy-idle 0.1.7 (2010-12-07)
 =================================
+
+The “You touched it last!” release.
+
+Dependencies:
+
+* telepathy-glib 0.11.3
 
 Enhancements:
 
+* Implement the Messages interface. (cassidy)
+* Implement Protocol objects. (smcv)
+* Stop using tp_get_bus. (smcv)
+
 Fixes:
+
+* Fix a buffer overrun in channel name validation. (wjt)
+* Fix the handling of the +t channel flag. (sjoerd)
+* Fix free of invalid size using g_slice. (sjoerd)
 
 telepathy-idle 0.1.6 (2010-02-19)
 =================================
