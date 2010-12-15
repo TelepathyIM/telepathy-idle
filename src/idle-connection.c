@@ -638,8 +638,6 @@ static void _start_connecting_continue(IdleConnection *conn) {
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_USER, _version_privmsg_handler, conn);
 
 	irc_handshakes(conn);
-
-	return;
 }
 
 static gboolean msg_queue_timeout_cb(gpointer user_data);
