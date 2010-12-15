@@ -530,6 +530,37 @@ static void _iface_shut_down(TpBaseConnection *self) {
 	}
 }
 
+static void _start_connecting_continue(IdleConnection *conn);
+
+static void _password_prompt_cb(GObject *source, GAsyncResult *result, gpointer user_data) {
+	IdleConnection *conn = user_data;
+	TpBaseConnection *base_conn = TP_BASE_CONNECTION(conn);
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	const GString *password;
+	GError *error = NULL;
+
+	password = tp_simple_password_manager_prompt_finish(TP_SIMPLE_PASSWORD_MANAGER(source), result, &error);
+
+	if (error != NULL) {
+		IDLE_DEBUG("Simple password manager failed: %s", error->message);
+
+		if (base_conn->status != TP_CONNECTION_STATUS_DISCONNECTED) {
+			tp_base_connection_disconnect_with_dbus_error(base_conn,
+								      tp_error_get_dbus_name(error->code),
+								      NULL,
+								      TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED);
+		}
+
+		g_error_free(error);
+		return;
+	}
+
+	g_free(priv->password);
+	priv->password = g_strdup(password->str);
+
+	_start_connecting_continue(conn);
+}
+
 static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error) {
 	IdleConnection *conn = IDLE_CONNECTION(self);
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
@@ -538,65 +569,77 @@ static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error) 
 	g_assert(priv->server != NULL);
 	g_assert(priv->port > 0 && priv->port <= G_MAXUINT16);
 
-	if (priv->conn == NULL) {
-		GError *conn_error = NULL;
-		IdleServerConnectionIface *sconn;
-		GType connection_type = (priv->use_ssl) ? IDLE_TYPE_SSL_SERVER_CONNECTION : IDLE_TYPE_SERVER_CONNECTION;
-
-		if (!priv->realname || !priv->realname[0]) {
-			const gchar *g_realname = g_get_real_name();
-
-			g_free(priv->realname);
-
-			if (g_realname && g_realname[0] && strcmp(g_realname, "Unknown"))
-				priv->realname = g_strdup(g_realname);
-			else
-				priv->realname = g_strdup(priv->nickname);
-		}
-
-		if (!priv->username || !priv->username[0]) {
-			g_free(priv->username);
-			priv->username = g_strdup(priv->nickname);
-		}
-
-		sconn = IDLE_SERVER_CONNECTION_IFACE(g_object_new(connection_type, "host", priv->server, "port", priv->port, NULL));
-
-		g_signal_connect(sconn, "status-changed", (GCallback)(sconn_status_changed_cb), conn);
-
-		if (!idle_server_connection_iface_connect(sconn, &conn_error)) {
-			IDLE_DEBUG("server connection failed to connect: %s", conn_error->message);
-			g_set_error(error, TP_ERRORS, TP_ERROR_NETWORK_ERROR, "failed to open low-level network connection: %s", conn_error->message);
-
-			g_error_free(conn_error);
-			g_object_unref(sconn);
-
-			return FALSE;
-		}
-
-		priv->conn = sconn;
-
-		g_signal_connect(sconn, "received", (GCallback)(sconn_received_cb), conn);
-
-		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_ERRONEOUSNICKNAME, _erroneous_nickname_handler, conn);
-		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_NICKNAMEINUSE, _nickname_in_use_handler, conn);
-		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WELCOME, _welcome_handler, conn);
-		idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISUSER, _whois_user_handler, conn);
-
-		idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
-
-		idle_parser_add_handler_with_priority(conn->parser, IDLE_PARSER_PREFIXCMD_NICK, _nick_handler, conn, IDLE_PARSER_HANDLER_PRIORITY_FIRST);
-		idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_USER, _version_privmsg_handler, conn);
-
-		irc_handshakes(conn);
-	} else {
+	if (priv->conn != NULL) {
 		IDLE_DEBUG("conn already open!");
-
 		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection already open!");
-
 		return FALSE;
 	}
 
+	if (priv->password_prompt) {
+		tp_simple_password_manager_prompt_async(priv->password_manager, _password_prompt_cb, conn);
+	} else {
+		_start_connecting_continue(conn);
+	}
+
 	return TRUE;
+}
+
+static void _start_connecting_continue(IdleConnection *conn) {
+	TpBaseConnection *base_conn = TP_BASE_CONNECTION(conn);
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	GError *conn_error = NULL;
+	IdleServerConnectionIface *sconn;
+	GType connection_type = (priv->use_ssl) ? IDLE_TYPE_SSL_SERVER_CONNECTION : IDLE_TYPE_SERVER_CONNECTION;
+
+	if (!priv->realname || !priv->realname[0]) {
+		const gchar *g_realname = g_get_real_name();
+
+		g_free(priv->realname);
+
+		if (g_realname && g_realname[0] && strcmp(g_realname, "Unknown"))
+			priv->realname = g_strdup(g_realname);
+		else
+			priv->realname = g_strdup(priv->nickname);
+	}
+
+	if (!priv->username || !priv->username[0]) {
+		g_free(priv->username);
+		priv->username = g_strdup(priv->nickname);
+	}
+
+	sconn = IDLE_SERVER_CONNECTION_IFACE(g_object_new(connection_type, "host", priv->server, "port", priv->port, NULL));
+
+	g_signal_connect(sconn, "status-changed", (GCallback)(sconn_status_changed_cb), conn);
+
+	if (!idle_server_connection_iface_connect(sconn, &conn_error)) {
+		IDLE_DEBUG("server connection failed to connect: %s", conn_error->message);
+
+		tp_base_connection_disconnect_with_dbus_error(base_conn,
+							      TP_ERROR_STR_NETWORK_ERROR,
+							      NULL,
+							      TP_CONNECTION_STATUS_REASON_NETWORK_ERROR);
+
+		g_object_unref(sconn);
+		return;
+	}
+
+	priv->conn = sconn;
+
+	g_signal_connect(sconn, "received", (GCallback)(sconn_received_cb), conn);
+
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_ERRONEOUSNICKNAME, _erroneous_nickname_handler, conn);
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_NICKNAMEINUSE, _nickname_in_use_handler, conn);
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WELCOME, _welcome_handler, conn);
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISUSER, _whois_user_handler, conn);
+
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
+
+	idle_parser_add_handler_with_priority(conn->parser, IDLE_PARSER_PREFIXCMD_NICK, _nick_handler, conn, IDLE_PARSER_HANDLER_PRIORITY_FIRST);
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_USER, _version_privmsg_handler, conn);
+
+	irc_handshakes(conn);
+
+	return;
 }
 
 static gboolean msg_queue_timeout_cb(gpointer user_data);
