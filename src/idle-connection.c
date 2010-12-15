@@ -491,6 +491,12 @@ static void _iface_disconnected(TpBaseConnection *self) {
 	IdleConnection *conn = IDLE_CONNECTION(self);
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 
+	/* we never got around to actually creating the connection
+         * iface object, so don't try to send any traffic down it */
+	if (priv->conn == NULL) {
+		return;
+	}
+
 	send_quit_request(conn);
 
 	priv->quitting = TRUE;
