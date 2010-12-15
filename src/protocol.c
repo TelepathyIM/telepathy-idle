@@ -186,6 +186,17 @@ get_connection_details (TpBaseProtocol *self,
     }
 }
 
+static GStrv
+dup_authentication_types (TpBaseProtocol *base)
+{
+  const gchar * const types[] = {
+    TP_IFACE_CHANNEL_INTERFACE_SASL_AUTHENTICATION,
+    NULL,
+  };
+
+  return g_strdupv ((GStrv) types);
+}
+
 static void
 idle_protocol_class_init (IdleProtocolClass *klass)
 {
@@ -197,6 +208,7 @@ idle_protocol_class_init (IdleProtocolClass *klass)
   base_class->identify_account = identify_account;
   base_class->get_interfaces = get_interfaces;
   base_class->get_connection_details = get_connection_details;
+  base_class->dup_authentication_types = dup_authentication_types;
 }
 
 TpBaseProtocol *
