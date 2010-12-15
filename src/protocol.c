@@ -71,7 +71,9 @@ static const TpCMParamSpec idle_params[] = {
     { "charset", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, "UTF-8" },
     { "quit-message", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0 },
-    {"use-ssl", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
+    { "use-ssl", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
+      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GINT_TO_POINTER (FALSE) },
+    { "password-prompt", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GINT_TO_POINTER (FALSE) },
     { NULL, NULL, 0, 0, NULL, 0 }
 };
@@ -108,6 +110,8 @@ new_connection (TpBaseProtocol *protocol G_GNUC_UNUSED,
       "charset", tp_asv_get_string (params, "charset"),
       "quit-message", tp_asv_get_string (params, "quit-message"),
       "use-ssl", tp_asv_get_boolean (params, "use-ssl", NULL),
+      "password-prompt", tp_asv_get_boolean (params, "password-prompt",
+          NULL),
       NULL);
 }
 

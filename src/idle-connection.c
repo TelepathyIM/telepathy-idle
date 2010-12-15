@@ -122,6 +122,7 @@ enum {
 	PROP_CHARSET,
 	PROP_QUITMESSAGE,
 	PROP_USE_SSL,
+	PROP_PASSWORD_PROMPT,
 	LAST_PROPERTY_ENUM
 };
 
@@ -145,6 +146,7 @@ struct _IdleConnectionPrivate {
 	char *charset;
 	char *quit_message;
 	gboolean use_ssl;
+	gboolean password_prompt;
 
 	/* the string used by the a server as a prefix to any messages we send that
 	 * it relays to other users.  We need to know this so we can keep our sent
@@ -262,6 +264,10 @@ static void idle_connection_set_property(GObject *obj, guint prop_id, const GVal
 			priv->use_ssl = g_value_get_boolean(value);
 			break;
 
+		case PROP_PASSWORD_PROMPT:
+			priv->password_prompt = g_value_get_boolean(value);
+			break;
+
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID(obj, prop_id, pspec);
 			break;
@@ -306,6 +312,10 @@ static void idle_connection_get_property(GObject *obj, guint prop_id, GValue *va
 
 		case PROP_USE_SSL:
 			g_value_set_boolean(value, priv->use_ssl);
+			break;
+
+		case PROP_PASSWORD_PROMPT:
+			g_value_set_boolean(value, priv->password_prompt);
 			break;
 
 		default:
@@ -425,6 +435,9 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 
 	param_spec = g_param_spec_boolean("use-ssl", "Use SSL", "If the connection should use a SSL tunneled socket connection", FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB | G_PARAM_CONSTRUCT);
 	g_object_class_install_property(object_class, PROP_USE_SSL, param_spec);
+
+	param_spec = g_param_spec_boolean("password-prompt", "Password prompt", "Whether the connection should pop up a SASL channel if no password is given", FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_NAME | G_PARAM_STATIC_BLURB | G_PARAM_CONSTRUCT);
+	g_object_class_install_property(object_class, PROP_PASSWORD_PROMPT, param_spec);
 }
 
 static GPtrArray *_iface_create_channel_managers(TpBaseConnection *self) {
