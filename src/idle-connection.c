@@ -31,6 +31,7 @@
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/interfaces.h>
+#include <telepathy-glib/simple-password-manager.h>
 #include <telepathy-glib/svc-connection.h>
 #include <telepathy-glib/channel-manager.h>
 
@@ -173,6 +174,9 @@ struct _IdleConnectionPrivate {
 
 	/* if idle_connection_dispose has already run once */
 	gboolean dispose_has_run;
+
+	/* so we can pop up a SASL channel asking for the password */
+	TpSimplePasswordManager *password_manager;
 };
 
 #define IDLE_CONNECTION_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), IDLE_TYPE_CONNECTION, IdleConnectionPrivate))
@@ -441,6 +445,7 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 }
 
 static GPtrArray *_iface_create_channel_managers(TpBaseConnection *self) {
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(self);
 	GPtrArray *managers = g_ptr_array_sized_new(1);
 	GObject *manager;
 
@@ -449,6 +454,9 @@ static GPtrArray *_iface_create_channel_managers(TpBaseConnection *self) {
 
 	manager = g_object_new(IDLE_TYPE_MUC_MANAGER, "connection", self, NULL);
 	g_ptr_array_add(managers, manager);
+
+	priv->password_manager = tp_simple_password_manager_new(self);
+	g_ptr_array_add(managers, priv->password_manager);
 
 	return managers;
 }
