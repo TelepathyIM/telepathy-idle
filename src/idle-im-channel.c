@@ -70,7 +70,10 @@ enum {
 	LAST_PROPERTY_ENUM
 };
 
-const gchar *im_channel_interfaces[] = {NULL};
+const gchar *im_channel_interfaces[] = {
+	TP_IFACE_CHANNEL_INTERFACE_MESSAGES,
+	NULL
+};
 
 /* private structure */
 typedef struct _IdleIMChannelPrivate IdleIMChannelPrivate;

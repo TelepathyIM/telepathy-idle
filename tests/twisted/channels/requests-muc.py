@@ -57,6 +57,7 @@ def test(q, bus, conn, stream):
         sorted([cs.CHANNEL_IFACE_GROUP,
                 cs.CHANNEL_IFACE_PASSWORD,
                 cs.TP_AWKWARD_PROPERTIES,
+                cs.CHANNEL_IFACE_MESSAGES,
                ])
     assert props[cs.TARGET_HANDLE_TYPE] == cs.HT_ROOM
     assert props[cs.TARGET_ID] == '#idletest'

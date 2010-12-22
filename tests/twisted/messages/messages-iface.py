@@ -3,7 +3,7 @@ Test Messages interface implementation
 """
 
 from idletest import exec_test
-from servicetest import EventPattern, call_async
+from servicetest import EventPattern, call_async, assertContains
 import constants as cs
 import dbus
 
@@ -58,6 +58,9 @@ def test(q, bus, conn, stream):
     q.expect('dbus-signal', signal='MembersChanged')
     chan = bus.get_object(conn.bus_name, ret.value[0])
 
+    props = ret.value[1]
+    assertContains(cs.CHANNEL_IFACE_MESSAGES, props[cs.INTERFACES])
+
     test_sending(q, bus, conn, stream, chan)
 
     # Receive a message on the channel
@@ -77,6 +80,9 @@ def test(q, bus, conn, stream):
 
     ret = q.expect('dbus-return', method='CreateChannel')
     chan = bus.get_object(conn.bus_name, ret.value[0])
+
+    props = ret.value[1]
+    assertContains(cs.CHANNEL_IFACE_MESSAGES, props[cs.INTERFACES])
 
     test_sending(q, bus, conn, stream, chan)
 
