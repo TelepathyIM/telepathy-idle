@@ -1,3 +1,11 @@
+telepathy-idle 0.1.9 (UNRELEASED)
+=================================
+
+Fixes:
+
+* Correctly implement Destroyable to avoid Idle eating 100% CPU if there
+  is no text handler (fd.o#34166, wjt)
+
 telepathy-idle 0.1.8 (2011-02-11)
 =================================
 
