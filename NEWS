@@ -1,13 +1,13 @@
-telepathy-idle 0.1.8 (UNRELEASED)
+telepathy-idle 0.1.8 (2011-02-11)
 =================================
-
-Dependencies:
-
 
 Enhancements:
 
+* Implements SASL channel. (Jonny)
 
 Fixes:
+
+* Properly advertise that text channels implement Messages. (Guillaume)
 
 telepathy-idle 0.1.7 (2010-12-07)
 =================================
