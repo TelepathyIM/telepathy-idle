@@ -72,6 +72,7 @@ enum {
 
 const gchar *im_channel_interfaces[] = {
 	TP_IFACE_CHANNEL_INTERFACE_MESSAGES,
+	TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE,
 	NULL
 };
 

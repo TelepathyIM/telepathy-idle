@@ -5,7 +5,9 @@ Most of this test was borrowed from a gabble test and modified to fit idle
 """
 
 from idletest import exec_test
-from servicetest import EventPattern, call_async, make_channel_proxy
+from servicetest import (
+    EventPattern, call_async, make_channel_proxy, assertContains,
+)
 import dbus
 import constants as cs
 
@@ -104,6 +106,8 @@ def test(q, bus, conn, stream):
     assert ms[0][5] == 'oh hai'
 
     # Without acknowledging the message, we destroy the channel:
+    assertContains(cs.CHANNEL_IFACE_DESTROYABLE,
+        chan.Get(cs.CHANNEL, 'Interfaces', dbus_interface=cs.PROPERTIES_IFACE))
     chan.Destroy(dbus_interface=cs.CHANNEL_IFACE_DESTROYABLE)
 
     q.expect('dbus-signal', signal='ChannelClosed')
