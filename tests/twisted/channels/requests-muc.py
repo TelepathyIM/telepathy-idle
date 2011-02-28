@@ -3,7 +3,9 @@ Test connecting to a IRC channel via the Requests interface
 """
 
 from idletest import exec_test, BaseIRCServer
-from servicetest import EventPattern, call_async, sync_dbus, make_channel_proxy
+from servicetest import (
+    EventPattern, call_async, sync_dbus, make_channel_proxy, assertEquals,
+)
 import constants as cs
 import dbus
 
@@ -90,9 +92,17 @@ def test(q, bus, conn, stream):
     assert chans[0] == (path, props)
 
     chan = make_channel_proxy(conn, path, 'Channel')
-    chan.RemoveMembers([self_handle], "", dbus_interface=cs.CHANNEL_IFACE_GROUP)
+    chan.RemoveMembers([self_handle], "bye bye cruel world",
+        dbus_interface=cs.CHANNEL_IFACE_GROUP)
 
-    q.expect('stream-PART')
+    part_event = q.expect('stream-PART')
+
+    # This is a regression test for
+    # <https://bugs.freedesktop.org/show_bug.cgi?id=34812>, where part messages
+    # were not correctly colon-quoted. rstrip seems to be needed to get rid of
+    # the \r\n...
+    assertEquals("bye bye cruel world", part_event.data[1].rstrip())
+
     stream.sendPart('#idletest', stream.nick)
 
     q.expect('dbus-signal', signal='Closed')
