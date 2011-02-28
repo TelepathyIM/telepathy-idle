@@ -1737,7 +1737,7 @@ static void part_from_channel(IdleMUCChannel *obj, const gchar *msg) {
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
 	if (msg != NULL) {
-		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "PART %s %s", priv->channel_name, msg);
+		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "PART %s :%s", priv->channel_name, msg);
 	} else {
 		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "PART %s", priv->channel_name);
 	}
