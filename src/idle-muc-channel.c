@@ -1672,7 +1672,7 @@ static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gc
 	}
 
 	if (msg != NULL) {
-		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "KICK %s %s %s", priv->channel_name, nick, msg);
+		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "KICK %s %s :%s", priv->channel_name, nick, msg);
 	} else {
 		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "KICK %s %s", priv->channel_name, nick);
 	}
