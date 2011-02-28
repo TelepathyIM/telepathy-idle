@@ -1135,7 +1135,10 @@ void idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner) {
 		/* woot we managed to get into a channel, great */
 		change_state(chan, MUC_STATE_JOINED);
 		tp_group_mixin_change_members((GObject *)(chan), NULL, set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
-		tp_group_mixin_change_flags((GObject *)(chan), TP_CHANNEL_GROUP_FLAG_CAN_ADD, 0);
+		tp_group_mixin_change_flags((GObject *)(chan),
+			TP_CHANNEL_GROUP_FLAG_CAN_ADD |
+			TP_CHANNEL_GROUP_FLAG_MESSAGE_DEPART,
+			0);
 
 		send_mode_query_request(chan);
 
