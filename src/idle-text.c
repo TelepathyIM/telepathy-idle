@@ -236,7 +236,7 @@ idle_text_received (GObject *chan,
 		tp_message_set_uint32 (msg, 0, "message-type", type);
 
 	tp_message_set_handle (msg, 0, "message-sender", TP_HANDLE_TYPE_CONTACT, sender);
-	tp_message_set_uint64 (msg, 0, "message-received", time (NULL));
+	tp_message_set_int64 (msg, 0, "message-received", time (NULL));
 
 	/* Body */
 	tp_message_set_string (msg, 1, "content-type", "text/plain");
