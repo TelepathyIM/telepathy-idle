@@ -211,6 +211,10 @@ static void idle_im_channel_get_property(GObject *object, guint property_id, GVa
 					TP_IFACE_CHANNEL, "InitiatorHandle",
 					TP_IFACE_CHANNEL, "InitiatorID",
 					TP_IFACE_CHANNEL, "Requested",
+					TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessagePartSupportFlags",
+					TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "DeliveryReportingSupport",
+					TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "SupportedContentTypes",
+					TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessageTypes",
 					NULL);
 			g_value_take_boxed (value, props);
 			break;
