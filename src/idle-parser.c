@@ -461,10 +461,12 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 			}
 
 			id = g_strdup(token);
-			bang = strchr(id, '!');
 
-			if (bang)
-				*bang = '\0';
+			if (atom != 'r') {
+				bang = strchr(id, '!');
+				if (bang)
+					*bang = '\0';
+			}
 
 			if (atom == 'r') {
 				if ((handle = tp_handle_ensure(room_repo, id, NULL, NULL))) {
