@@ -604,7 +604,7 @@ static void _start_connecting_continue(IdleConnection *conn) {
 
 	if (!priv->username || !priv->username[0]) {
 		g_free(priv->username);
-		priv->username = g_strdup(priv->nickname);
+		priv->username = g_strdup(g_get_user_name());
 	}
 
 	sconn = IDLE_SERVER_CONNECTION_IFACE(g_object_new(connection_type, "host", priv->server, "port", priv->port, NULL));
