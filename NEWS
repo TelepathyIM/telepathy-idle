@@ -5,6 +5,7 @@ Fixes:
 
 * Correctly implement Destroyable to avoid Idle eating 100% CPU if there
   is no text handler (fd.o#34166, wjt)
+* Correctly quote message in PART commands (fd.o#34812, glassrose)
 * Don't truncate room names at ! in the parser (fd.o #28371, #31343,
   #30609, rishi)
 * Using an underscore '_' in IRC login name causes network error
