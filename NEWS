@@ -5,7 +5,10 @@ Fixes:
 
 * Correctly implement Destroyable to avoid Idle eating 100% CPU if there
   is no text handler (fd.o#34166, wjt)
-* Don't truncate room names at ! in the parser (fd.o #28371, #31343, #30609, rishi)
+* Don't truncate room names at ! in the parser (fd.o #28371, #31343,
+  #30609, rishi)
+* Using an underscore '_' in IRC login name causes network error
+  (fd.o#33913, rishi)
 
 telepathy-idle 0.1.8 (2011-02-11)
 =================================
