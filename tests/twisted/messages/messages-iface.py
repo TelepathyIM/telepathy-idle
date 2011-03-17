@@ -3,7 +3,7 @@ Test Messages interface implementation
 """
 
 from idletest import exec_test
-from servicetest import EventPattern, call_async, assertContains
+from servicetest import EventPattern, call_async, assertContains, assertEquals
 import constants as cs
 import dbus
 
@@ -42,6 +42,16 @@ def test_dbus_properties (chan):
     # Don't check props['DeliveryReportingSupport'] as tp-glib uses to forget
     # this property
 
+def check_message(conn, msg):
+    header = msg[0]
+    assertEquals('alice', header['message-sender-id'])
+    handle = header['message-sender']
+    assertEquals('alice', conn.InspectHandles(cs.HT_CONTACT, [handle])[0])
+
+    body = msg[1]
+    assertEquals(body['content'], 'pony!')
+    assertEquals(body['content-type'], 'text/plain')
+
 def test(q, bus, conn, stream):
     conn.Connect()
     q.expect('dbus-signal', signal='StatusChanged',
@@ -65,10 +75,12 @@ def test(q, bus, conn, stream):
 
     # Receive a message on the channel
     stream.sendMessage('PRIVMSG', '#test', ":pony!", prefix='alice')
-    q.expect_many(
+    _, e = q.expect_many(
         EventPattern('dbus-signal', interface=cs.CHANNEL_TYPE_TEXT, signal='Received'),
         EventPattern('dbus-signal', interface=cs.CHANNEL_IFACE_MESSAGES,
             signal='MessageReceived'))
+
+    check_message(conn, e.args[0])
 
     test_dbus_properties(chan)
 
@@ -87,11 +99,14 @@ def test(q, bus, conn, stream):
     test_sending(q, bus, conn, stream, chan)
 
     # Receive a private message from Alice
-    stream.sendMessage('PRIVMSG', stream.nick, ":badger!", prefix='alice')
-    q.expect_many(
+    stream.sendMessage('PRIVMSG', stream.nick, ":pony!", prefix='alice')
+
+    _, e = q.expect_many(
         EventPattern('dbus-signal', interface=cs.CHANNEL_TYPE_TEXT, signal='Received'),
         EventPattern('dbus-signal', interface=cs.CHANNEL_IFACE_MESSAGES,
             signal='MessageReceived'))
+
+    check_message(conn, e.args[0])
 
     test_dbus_properties(chan)
 
