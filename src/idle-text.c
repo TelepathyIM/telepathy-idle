@@ -229,18 +229,10 @@ idle_text_received (GObject *chan,
 {
 	TpMessage *msg;
 
-	msg = tp_message_new (base_conn, 2, 2);
+	msg = tp_cm_message_new_text (base_conn, sender,
+		TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL, text);
 
-	/* Header */
-	if (type != TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL)
-		tp_message_set_uint32 (msg, 0, "message-type", type);
-
-	tp_message_set_handle (msg, 0, "message-sender", TP_HANDLE_TYPE_CONTACT, sender);
 	tp_message_set_int64 (msg, 0, "message-received", time (NULL));
-
-	/* Body */
-	tp_message_set_string (msg, 1, "content-type", "text/plain");
-	tp_message_set_string (msg, 1, "content", text);
 
 	tp_message_mixin_take_received (chan, msg);
 	return TRUE;
