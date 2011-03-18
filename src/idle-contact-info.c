@@ -238,6 +238,37 @@ cleanup:
 	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 }
 
+static IdleParserHandlerResult _whois_channels_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
+	ContactInfoRequest *request;
+	gchar *channels;
+	gchar **channelsv;
+	const gchar *field_values[2] = {NULL, NULL};
+	guint i;
+
+	if (!_is_valid_response(conn, args))
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+
+	request = g_queue_peek_head(conn->contact_info_requests);
+
+	if (request->contact_info == NULL)
+		request->contact_info = dbus_g_type_specialized_construct(TP_ARRAY_TYPE_CONTACT_INFO_FIELD_LIST);
+
+	channels = g_value_dup_string(g_value_array_get_nth(args, 1));
+	g_strchomp(channels);
+	channelsv = g_strsplit(channels, " ", -1);
+
+	for (i = 0; channelsv[i] != NULL; i++) {
+		field_values[0] = channelsv[i];
+		_insert_contact_field(request->contact_info, "x-irc-channel", NULL, field_values);
+	}
+
+	g_strfreev(channelsv);
+	g_free(channels);
+
+	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+}
+
 static IdleParserHandlerResult _whois_idle_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	ContactInfoRequest *request;
@@ -326,6 +357,7 @@ void idle_contact_info_init (IdleConnection *conn) {
 	conn->contact_info_requests = g_queue_new();
 
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISUSER, _whois_user_handler, conn);
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISCHANNELS, _whois_channels_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_AWAY, _away_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISIDLE, _whois_idle_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_ENDOFWHOIS, _end_of_whois_handler, conn);
