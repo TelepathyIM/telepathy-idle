@@ -304,6 +304,38 @@ static IdleParserHandlerResult _whois_channels_handler(IdleParser *parser, IdleP
 	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 }
 
+static IdleParserHandlerResult _whois_host_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
+	ContactInfoRequest *request;
+	gchar *msg;
+	gchar **msgv;
+
+	if (!_is_valid_response(conn, args))
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+
+	msg = g_value_dup_string(g_value_array_get_nth(args, 1));
+	g_strchomp(msg);
+
+	if (!g_str_has_prefix(msg, "is connecting from "))
+		goto cleanup;
+
+	request = g_queue_peek_head(conn->contact_info_requests);
+
+	if (request->contact_info == NULL)
+		request->contact_info = dbus_g_type_specialized_construct(TP_ARRAY_TYPE_CONTACT_INFO_FIELD_LIST);
+
+	msgv = g_strsplit(msg, " ", -1);
+
+	/* msg == "is connecting from *@<hostname> <IP>" */
+	_insert_contact_field(request->contact_info, "x-host", NULL, (const gchar **) (msgv + 3));
+
+	g_strfreev(msgv);
+
+cleanup:
+	g_free(msg);
+	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+}
+
 static IdleParserHandlerResult _whois_idle_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	ContactInfoRequest *request;
@@ -440,6 +472,7 @@ void idle_contact_info_init (IdleConnection *conn) {
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISCHANNELS, _whois_channels_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISSERVER, _whois_server_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_AWAY, _away_handler, conn);
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISHOST, _whois_host_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISIDLE, _whois_idle_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISLOGGEDIN, _whois_logged_in_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_ENDOFWHOIS, _end_of_whois_handler, conn);
