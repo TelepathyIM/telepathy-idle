@@ -2368,10 +2368,22 @@ static void idle_muc_channel_set_properties (TpSvcPropertiesInterface *iface, co
 
 gboolean idle_muc_channel_is_modechar(char c) {
 	switch (c) {
-		case '@':
-		case '&':
-		case '+':
+		/* founder */
+		case '*':
 		case '~':
+
+		/* admin */
+		case '!':
+		case '&':
+
+		/* chanop */
+		case '@':
+
+		/* halfop */
+		case '%':
+
+		/* voice */
+		case '+':
 			return TRUE;
 
 		default:
