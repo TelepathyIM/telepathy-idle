@@ -57,6 +57,34 @@ filter_nick (const TpCMParamSpec *paramspec,
   return TRUE;
 }
 
+static gboolean
+filter_username (const TpCMParamSpec *paramspec,
+    GValue *value,
+    GError **error)
+{
+  const gchar *username;
+  size_t i;
+
+  g_assert (value);
+  g_assert (G_VALUE_HOLDS_STRING (value));
+
+  username = g_value_get_string (value);
+
+  for (i = 0; username[i] != '\0'; i++)
+    {
+      const char ch = username[i];
+
+      if (ch == '\0' || ch == '\n' || ch == '\r' || ch == ' ' || ch == '@')
+        {
+          g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+              "Invalid user name '%s'", username);
+          return FALSE;
+        }
+    }
+
+  return TRUE;
+}
+
 static const TpCMParamSpec idle_params[] = {
     {"account", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       TP_CONN_MGR_PARAM_FLAG_REQUIRED, NULL, 0, filter_nick},
@@ -67,7 +95,8 @@ static const TpCMParamSpec idle_params[] = {
     { "password", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       TP_CONN_MGR_PARAM_FLAG_SECRET },
     { "fullname", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0 },
-    { "username", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0 },
+    { "username", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0, NULL, 0,
+      filter_username },
     { "charset", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, "UTF-8" },
     { "quit-message", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0 },
