@@ -195,6 +195,49 @@ static IdleParserHandlerResult _end_of_whois_handler(IdleParser *parser, IdlePar
 	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 }
 
+static IdleParserHandlerResult _no_such_server_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
+	TpBaseConnection *base = TP_BASE_CONNECTION(conn);
+	TpHandleRepoIface *contact_handles = tp_base_connection_get_handles(base, TP_HANDLE_TYPE_CONTACT);
+	TpHandle handle;
+	ContactInfoRequest *request;
+	GValueArray *norm_args = g_value_array_copy(args);
+	GValue value = {0};
+	const gchar *server;
+	GError *error = NULL;
+
+	/* We issue our requests as WHOIS <nick> <nick>, where the first <nick> is actually a shorthand for the server to which it is connected to.
+	 * Therefore, if this error was caused by us then the value of <server name> in the error message will be <nick>. Otherwise, this error was not
+	 * caused by us, and we do not want to handle it.
+	 *
+	 * To check this we map the value of the <server name> to a handle and see if it matches the handle for which we had made the request.
+	 */
+
+	server = g_value_get_string(g_value_array_get_nth(args, 0));
+	handle = tp_handle_ensure(contact_handles, server, NULL, NULL);
+
+	g_value_array_remove(norm_args, 0);
+
+	g_value_init(&value, G_TYPE_UINT);
+	g_value_set_uint(&value, handle);
+	g_value_array_prepend(norm_args, &value);
+
+	if (!_is_valid_response(conn, norm_args))
+		goto cleanup;
+
+	request = g_queue_peek_head(conn->contact_info_requests);
+
+	error = g_error_new(TP_ERRORS, TP_ERROR_DOES_NOT_EXIST, "User '%s' unknown; they may have disconnected", server);
+	dbus_g_method_return_error(request->context, error);
+	g_error_free(error);
+
+	_dequeue_request_contact_info(conn);
+
+cleanup:
+	g_value_array_free(norm_args);
+	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+}
+
 static IdleParserHandlerResult _whois_idle_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	ContactInfoRequest *request;
@@ -281,10 +324,13 @@ void idle_contact_info_class_init (IdleConnectionClass *klass) {
 
 void idle_contact_info_init (IdleConnection *conn) {
 	conn->contact_info_requests = g_queue_new();
+
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISUSER, _whois_user_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_AWAY, _away_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISIDLE, _whois_idle_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_ENDOFWHOIS, _end_of_whois_handler, conn);
+
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_NOSUCHSERVER, _no_such_server_handler, conn);
 }
 
 void idle_contact_info_iface_init(gpointer g_iface, gpointer iface_data) {
