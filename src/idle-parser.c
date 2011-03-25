@@ -72,6 +72,7 @@ struct _MessageSpec {
  * '.' - Same as ':', but optional
  */
 static const MessageSpec message_specs[] = {
+	{"ERROR", "I:", IDLE_PARSER_CMD_ERROR},
 	{"PING", "Is", IDLE_PARSER_CMD_PING},
 
 	{"INVITE", "cIcr", IDLE_PARSER_PREFIXCMD_INVITE},

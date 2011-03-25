@@ -28,6 +28,7 @@
 #define DBUS_API_SUBJECT_TO_CHANGE
 #include <dbus/dbus-glib.h>
 
+#include <telepathy-glib/dbus.h>
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/errors.h>
 #include <telepathy-glib/interfaces.h>
@@ -188,6 +189,7 @@ static void _iface_disconnected(TpBaseConnection *self);
 static void _iface_shut_down(TpBaseConnection *self);
 static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error);
 
+static IdleParserHandlerResult _error_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _erroneous_nickname_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _nickname_in_use_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
@@ -627,6 +629,7 @@ static void _start_connecting_continue(IdleConnection *conn) {
 
 	g_signal_connect(sconn, "received", (GCallback)(sconn_received_cb), conn);
 
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_ERROR, _error_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_ERRONEOUSNICKNAME, _erroneous_nickname_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_NICKNAMEINUSE, _nickname_in_use_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WELCOME, _welcome_handler, conn);
@@ -840,6 +843,55 @@ idle_connection_get_max_message_length(IdleConnection *conn)
 	 * common limit.  I'll add some extra buffer to be safe.
 	 * */
 	return IRC_MSG_MAXLEN - 100;
+}
+
+static IdleParserHandlerResult _error_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
+	GHashTable *details = NULL;
+	TpConnectionStatus status = conn->parent.status;
+	TpConnectionStatusReason reason;
+	const gchar *msg;
+	const gchar *begin;
+	const gchar *end;
+	const gchar *error_name;
+
+	switch (status) {
+		case TP_CONNECTION_STATUS_CONNECTING:
+			reason = TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED;
+			error_name = TP_ERROR_STR_AUTHENTICATION_FAILED;
+			break;
+
+		case TP_CONNECTION_STATUS_CONNECTED:
+			reason = TP_CONNECTION_STATUS_REASON_NETWORK_ERROR;
+			error_name = TP_ERROR_STR_NETWORK_ERROR;
+			break;
+
+		default:
+			return IDLE_PARSER_HANDLER_RESULT_HANDLED;
+	}
+
+	msg = g_value_get_string(g_value_array_get_nth(args, 0));
+	begin = strchr(msg, '(');
+	end = strrchr(msg, ')');
+
+	if (begin != NULL && end != NULL && begin < end - 1) {
+		gchar *server_msg;
+		guint length;
+
+		begin++;
+		end--;
+		length = end - begin + 1;
+		server_msg = g_strndup(begin, length);
+		details = tp_asv_new ("server-message", G_TYPE_STRING, server_msg, NULL);
+		g_free(server_msg);
+	}
+
+	tp_base_connection_disconnect_with_dbus_error(TP_BASE_CONNECTION(conn), error_name, details, reason);
+
+	if (details != NULL)
+		g_hash_table_unref(details);
+
+	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
 
 static IdleParserHandlerResult _erroneous_nickname_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
