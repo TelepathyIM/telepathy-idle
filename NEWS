@@ -10,6 +10,11 @@ Fixes:
   #30609, rishi)
 * Using an underscore '_' in IRC login name causes network error
   (fd.o#33913, rishi)
+* The 'username' parameter is now validated for its conformance to RFC 2812
+  (fd.o#35239, rishi)
+* Additionally, the human-readable information from ERROR messages is now
+  exposed in the ConnectionError signal's Details dictionary, as
+  server-message. (also fd.o#35239, rishi)
 
 telepathy-idle 0.1.8 (2011-02-11)
 =================================
