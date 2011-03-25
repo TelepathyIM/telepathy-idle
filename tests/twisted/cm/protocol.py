@@ -52,5 +52,14 @@ def test(q, bus, conn, server):
     acc_name = unwrap(proto_iface.IdentifyAccount(test_params))
     assertEquals('robot101@irc.oftc.net', acc_name)
 
+    # Test validating 'username'
+    test_params = {
+        'account': 'Robot101',
+        'server': 'irc.oftc.net',
+        'username': '@@@\n\n\n',
+    }
+    call_async(q, proto_iface, 'IdentifyAccount', test_params)
+    q.expect('dbus-error', method='IdentifyAccount', name=cs.INVALID_ARGUMENT)
+
 if __name__ == '__main__':
     exec_test(test)
