@@ -81,7 +81,7 @@ gboolean idle_server_connection_iface_send(IdleServerConnectionIface *iface, con
 	return IDLE_SERVER_CONNECTION_IFACE_GET_CLASS(iface)->send(iface, cmd, error);
 }
 
-IdleServerConnectionState idle_server_connection_get_state(IdleServerConnectionIface *iface) {
+IdleServerConnectionState idle_server_connection_iface_get_state(IdleServerConnectionIface *iface) {
 	return IDLE_SERVER_CONNECTION_IFACE_GET_CLASS(iface)->get_state(iface);
 }
 
