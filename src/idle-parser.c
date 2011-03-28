@@ -22,6 +22,7 @@
 #define  _GNU_SOURCE
 
 #include "idle-parser.h"
+#include "config.h"
 
 #include "idle-connection.h"
 #include "idle-muc-channel.h"
@@ -197,6 +198,20 @@ static void idle_parser_class_init(IdleParserClass *klass) {
 static void _parse_message(IdleParser *parser, const gchar *split_msg);
 static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParserMessageCode code, const gchar *format);
 static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, const gchar *token, TpHandleSet *contact_reffed, TpHandleSet *room_reffed);
+
+#ifndef HAVE_STRNLEN
+static size_t
+strnlen(const char *msg, size_t maxlen)
+{
+	size_t i;
+
+	for (i=0; i<maxlen; i++)
+		if (msg[i] == '\0')
+			break;
+
+	return i;
+}
+#endif
 
 void idle_parser_receive(IdleParser *parser, const gchar *msg) {
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);

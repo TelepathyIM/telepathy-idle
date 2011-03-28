@@ -131,6 +131,8 @@ DBUS_SERVICES_DIR="$DATADIR/dbus-1/services"
 AC_SUBST(DBUS_SERVICES_DIR)
 AC_DEFINE_UNQUOTED(DBUS_SERVICES_DIR, "$DBUS_SERVICES_DIR", [DBus services directory])
 
+AC_CHECK_FUNCS(strnlen)
+
 AC_OUTPUT( Makefile \
 					 data/Makefile \
 					 extensions/Makefile \
