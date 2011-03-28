@@ -28,10 +28,10 @@
 
 #include <arpa/inet.h>
 #include <fcntl.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <unistd.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_NETWORK
