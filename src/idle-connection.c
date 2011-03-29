@@ -37,6 +37,7 @@
 #include <telepathy-glib/channel-manager.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_CONNECTION
+#include "idle-contact-info.h"
 #include "idle-ctcp.h"
 #include "idle-debug.h"
 #include "idle-handles.h"
@@ -76,6 +77,7 @@ static void _renaming_iface_init(gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE(IdleConnection, idle_connection, TP_TYPE_BASE_CONNECTION,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING, _aliasing_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACT_INFO, idle_contact_info_iface_init);
 		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SVC_CONNECTION_INTERFACE_RENAMING, _renaming_iface_init));
 
 typedef struct _IdleOutputPendingMsg IdleOutputPendingMsg;
@@ -220,6 +222,8 @@ static GObject *idle_connection_constructor(GType type, guint n_params, GObjectC
 
 	self->parser = g_object_new(IDLE_TYPE_PARSER, "connection", self, NULL);
 
+	idle_contact_info_init(self);
+
 	return (GObject *) self;
 }
 
@@ -363,6 +367,8 @@ static void idle_connection_finalize (GObject *object) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(object);
 	IdleOutputPendingMsg *msg;
 
+	idle_contact_info_finalize(object);
+
 	g_free(priv->nickname);
 	g_free(priv->server);
 	g_free(priv->password);
@@ -382,6 +388,7 @@ static void idle_connection_finalize (GObject *object) {
 
 static const gchar * interfaces_always_present[] = {
 	TP_IFACE_CONNECTION_INTERFACE_ALIASING,
+	TP_IFACE_CONNECTION_INTERFACE_CONTACT_INFO,
 	IDLE_IFACE_CONNECTION_INTERFACE_RENAMING,
 	TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
 	NULL};
@@ -444,6 +451,8 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 
 	param_spec = g_param_spec_boolean("password-prompt", "Password prompt", "Whether the connection should pop up a SASL channel if no password is given", FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
 	g_object_class_install_property(object_class, PROP_PASSWORD_PROMPT, param_spec);
+
+	idle_contact_info_class_init(klass);
 }
 
 static GPtrArray *_iface_create_channel_managers(TpBaseConnection *self) {
@@ -988,8 +997,6 @@ _whois_user_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray 
 			const char* host = g_value_get_string(g_value_array_get_nth(args, 2));
 			priv->relay_prefix = g_strdup_printf("%s!%s@%s", priv->nickname, user, host);
 			IDLE_DEBUG("user host prefix = %s", priv->relay_prefix);
-
-			return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 	}
 	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 }

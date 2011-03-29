@@ -41,6 +41,7 @@ struct _IdleConnectionClass {
 struct _IdleConnection {
 	TpBaseConnection parent;
 	IdleParser *parser;
+	GQueue *contact_info_requests;
 };
 
 GType idle_connection_get_type(void);

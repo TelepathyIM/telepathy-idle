@@ -12,6 +12,8 @@ libidle_convenience_la_SOURCES = \
 	idle-connection.h \
 	idle-connection-manager.c \
 	idle-connection-manager.h \
+	idle-contact-info.c \
+	idle-contact-info.h \
 	idle-ctcp.c \
 	idle-ctcp.h \
 	idle-debug.c \
