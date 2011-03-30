@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2006-2007 Collabora Limited
  * Copyright (C) 2006-2007 Nokia Corporation
+ * Copyright (C) 2011      Debarshi Ray <rishi@gnu.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -55,6 +56,8 @@
  * two (2) seconds without being adversely affected.  Services MAY also
  * be subject to this mechanism.
  */
+
+#define DEFAULT_KEEPALIVE_INTERVAL 30 /* sec */
 
 #define MSG_QUEUE_UNLOAD_AT_A_TIME 1
 #define MSG_QUEUE_TIMEOUT 2
@@ -124,6 +127,7 @@ enum {
 	PROP_REALNAME,
 	PROP_USERNAME,
 	PROP_CHARSET,
+	PROP_KEEPALIVE_INTERVAL,
 	PROP_QUITMESSAGE,
 	PROP_USE_SSL,
 	PROP_PASSWORD_PROMPT,
@@ -148,6 +152,7 @@ struct _IdleConnectionPrivate {
 	char *realname;
 	char *username;
 	char *charset;
+	guint keepalive_interval;
 	char *quit_message;
 	gboolean use_ssl;
 	gboolean password_prompt;
@@ -163,6 +168,9 @@ struct _IdleConnectionPrivate {
 
 	/* UNIX time the last message was sent on */
 	time_t last_msg_sent;
+
+	/* GSource id for keep alive message timeout */
+	guint keepalive_timeout;
 
 	/* GSource id for message queue unloading timeout */
 	guint msg_queue_timeout;
@@ -209,6 +217,8 @@ static void connection_connect_cb(IdleConnection *conn, gboolean success, TpConn
 static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusReason reason);
 static gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **_error);
 static void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **output);
+
+static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint priority);
 
 static void idle_connection_init(IdleConnection *obj) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(obj);
@@ -265,6 +275,10 @@ static void idle_connection_set_property(GObject *obj, guint prop_id, const GVal
 			priv->charset = g_value_dup_string(value);
 			break;
 
+		case PROP_KEEPALIVE_INTERVAL:
+			priv->keepalive_interval = g_value_get_uint(value);
+			break;
+
 		case PROP_QUITMESSAGE:
 			g_free(priv->quit_message);
 			priv->quit_message = g_value_dup_string(value);
@@ -316,6 +330,10 @@ static void idle_connection_get_property(GObject *obj, guint prop_id, GValue *va
 			g_value_set_string(value, priv->charset);
 			break;
 
+		case PROP_KEEPALIVE_INTERVAL:
+			g_value_set_uint(value, priv->keepalive_interval);
+			break;
+
 		case PROP_QUITMESSAGE:
 			g_value_set_string(value, priv->quit_message);
 			break;
@@ -342,6 +360,11 @@ static void idle_connection_dispose (GObject *object) {
 		return;
 
 	priv->dispose_has_run = TRUE;
+
+	if (priv->keepalive_timeout) {
+		g_source_remove(priv->keepalive_timeout);
+		priv->keepalive_timeout = 0;
+	}
 
 	if (priv->msg_queue_timeout)
 		g_source_remove(priv->msg_queue_timeout);
@@ -442,6 +465,9 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 
 	param_spec = g_param_spec_string("charset", "Character set", "The character set to use to communicate with the outside world", "NULL", G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
 	g_object_class_install_property(object_class, PROP_CHARSET, param_spec);
+
+	param_spec = g_param_spec_uint("keepalive-interval", "Keepalive interval", "Seconds between keepalive packets, or 0 to disable", 0, G_MAXUINT, DEFAULT_KEEPALIVE_INTERVAL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
+	g_object_class_install_property(object_class, PROP_KEEPALIVE_INTERVAL, param_spec);
 
 	param_spec = g_param_spec_string("quit-message", "Quit message", "The quit message to send to the server when leaving IRC", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
 	g_object_class_install_property(object_class, PROP_QUITMESSAGE, param_spec);
@@ -652,6 +678,7 @@ static void _start_connecting_continue(IdleConnection *conn) {
 	irc_handshakes(conn);
 }
 
+static gboolean keepalive_timeout_cb(gpointer user_data);
 static gboolean msg_queue_timeout_cb(gpointer user_data);
 
 static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServerConnectionState state, IdleServerConnectionStateReason reason, IdleConnection *conn) {
@@ -699,6 +726,9 @@ static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServer
 			break;
 
 		case SERVER_CONNECTION_STATE_CONNECTED:
+			if (priv->keepalive_interval != 0 && priv->keepalive_timeout == 0)
+				priv->keepalive_timeout = g_timeout_add_seconds(priv->keepalive_interval, keepalive_timeout_cb, conn);
+
 			if ((priv->msg_queue_timeout == 0) && (g_queue_get_length(priv->msg_queue) > 0)) {
 				IDLE_DEBUG("we had messages in queue, start unloading them now");
 
@@ -721,6 +751,24 @@ static void sconn_received_cb(IdleServerConnectionIface *sconn, gchar *raw_msg, 
 	idle_parser_receive(conn->parser, converted);
 
 	g_free(converted);
+}
+
+static gboolean keepalive_timeout_cb(gpointer user_data) {
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	gchar cmd[IRC_MSG_MAXLEN + 1];
+	gint64 ping_time;
+
+	if (priv->sconn_status != SERVER_CONNECTION_STATE_CONNECTED) {
+		priv->keepalive_timeout = 0;
+		return FALSE;
+	}
+
+	ping_time = g_get_real_time();
+	g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "PING %" G_GINT64_FORMAT, ping_time);
+	_send_with_priority(conn, cmd, SERVER_CMD_MIN_PRIORITY);
+
+	return TRUE;
 }
 
 static gboolean msg_queue_timeout_cb(gpointer user_data) {

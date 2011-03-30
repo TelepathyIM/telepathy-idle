@@ -34,6 +34,7 @@
 #define ENGLISH_NAME "IRC"
 #define VCARD_FIELD_NAME "x-" PROTOCOL_NAME
 #define DEFAULT_PORT 6667
+#define DEFAULT_KEEPALIVE_INTERVAL 30 /* sec */
 
 G_DEFINE_TYPE (IdleProtocol, idle_protocol, TP_TYPE_BASE_PROTOCOL)
 
@@ -99,6 +100,9 @@ static const TpCMParamSpec idle_params[] = {
       filter_username },
     { "charset", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, "UTF-8" },
+    { "keepalive-interval", DBUS_TYPE_UINT32_AS_STRING, G_TYPE_UINT,
+      TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT,
+      GUINT_TO_POINTER (DEFAULT_KEEPALIVE_INTERVAL) },
     { "quit-message", DBUS_TYPE_STRING_AS_STRING, G_TYPE_STRING, 0 },
     { "use-ssl", DBUS_TYPE_BOOLEAN_AS_STRING, G_TYPE_BOOLEAN,
       TP_CONN_MGR_PARAM_FLAG_HAS_DEFAULT, GINT_TO_POINTER (FALSE) },
@@ -137,6 +141,7 @@ new_connection (TpBaseProtocol *protocol G_GNUC_UNUSED,
       "realname", tp_asv_get_string (params, "fullname"),
       "username", tp_asv_get_string (params, "username"),
       "charset", tp_asv_get_string (params, "charset"),
+      "keepalive-interval", tp_asv_get_uint32 (params, "keepalive-interval", NULL),
       "quit-message", tp_asv_get_string (params, "quit-message"),
       "use-ssl", tp_asv_get_boolean (params, "use-ssl", NULL),
       "password-prompt", tp_asv_get_boolean (params, "password-prompt",
