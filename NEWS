@@ -1,3 +1,12 @@
+telepathy-idle 0.1.10 (UNRELEASED)
+==================================
+
+Enhancements:
+
+* The ContactInfo interface is now implemented, allowing you to discover
+  contacts' real names and other attributes exposed via /whois in the IRC
+  protocol. (fd.o#34796, rishi)
+
 telepathy-idle 0.1.9 (2011-04-11)
 =================================
 
