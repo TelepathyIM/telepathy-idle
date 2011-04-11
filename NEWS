@@ -1,4 +1,4 @@
-telepathy-idle 0.1.9 (UNRELEASED)
+telepathy-idle 0.1.9 (2011-04-11)
 =================================
 
 Fixes:
@@ -19,6 +19,9 @@ Fixes:
   (fd.o#23351, Thomas Klausner)
 * Include <netinet/in.h> to fix build failure on DragonFlyBSD
   (fd.o#23352, Hasso Tapper)
+* Add Messages properties to immutable properties (Guillaume)
+* Add the password-prompt to the manager file (Guillaume)
+* Set the 'message-sender-id' key in messages (Guillaume)
 
 telepathy-idle 0.1.8 (2011-02-11)
 =================================
