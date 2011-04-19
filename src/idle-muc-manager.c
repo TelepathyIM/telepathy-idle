@@ -303,7 +303,6 @@ static IdleParserHandlerResult _join_handler(IdleParser *parser, IdleParserMessa
 		/* TODO: If we're in "bouncer mode", maybe these should be Requested:
 		 * True? At least for the initial batch? */
 		chan = _muc_manager_new_channel(manager, room_handle, 0, FALSE);
-		tp_channel_manager_emit_new_channel(TP_CHANNEL_MANAGER(user_data), (TpExportableChannel *) chan, NULL);
 	}
 
 	idle_muc_channel_join(chan, joiner_handle);
