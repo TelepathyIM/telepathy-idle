@@ -22,7 +22,9 @@ def test(q, bus, conn, stream):
     event = q.expect('dbus-return', method='RequestChannel')
     obj_path = event.value[0]
 
-    event = q.expect('dbus-signal', signal='NewChannels')
+    pattern = EventPattern('dbus-signal', signal='NewChannels')
+    event = q.expect_many(pattern)[0]
+    q.forbid_events([pattern])
     channel_details = event.args[0]
     assert len(channel_details) == 1
     path, props = channel_details[0]
@@ -31,7 +33,9 @@ def test(q, bus, conn, stream):
     assert props[TARGET_HANDLE] == room_handles[0]
     assert props[CHANNEL_TYPE] == CHANNEL_TYPE_TEXT
 
-    event = q.expect('dbus-signal', signal='NewChannel')
+    pattern = EventPattern('dbus-signal', signal='NewChannel')
+    event = q.expect_many(pattern)[0]
+    q.forbid_events([pattern])
     assert event.args[0] == obj_path
     assert event.args[1] == CHANNEL_TYPE_TEXT
     assert event.args[2] == HT_ROOM
