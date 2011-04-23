@@ -34,6 +34,7 @@ struct _ContactInfoRequest {
 	guint handle;
 	const gchar *nick;
 	gboolean is_away;
+	gboolean is_operator;
 	gboolean is_reg_nick;
 	GPtrArray *contact_info;
 	DBusGMethodInvocation *context;
@@ -102,6 +103,7 @@ static void _queue_request_contact_info(IdleConnection *conn, guint handle, cons
 	request->handle = handle;
 	request->nick = nick;
 	request->is_away = FALSE;
+	request->is_operator = FALSE;
 	request->is_reg_nick = FALSE;
 	request->contact_info = NULL;
 	request->context = context;
@@ -185,6 +187,9 @@ static IdleParserHandlerResult _end_of_whois_handler(IdleParser *parser, IdlePar
 		field_values[0] = "";
 		_insert_contact_field(request->contact_info, "x-presence-status-message", NULL, field_values);
 	}
+
+	field_values[0] = (request->is_operator) ? "true" : "false";
+	_insert_contact_field(request->contact_info, "x-irc-operator", NULL, field_values);
 
 	field_values[0] = (request->is_reg_nick) ? "true" : "false";
 	_insert_contact_field(request->contact_info, "x-irc-registered-nick", NULL, field_values);
@@ -364,6 +369,18 @@ static IdleParserHandlerResult _whois_logged_in_handler(IdleParser *parser, Idle
 	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 }
 
+static IdleParserHandlerResult _whois_operator_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
+	ContactInfoRequest *request = _get_matching_request(conn, args);
+
+	if (request == NULL)
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+
+	request->is_operator = TRUE;
+
+	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+}
+
 static IdleParserHandlerResult _whois_reg_nick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	ContactInfoRequest *request = _get_matching_request(conn, args);
@@ -457,6 +474,7 @@ void idle_contact_info_init (IdleConnection *conn) {
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISUSER, _whois_user_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISCHANNELS, _whois_channels_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISSERVER, _whois_server_handler, conn);
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISOPERATOR, _whois_operator_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_AWAY, _away_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISHOST, _whois_host_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISREGNICK, _whois_reg_nick_handler, conn);
