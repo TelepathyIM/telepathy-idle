@@ -33,10 +33,14 @@ class BaseIRCServer(irc.IRC):
     def __init__(self, event_func):
         self.event_func = event_func
         self.authenticated = False
+        self.busy = True
         self.user = None
         self.nick = None
         self.passwd = None
+        self.real_name = None
         self.require_pass = False
+        self.rooms = []
+        self.secure = False
 
     def listen(self, port, factory):
         self.log ("BaseIRCServer listening...")
@@ -57,12 +61,36 @@ class BaseIRCServer(irc.IRC):
         self.nick = args[0]
     def handleUSER(self, args, prefix):
         self.user = args[0]
+        self.real_name = args[3]
         if ((not self.require_pass) or (self.passwd is not None)) \
             and (self.nick is not None and self.user is not None):
                 self.sendWelcome()
 
+    def handleWHOIS(self, args, prefix):
+        self.busy = not self.busy
+
+        if self.busy:
+            self.sendTryAgain('WHOIS')
+            return
+
+        if self.nick != args[0]:
+            self.sendMessage('402', self.nick, args[0], ':No such server', prefix='idle.test.server')
+            return
+
+        self.sendMessage('311', self.nick, self.nick, self.user, 'idle.test.client', '*', ':%s' % self.real_name, prefix='idle.test.server')
+        if self.rooms:
+            self.sendMessage('319', self.nick, self.nick, ':%s' % ' '.join(self.rooms), prefix='idle.test.server')
+        self.sendMessage('312', self.nick, self.nick, 'idle.test.server', ':Idle Test Server', prefix='idle.test.server')
+        if self.secure:
+            self.sendMessage('671', self.nick, self.nick, ':is using a secure connection', prefix='idle.test.server')
+        self.sendMessage('378', self.nick, self.nick, ':is connecting from localhost', prefix='idle.test.server')
+        self.sendMessage('317', self.nick, self.nick, '42', ':seconds idle', prefix='idle.test.server') # fake value.
+        self.sendMessage('330', self.nick, self.nick, self.nick, ':is logged in as', prefix='idle.test.server')
+        self.sendMessage('318', self.nick, self.nick, ':End of /WHOIS list.', prefix='idle.test.server')
+
     def handleJOIN(self, args, prefix):
         room = args[0]
+        self.rooms.append(room)
         self.sendJoin(room, [self.nick])
 
     def sendJoin(self, room, members=[]):
@@ -76,6 +104,9 @@ class BaseIRCServer(irc.IRC):
             self.sendMessage('PART', room, message, prefix=nick)
         else:
             self.sendMessage('PART', room, prefix=nick)
+
+    def sendTryAgain(self, command):
+        self.sendMessage('263', self.nick, "WHOIS", ':Please wait a while and try again.', prefix='idle.test.server')
 
     def _sendNameReply(self, room, members):
         #namereply
@@ -105,6 +136,10 @@ class BaseIRCServer(irc.IRC):
             self.log('No handler for command %s: %s' % (_command, e))
 
 class SSLIRCServer(BaseIRCServer):
+    def __init__(self, event_func):
+        BaseIRCServer.__init__(self, event_func)
+        self.secure = True
+
     def listen(self, port, factory):
         self.log ("SSLIRCServer listening...")
         key_file = os.environ.get('IDLE_SSL_KEY', 'tools/idletest.key')
