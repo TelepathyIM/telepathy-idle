@@ -238,6 +238,38 @@ cleanup:
 	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 }
 
+static IdleParserHandlerResult _try_again_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
+	ContactInfoRequest *request;
+	const gchar *command;
+	const gchar *msg;
+	GError *error = NULL;
+
+	/* The RPL_TRYAGAIN message does not contain the nick for which the request was issued, but only the type of the message, which in this case is
+	 * WHOIS. So we assume that the last WHOIS request that we had issued has resulted in this RPL_TRYAGAIN. This is fine as long nobody else is
+	 * issuing a WHOIS because we issue a new request only after the earlier one was successfully completed or resulted in an error.
+	 */
+
+	if (g_queue_is_empty(conn->contact_info_requests))
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+
+	command = g_value_get_string(g_value_array_get_nth(args, 0));
+	if (g_ascii_strcasecmp(command, "WHOIS"))
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+
+	request = g_queue_peek_head(conn->contact_info_requests);
+
+	msg = g_value_get_string(g_value_array_get_nth(args, 1));
+
+	error = g_error_new_literal(TP_ERRORS, TP_ERROR_SERVICE_BUSY, msg);
+	dbus_g_method_return_error(request->context, error);
+	g_error_free(error);
+
+	_dequeue_request_contact_info(conn);
+
+	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+}
+
 static IdleParserHandlerResult _whois_channels_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	ContactInfoRequest *request;
@@ -410,6 +442,7 @@ void idle_contact_info_init (IdleConnection *conn) {
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_ENDOFWHOIS, _end_of_whois_handler, conn);
 
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_NOSUCHSERVER, _no_such_server_handler, conn);
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_TRYAGAIN, _try_again_handler, conn);
 }
 
 void idle_contact_info_iface_init(gpointer g_iface, gpointer iface_data) {
