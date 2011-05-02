@@ -93,6 +93,14 @@ class BaseIRCServer(irc.IRC):
         self.rooms.append(room)
         self.sendJoin(room, [self.nick])
 
+    def handlePART(self, args, prefix):
+        room = args[0]
+        try:
+            self.rooms.remove(room)
+        except ValueError:
+            pass
+        self.sendPart(room, self.nick, args[1])
+
     def sendJoin(self, room, members=[]):
         members.append(self.nick)
 
