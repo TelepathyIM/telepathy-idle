@@ -7,6 +7,14 @@ Enhancements:
   contacts' real names and other attributes exposed via /whois in the IRC
   protocol. (fd.o#34796, rishi)
 
+Fixes:
+
+* Should send keep-alive packets to detect dropped connections
+  (fd.o#35058, rishi)
+* Use AM_PATH_PYTHON to check for more Python versions instead of check for
+  each binary (fd.o#36624, ioni)
+* NewChannels fired twice when connecting to a bip account (fd.o#28918, rishi)
+
 telepathy-idle 0.1.9 (2011-04-11)
 =================================
 
