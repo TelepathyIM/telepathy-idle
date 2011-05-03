@@ -186,7 +186,7 @@ def start_server(event_func, protocol=None, port=6900):
 def make_connection(bus, event_func, params=None):
     default_params = {
         'account': 'test',
-        'server': 'localhost',
+        'server': '127.0.0.1',
         'password': '',
         'fullname': 'Test User',
         'username': 'testuser',
