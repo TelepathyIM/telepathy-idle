@@ -281,6 +281,9 @@ static IdleParserHandlerResult _whois_channels_handler(IdleParser *parser, IdleP
 	if (!_is_valid_response(conn, args))
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 
+	if (args->n_values != 2)
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+
 	request = g_queue_peek_head(conn->contact_info_requests);
 
 	if (request->contact_info == NULL)
