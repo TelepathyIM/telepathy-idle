@@ -80,6 +80,7 @@ class BaseIRCServer(irc.IRC):
         self.sendMessage('311', self.nick, self.nick, self.user, 'idle.test.client', '*', ':%s' % self.real_name, prefix='idle.test.server')
         if self.rooms:
             self.sendMessage('319', self.nick, self.nick, ':%s' % ' '.join(self.rooms), prefix='idle.test.server')
+        self.sendMessage('319', self.nick, self.nick, ':', prefix='idle.test.server')
         self.sendMessage('312', self.nick, self.nick, 'idle.test.server', ':Idle Test Server', prefix='idle.test.server')
         if self.secure:
             self.sendMessage('671', self.nick, self.nick, ':is using a secure connection', prefix='idle.test.server')
