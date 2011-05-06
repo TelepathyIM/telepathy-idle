@@ -362,10 +362,15 @@ static IdleParserHandlerResult _whois_idle_handler(IdleParser *parser, IdleParse
 static IdleParserHandlerResult _whois_logged_in_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	ContactInfoRequest *request;
+	const gchar *msg;
 	const gchar *nick;
 	const gchar *field_values[2] = {NULL, NULL};
 
 	if (!_is_valid_response(conn, args))
+		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
+
+	msg = g_value_get_string(g_value_array_get_nth(args, 2));
+	if (g_strcmp0(msg, "is logged in as"))
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 
 	request = g_queue_peek_head(conn->contact_info_requests);
