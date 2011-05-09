@@ -49,8 +49,8 @@ def check_message(conn, msg):
     assertEquals('alice', conn.InspectHandles(cs.HT_CONTACT, [handle])[0])
 
     body = msg[1]
-    assertEquals(body['content'], 'pony!')
-    assertEquals(body['content-type'], 'text/plain')
+    assertEquals(content, body['content'])
+    assertEquals('text/plain', body['content-type'])
 
 def test(q, bus, conn, stream):
     conn.Connect()
