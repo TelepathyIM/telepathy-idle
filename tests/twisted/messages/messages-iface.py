@@ -42,11 +42,13 @@ def test_dbus_properties (chan):
     # Don't check props['DeliveryReportingSupport'] as tp-glib uses to forget
     # this property
 
-def check_message(conn, msg):
+def check_message(conn, msg, content, message_type = cs.MT_NORMAL):
     header = msg[0]
     assertEquals('alice', header['message-sender-id'])
     handle = header['message-sender']
     assertEquals('alice', conn.InspectHandles(cs.HT_CONTACT, [handle])[0])
+    mtype = header.get('message-type', cs.MT_NORMAL);
+    assertEquals(message_type, mtype)
 
     body = msg[1]
     assertEquals(content, body['content'])
@@ -80,9 +82,20 @@ def test(q, bus, conn, stream):
         EventPattern('dbus-signal', interface=cs.CHANNEL_IFACE_MESSAGES,
             signal='MessageReceived'))
 
-    check_message(conn, e.args[0])
+    check_message(conn, e.args[0], "pony!")
 
     test_dbus_properties(chan)
+
+    # Receive an action message on the channel
+    stream.sendMessage('PRIVMSG', '#test', ":\001ACTION has no pony :(\001",
+        prefix='alice')
+    _, e = q.expect_many(
+        EventPattern('dbus-signal', interface=cs.CHANNEL_TYPE_TEXT, signal='Received'),
+        EventPattern('dbus-signal', interface=cs.CHANNEL_IFACE_MESSAGES,
+            signal='MessageReceived'))
+
+    check_message(conn, e.args[0], "has no pony :(",
+        message_type = cs.MT_ACTION)
 
     # test private channel
     call_async(q, conn.Requests, 'CreateChannel',
@@ -99,14 +112,25 @@ def test(q, bus, conn, stream):
     test_sending(q, bus, conn, stream, chan)
 
     # Receive a private message from Alice
-    stream.sendMessage('PRIVMSG', stream.nick, ":pony!", prefix='alice')
+    stream.sendMessage('PRIVMSG', stream.nick, ":i want my pony!", prefix='alice')
 
     _, e = q.expect_many(
         EventPattern('dbus-signal', interface=cs.CHANNEL_TYPE_TEXT, signal='Received'),
         EventPattern('dbus-signal', interface=cs.CHANNEL_IFACE_MESSAGES,
             signal='MessageReceived'))
 
-    check_message(conn, e.args[0])
+    check_message(conn, e.args[0], "i want my pony!")
+
+    # Receive an action message in private
+    stream.sendMessage('PRIVMSG', stream.nick, ":\001ACTION has no pony :(\001",
+        prefix='alice')
+    _, e = q.expect_many(
+        EventPattern('dbus-signal', interface=cs.CHANNEL_TYPE_TEXT, signal='Received'),
+        EventPattern('dbus-signal', interface=cs.CHANNEL_IFACE_MESSAGES,
+            signal='MessageReceived'))
+
+    check_message(conn, e.args[0], "has no pony :(",
+        message_type = cs.MT_ACTION)
 
     test_dbus_properties(chan)
 
