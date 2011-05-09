@@ -229,8 +229,7 @@ idle_text_received (GObject *chan,
 {
 	TpMessage *msg;
 
-	msg = tp_cm_message_new_text (base_conn, sender,
-		TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL, text);
+	msg = tp_cm_message_new_text (base_conn, sender, type, text);
 
 	tp_message_set_int64 (msg, 0, "message-received", time (NULL));
 
