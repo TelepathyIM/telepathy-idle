@@ -55,18 +55,21 @@ static void _insert_contact_field(GPtrArray *contact_info, const gchar *field_na
 		G_TYPE_INVALID));
 }
 
-static gboolean _is_valid_response(IdleConnection *conn, GValueArray *args) {
+static ContactInfoRequest * _get_matching_request(IdleConnection *conn, GValueArray *args) {
 	ContactInfoRequest *request;
 	TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 
 	if (g_queue_is_empty(conn->contact_info_requests))
-		return FALSE;
+		return NULL;
 
 	request = g_queue_peek_head(conn->contact_info_requests);
 	if (request->handle != handle)
-		return FALSE;
+		return NULL;
 
-	return TRUE;
+	if (request->contact_info == NULL)
+		request->contact_info = dbus_g_type_specialized_construct(TP_ARRAY_TYPE_CONTACT_INFO_FIELD_LIST);
+
+	return request;
 }
 
 static void _send_request_contact_info(IdleConnection *conn, ContactInfoRequest *request) {
@@ -138,17 +141,12 @@ static void idle_connection_request_contact_info(TpSvcConnectionInterfaceContact
 
 static IdleParserHandlerResult _away_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	ContactInfoRequest *request;
+	ContactInfoRequest *request = _get_matching_request(conn, args);
 	const gchar *msg;
 	const gchar *field_values[2] = {NULL, NULL};
 
-	if (!_is_valid_response(conn, args))
+	if (request == NULL)
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
-
-	request = g_queue_peek_head(conn->contact_info_requests);
-
-	if (request->contact_info == NULL)
-		request->contact_info = dbus_g_type_specialized_construct(TP_ARRAY_TYPE_CONTACT_INFO_FIELD_LIST);
 
 	field_values[0] = g_strdup_printf("%d", TP_CONNECTION_PRESENCE_TYPE_AWAY);
 	_insert_contact_field(request->contact_info, "x-presence-type", NULL, field_values);
@@ -168,16 +166,11 @@ static IdleParserHandlerResult _away_handler(IdleParser *parser, IdleParserMessa
 
 static IdleParserHandlerResult _end_of_whois_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	ContactInfoRequest *request;
+	ContactInfoRequest *request = _get_matching_request(conn, args);
 	const gchar *field_values[2] = {NULL, NULL};
 
-	if (!_is_valid_response(conn, args))
+	if (request == NULL)
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
-
-	request = g_queue_peek_head(conn->contact_info_requests);
-
-	if (request->contact_info == NULL)
-		request->contact_info = dbus_g_type_specialized_construct(TP_ARRAY_TYPE_CONTACT_INFO_FIELD_LIST);
 
 	if (request->is_away == FALSE) {
 		field_values[0] = g_strdup_printf("%d", TP_CONNECTION_PRESENCE_TYPE_AVAILABLE);
@@ -222,10 +215,9 @@ static IdleParserHandlerResult _no_such_server_handler(IdleParser *parser, IdleP
 	g_value_set_uint(&value, handle);
 	g_value_array_prepend(norm_args, &value);
 
-	if (!_is_valid_response(conn, norm_args))
+	request = _get_matching_request(conn, norm_args);
+	if (request == NULL)
 		goto cleanup;
-
-	request = g_queue_peek_head(conn->contact_info_requests);
 
 	error = g_error_new(TP_ERRORS, TP_ERROR_DOES_NOT_EXIST, "User '%s' unknown; they may have disconnected", server);
 	dbus_g_method_return_error(request->context, error);
@@ -272,22 +264,17 @@ static IdleParserHandlerResult _try_again_handler(IdleParser *parser, IdleParser
 
 static IdleParserHandlerResult _whois_channels_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	ContactInfoRequest *request;
+	ContactInfoRequest *request = _get_matching_request(conn, args);
 	gchar *channels;
 	gchar **channelsv;
 	const gchar *field_values[2] = {NULL, NULL};
 	guint i;
 
-	if (!_is_valid_response(conn, args))
+	if (request == NULL)
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 
 	if (args->n_values != 2)
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
-
-	request = g_queue_peek_head(conn->contact_info_requests);
-
-	if (request->contact_info == NULL)
-		request->contact_info = dbus_g_type_specialized_construct(TP_ARRAY_TYPE_CONTACT_INFO_FIELD_LIST);
 
 	channels = g_value_dup_string(g_value_array_get_nth(args, 1));
 	g_strchomp(channels);
@@ -306,11 +293,11 @@ static IdleParserHandlerResult _whois_channels_handler(IdleParser *parser, IdleP
 
 static IdleParserHandlerResult _whois_host_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	ContactInfoRequest *request;
+	ContactInfoRequest *request = _get_matching_request(conn, args);
 	gchar *msg;
 	gchar **msgv;
 
-	if (!_is_valid_response(conn, args))
+	if (request == NULL)
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 
 	msg = g_value_dup_string(g_value_array_get_nth(args, 1));
@@ -318,11 +305,6 @@ static IdleParserHandlerResult _whois_host_handler(IdleParser *parser, IdleParse
 
 	if (!g_str_has_prefix(msg, "is connecting from "))
 		goto cleanup;
-
-	request = g_queue_peek_head(conn->contact_info_requests);
-
-	if (request->contact_info == NULL)
-		request->contact_info = dbus_g_type_specialized_construct(TP_ARRAY_TYPE_CONTACT_INFO_FIELD_LIST);
 
 	msgv = g_strsplit(msg, " ", -1);
 
@@ -338,17 +320,12 @@ cleanup:
 
 static IdleParserHandlerResult _whois_idle_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	ContactInfoRequest *request;
+	ContactInfoRequest *request = _get_matching_request(conn, args);
 	guint sec;
 	const gchar *field_values[2] = {NULL, NULL};
 
-	if (!_is_valid_response(conn, args))
+	if (request == NULL)
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
-
-	request = g_queue_peek_head(conn->contact_info_requests);
-
-	if (request->contact_info == NULL)
-		request->contact_info = dbus_g_type_specialized_construct(TP_ARRAY_TYPE_CONTACT_INFO_FIELD_LIST);
 
 	sec = g_value_get_uint(g_value_array_get_nth(args, 1));
 
@@ -361,22 +338,17 @@ static IdleParserHandlerResult _whois_idle_handler(IdleParser *parser, IdleParse
 
 static IdleParserHandlerResult _whois_logged_in_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	ContactInfoRequest *request;
+	ContactInfoRequest *request = _get_matching_request(conn, args);
 	const gchar *msg;
 	const gchar *nick;
 	const gchar *field_values[2] = {NULL, NULL};
 
-	if (!_is_valid_response(conn, args))
+	if (request == NULL)
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 
 	msg = g_value_get_string(g_value_array_get_nth(args, 2));
 	if (g_strcmp0(msg, "is logged in as"))
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
-
-	request = g_queue_peek_head(conn->contact_info_requests);
-
-	if (request->contact_info == NULL)
-		request->contact_info = dbus_g_type_specialized_construct(TP_ARRAY_TYPE_CONTACT_INFO_FIELD_LIST);
 
 	nick = g_value_get_string(g_value_array_get_nth(args, 1));
 	field_values[0] = nick;
@@ -387,18 +359,13 @@ static IdleParserHandlerResult _whois_logged_in_handler(IdleParser *parser, Idle
 
 static IdleParserHandlerResult _whois_server_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	ContactInfoRequest *request;
+	ContactInfoRequest *request = _get_matching_request(conn, args);
 	const gchar *server;
 	const gchar *server_info;
 	const gchar *field_values[3] = {NULL, NULL, NULL};
 
-	if (!_is_valid_response(conn, args))
+	if (request == NULL)
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
-
-	request = g_queue_peek_head(conn->contact_info_requests);
-
-	if (request->contact_info == NULL)
-		request->contact_info = dbus_g_type_specialized_construct(TP_ARRAY_TYPE_CONTACT_INFO_FIELD_LIST);
 
 	server = g_value_get_string(g_value_array_get_nth(args, 1));
 	server_info = g_value_get_string(g_value_array_get_nth(args, 2));
@@ -411,17 +378,12 @@ static IdleParserHandlerResult _whois_server_handler(IdleParser *parser, IdlePar
 
 static IdleParserHandlerResult _whois_user_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	ContactInfoRequest *request;
+	ContactInfoRequest *request = _get_matching_request(conn, args);
 	const gchar *name;
 	const gchar *field_values[2] = {NULL, NULL};
 
-	if (!_is_valid_response(conn, args))
+	if (request == NULL)
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
-
-	request = g_queue_peek_head(conn->contact_info_requests);
-
-	if (request->contact_info == NULL)
-		request->contact_info = dbus_g_type_specialized_construct(TP_ARRAY_TYPE_CONTACT_INFO_FIELD_LIST);
 
 	name = g_value_get_string(g_value_array_get_nth(args, 3));
 	field_values[0] = name;
