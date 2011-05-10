@@ -42,7 +42,7 @@ def test_dbus_properties (chan):
     # Don't check props['DeliveryReportingSupport'] as tp-glib uses to forget
     # this property
 
-def check_message(conn, msg, content, message_type = cs.MT_NORMAL):
+def check_message(conn, msg, content, message_type=cs.MT_NORMAL):
     header = msg[0]
     assertEquals('alice', header['message-sender-id'])
     handle = header['message-sender']
