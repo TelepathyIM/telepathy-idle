@@ -26,6 +26,7 @@
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_CONNECTION
 #include "idle-debug.h"
+#include "idle-muc-channel.h"
 #include "idle-parser.h"
 
 typedef struct _ContactInfoRequest ContactInfoRequest;
@@ -296,8 +297,17 @@ static IdleParserHandlerResult _whois_channels_handler(IdleParser *parser, IdleP
 	channelsv = g_strsplit(channels, " ", -1);
 
 	for (i = 0; channelsv[i] != NULL; i++) {
-		field_values[0] = channelsv[i];
-		_insert_contact_field(request->contact_info, "x-irc-channel", NULL, field_values);
+		const gchar *channel = channelsv[i];
+		gchar *field_params[2] = {NULL, NULL};
+
+		if (idle_muc_channel_is_modechar(channel[0]) && idle_muc_channel_is_typechar(channel[1])) {
+			field_params[0] = g_strdup_printf("role=%c", channel[0]);
+			channel++;
+		}
+
+		field_values[0] = channel;
+		_insert_contact_field(request->contact_info, "x-irc-channel", (const gchar **) field_params, field_values);
+		g_free(field_params[0]);
 	}
 
 	g_strfreev(channelsv);
