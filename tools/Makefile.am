@@ -5,7 +5,8 @@ EXTRA_DIST = \
     glib-ginterface-gen.py \
     glib-signals-marshal-gen.py \
     identity.xsl \
-    libglibcodegen.py
+    libglibcodegen.py \
+    make-release-mail.py
 
 CLEANFILES = libglibcodegen.pyc libglibcodegen.pyo
 
