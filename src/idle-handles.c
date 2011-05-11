@@ -29,6 +29,7 @@
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_PARSER
 #include "idle-debug.h"
+#include "idle-muc-channel.h"
 
 /* When strict_mode is true, we validate the nick strictly against the IRC
  * RFCs (e.g. only ascii characters, no leading '-'.  When strict_mode is
@@ -92,7 +93,7 @@ gboolean idle_nickname_is_valid(const gchar *nickname, gboolean strict_mode) {
 static gboolean _channelname_is_valid(const gchar *channel) {
 	static const gchar not_allowed_chars[] = {' ', '\007', ',', '\r', '\n', ':', '\0'};
 
-	if ((channel[0] != '#') && (channel[0] != '!') && (channel[0] != '&') && (channel[0] != '+'))
+	if (!idle_muc_channel_is_typechar(channel[0]))
 		return FALSE;
 
 	gsize len = strlen(channel);
