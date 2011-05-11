@@ -17,6 +17,11 @@ def validate_vcard(vcard):
             assertEquals('Test User', value[0])
         elif name == 'x-irc-channel':
             channel_names.append(value[0])
+        elif name == 'x-irc-server':
+            assertEquals('idle.test.server', value[0])
+            assertEquals('Idle Test Server', value[1])
+        elif name == 'x-host':
+            assertEquals('localhost', value[0])
         elif name == 'x-idle-time':
             assertEquals('42', value[0]) # fake value
         elif name == 'nickname':
