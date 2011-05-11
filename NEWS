@@ -1,5 +1,7 @@
-telepathy-idle 0.1.10 (UNRELEASED)
+telepathy-idle 0.1.10 (2011-05-11)
 ==================================
+
+The “Wanna go to the beach?” release.
 
 Enhancements:
 
@@ -14,6 +16,7 @@ Fixes:
 * Use AM_PATH_PYTHON to check for more Python versions instead of check for
   each binary (fd.o#36624, ioni)
 * NewChannels fired twice when connecting to a bip account (fd.o#28918, rishi)
+* Pass the message type to tp_cm_message_new_text (fd.o#37038, sjoerd)
 
 telepathy-idle 0.1.9 (2011-04-11)
 =================================
