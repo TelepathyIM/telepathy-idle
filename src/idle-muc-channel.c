@@ -2391,6 +2391,27 @@ gboolean idle_muc_channel_is_modechar(char c) {
 	}
 }
 
+gboolean idle_muc_channel_is_typechar(gchar c)
+{
+	switch (c) {
+		/* standard channel */
+		case '#':
+
+		/* local to a server */
+		case '&':
+
+		/* no support for modes */
+		case '+':
+
+		/* safe channel */
+		case '!':
+			return TRUE;
+
+		default:
+			return FALSE;
+	}
+}
+
 static void _channel_iface_init(gpointer g_iface, gpointer iface_data) {
 	TpSvcChannelClass *klass = (TpSvcChannelClass *)g_iface;
 

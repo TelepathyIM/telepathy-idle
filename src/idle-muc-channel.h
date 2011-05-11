@@ -76,6 +76,7 @@ IdleMUCChannel *idle_muc_channel_new(IdleConnection *conn, const gchar *object_p
 void idle_muc_channel_badchannelkey(IdleMUCChannel *chan);
 void idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter);
 gboolean idle_muc_channel_is_modechar(char c);
+gboolean idle_muc_channel_is_typechar(char c);
 void idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner);
 void idle_muc_channel_join_attempt(IdleMUCChannel *chan);
 void idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError err);
