@@ -105,7 +105,7 @@ static void async_connect_data_destroy(AsyncConnectData *data) {
 
 struct _IdleSSLServerConnectionPrivate {
 	gchar *host;
-	guint port;
+	guint16 port;
 
 	GIOChannel *io_chan;
 	SSL *ssl;
@@ -224,7 +224,7 @@ static void idle_ssl_server_connection_set_property(GObject *obj, guint prop_id,
 			break;
 
 		case PROP_PORT:
-			priv->port = g_value_get_uint(value);
+			priv->port = (guint16) g_value_get_uint(value);
 			break;
 
 		default:
@@ -258,7 +258,7 @@ static void idle_ssl_server_connection_class_init(IdleSSLServerConnectionClass *
 
 	pspec = g_param_spec_uint("port", "Remote port",
 			"Port number of the remote service to connect to.",
-			0, 0xffff, 0,
+			0, G_MAXUINT16, 0,
 			G_PARAM_READABLE|
 			G_PARAM_WRITABLE|
 			G_PARAM_STATIC_NICK|
