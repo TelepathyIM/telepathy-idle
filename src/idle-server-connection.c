@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2006-2007 Collabora Limited
  * Copyright (C) 2006-2007 Nokia Corporation
+ * Copyright (C) 2011      Debarshi Ray <rishi@gnu.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -20,23 +21,16 @@
 
 #include "idle-server-connection.h"
 
-#include <telepathy-glib/errors.h>
-
-#include <errno.h>
 #include <string.h>
-#include <time.h>
-
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <unistd.h>
+#include <sys/socket.h>
+
+#include <gio/gio.h>
+#include <telepathy-glib/errors.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_NETWORK
 #include "idle-connection.h"
-#include "idle-dns-resolver.h"
 #include "idle-debug.h"
 #include "idle-server-connection-iface.h"
 
@@ -53,53 +47,23 @@ enum {
 	PROP_PORT
 };
 
-struct _AsyncConnectData {
-	guint watch_id;
-
-	GIOChannel *io_chan;
-
-	IdleDNSResult *res;
-	IdleDNSResult *cur;
-};
-
-#define async_connect_data_new() \
-	(g_slice_new(struct _AsyncConnectData))
-#define async_connect_data_new0() \
-	(g_slice_new0(struct _AsyncConnectData))
-
-static void async_connect_data_destroy(struct _AsyncConnectData *data) {
-	if (data->watch_id) {
-		g_source_remove(data->watch_id);
-		data->watch_id = 0;
-	}
-
-	if (data->io_chan) {
-		g_io_channel_shutdown(data->io_chan, FALSE, NULL);
-		g_io_channel_unref(data->io_chan);
-		data->io_chan = NULL;
-	}
-
-	if (data->res) {
-		idle_dns_result_destroy(data->res);
-		data->res = NULL;
-	}
-
-	g_slice_free(struct _AsyncConnectData, data);
-}
-
 struct _IdleServerConnectionPrivate {
 	gchar *host;
 	guint16 port;
 
-	GIOChannel *io_chan;
+	gchar input_buffer[IRC_MSG_MAXLEN + 3];
+	gchar output_buffer[IRC_MSG_MAXLEN + 2]; /* No need for a trailing '\0' */
+	gsize count;
+	gsize nwritten;
+
+	guint reason;
+
+	GSocketClient *socket_client;
+	GIOStream *io_stream;
+	GCancellable *cancellable;
+
 	IdleServerConnectionState state;
-
-	guint read_watch_id;
-
 	gboolean dispose_has_run;
-
-	IdleDNSResolver *resolver;
-	struct _AsyncConnectData *connect_data;
 };
 
 static GObject *idle_server_connection_constructor(GType type, guint n_props, GObjectConstructParam *props);
@@ -110,12 +74,10 @@ static void idle_server_connection_init(IdleServerConnection *conn) {
 	priv->host = NULL;
 	priv->port = 0;
 
-	priv->io_chan = NULL;
-	priv->state = SERVER_CONNECTION_STATE_NOT_CONNECTED;
-	priv->read_watch_id = 0;
-	priv->connect_data = NULL;
-	priv->resolver = idle_dns_resolver_new();
+	priv->socket_client = g_socket_client_new();
+	priv->cancellable = g_cancellable_new();
 
+	priv->state = SERVER_CONNECTION_STATE_NOT_CONNECTED;
 	priv->dispose_has_run = FALSE;
 }
 
@@ -138,23 +100,18 @@ static void idle_server_connection_dispose(GObject *obj) {
 	IDLE_DEBUG("dispose called");
 	priv->dispose_has_run = TRUE;
 
-	if (priv->state == SERVER_CONNECTION_STATE_CONNECTED) {
-		GError *error = NULL;
-		g_warning("%s: connection was open when the object was deleted, it'll probably crash now...", G_STRFUNC);
+	if (priv->state == SERVER_CONNECTION_STATE_CONNECTED)
+		idle_server_connection_iface_disconnect(IDLE_SERVER_CONNECTION_IFACE(obj), NULL);
 
-		if (!idle_server_connection_iface_disconnect(IDLE_SERVER_CONNECTION_IFACE(obj), &error)){
-			g_error_free(error);
-		}
+	if (priv->cancellable != NULL) {
+		g_cancellable_cancel(priv->cancellable);
+		g_object_unref(priv->cancellable);
+		priv->cancellable = NULL;
 	}
 
-	if (priv->connect_data != NULL) {
-		async_connect_data_destroy(priv->connect_data);
-		priv->connect_data = NULL;
-	}
-
-	if (priv->resolver != NULL) {
-		idle_dns_resolver_destroy(priv->resolver);
-		priv->resolver = NULL;
+	if (priv->socket_client != NULL) {
+		g_object_unref(priv->socket_client);
+		priv->socket_client = NULL;
 	}
 }
 
@@ -253,52 +210,87 @@ static void change_state(IdleServerConnection *conn, IdleServerConnectionState s
 	g_signal_emit_by_name(conn, "status-changed", state, reason);
 }
 
+static void _input_stream_read(IdleServerConnection *conn, GInputStream *input_stream, GAsyncReadyCallback callback) {
+	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
+
+	memset(priv->input_buffer, '\0', sizeof(priv->input_buffer));
+	g_input_stream_read_async (input_stream, &priv->input_buffer, sizeof(priv->input_buffer) - 1, G_PRIORITY_DEFAULT, priv->cancellable, callback, conn);
+}
+
 static gboolean iface_disconnect_impl_full(IdleServerConnectionIface *iface, GError **error, guint reason);
 
-static gboolean io_err_cleanup_func(gpointer data) {
+static void io_err_cleanup_func(gpointer data) {
 	GError *error = NULL;
 
 	if (!iface_disconnect_impl_full(IDLE_SERVER_CONNECTION_IFACE(data), &error, SERVER_CONNECTION_STATE_REASON_ERROR)) {
 		IDLE_DEBUG("disconnect: %s", error->message);
 		g_error_free(error);
 	}
-
-	return FALSE;
 }
 
-static gboolean io_func(GIOChannel *src, GIOCondition cond, gpointer data) {
-	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(data);
-	gchar buf[IRC_MSG_MAXLEN + 3];
-	GIOStatus status;
-	gsize len;
+static void _input_stream_read_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
+	GInputStream *input_stream = G_INPUT_STREAM(source_object);
+	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(user_data);
+	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 	GError *error = NULL;
 
-	if (cond & (G_IO_ERR | G_IO_HUP)) {
-		IDLE_DEBUG("got G_IO_ERR | G_IO_HUP");
-		g_idle_add(io_err_cleanup_func, data);
-		return FALSE;
+	if (priv->io_stream == NULL) /* ie. we are in the process of disconnecting */
+		goto cleanup;
+	if (g_input_stream_read_finish(input_stream, res, &error) == -1) {
+		IDLE_DEBUG("g_input_stream_read failed: %s", error->message);
+		g_error_free(error);
+		goto disconnect;
 	}
 
-	memset(buf, 0, IRC_MSG_MAXLEN + 3);
-	status = g_io_channel_read_chars(src, buf, IRC_MSG_MAXLEN + 2, &len, &error);
+	g_signal_emit_by_name(conn, "received", priv->input_buffer);
 
-	if ((status != G_IO_STATUS_NORMAL) && (status != G_IO_STATUS_AGAIN)) {
-		IDLE_DEBUG("status: %u, error: %s", status, (error != NULL) ? (error->message != NULL) ? error->message : "(null)" : "(null)");
+	if (g_cancellable_is_cancelled(priv->cancellable))
+		goto disconnect;
 
-		if (error) {
-			g_error_free(error);
-		}
+	_input_stream_read(conn, input_stream, _input_stream_read_ready);
+	return;
 
-		g_idle_add(io_err_cleanup_func, data);
-		return FALSE;
-	}
-
-	g_signal_emit_by_name(conn, "received", buf);
-
-	return TRUE;
+disconnect:
+	if (priv->state == SERVER_CONNECTION_STATE_CONNECTED)
+		io_err_cleanup_func(conn);
+cleanup:
+	g_object_unref(conn);
 }
 
-static gboolean do_connect(IdleServerConnection *conn);
+static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
+	GSocketClient *socket_client = G_SOCKET_CLIENT(source_object);
+	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(user_data);
+	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
+	GInputStream *input_stream;
+	GSocket *socket;
+	GSocketConnection *socket_connection;
+	gint nodelay = 1;
+	gint socket_fd;
+	GError *error = NULL;
+
+	socket_connection = g_socket_client_connect_to_host_finish(socket_client, res, &error);
+	if (socket_connection == NULL) {
+		IDLE_DEBUG("g_socket_client_connect_to_host failed: %s", error->message);
+		g_error_free(error);
+		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
+		g_object_unref(conn);
+		return;
+	}
+
+	socket = g_socket_connection_get_socket(socket_connection);
+	g_socket_set_keepalive(socket, TRUE);
+
+	socket_fd = g_socket_get_fd(socket);
+	setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+
+	g_tcp_connection_set_graceful_disconnect(G_TCP_CONNECTION(socket_connection), TRUE);
+
+	priv->io_stream = G_IO_STREAM(socket_connection);
+
+	input_stream = g_io_stream_get_input_stream(priv->io_stream);
+	_input_stream_read(conn, input_stream, _input_stream_read_ready);
+	change_state(conn, SERVER_CONNECTION_STATE_CONNECTED, SERVER_CONNECTION_STATE_REASON_REQUESTED);
+}
 
 static gboolean iface_connect_impl(IdleServerConnectionIface *iface, GError **error) {
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(iface);
@@ -322,235 +314,28 @@ static gboolean iface_connect_impl(IdleServerConnectionIface *iface, GError **er
 		return FALSE;
 	}
 
-	if (!do_connect(conn)) {
-		IDLE_DEBUG("do_connect failed");
-		g_set_error(error, TP_ERRORS, TP_ERROR_NETWORK_ERROR, "failed to connect");
-		return FALSE;
-	}
+	g_cancellable_reset(priv->cancellable);
+	g_object_ref(conn);
+	g_socket_client_connect_to_host_async(priv->socket_client, priv->host, priv->port, priv->cancellable, _connect_to_host_ready, conn);
 
 	change_state(conn, SERVER_CONNECTION_STATE_CONNECTING, SERVER_CONNECTION_STATE_REASON_REQUESTED);
 
 	return TRUE;
 }
 
-static gboolean connect_io_func(GIOChannel *src, GIOCondition cond, gpointer data) {
-	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(data);
-	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
-	int rc;
-	int fd = -1;
-	int optval;
-	socklen_t optlen = sizeof(optval);
-	GIOChannel *io_chan;
-	struct _AsyncConnectData *connect_data = priv->connect_data;
-
-	IdleDNSResult *cur = connect_data->cur;
-	IdleDNSResult *next = cur->ai_next;
-
-	fd = g_io_channel_unix_get_fd(connect_data->io_chan);
-	g_assert(getsockopt(fd, SOL_SOCKET, SO_ERROR, &optval, &optlen) == 0);
-
-	if (optval == 0) {
-		int opt;
-
-		IDLE_DEBUG("connected!");
-
-		change_state(conn, SERVER_CONNECTION_STATE_CONNECTED, SERVER_CONNECTION_STATE_REASON_REQUESTED);
-
-		g_assert(priv->io_chan == NULL);
-		g_assert(priv->read_watch_id == 0);
-
-		priv->read_watch_id = g_io_add_watch(connect_data->io_chan, G_IO_IN | G_IO_PRI | G_IO_ERR | G_IO_HUP, io_func, data);
-		priv->io_chan = connect_data->io_chan;
-
-		connect_data->io_chan = NULL;
-
-		async_connect_data_destroy(priv->connect_data);
-		priv->connect_data = NULL;
-
-		opt = 1;
-
-		if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) < 0) {
-			g_warning("%s: failed to set TCP_NODELAY: %s", G_STRFUNC, g_strerror(errno));
-		}
-
-		opt = 1;
-
-		if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt)) < 0) {
-			g_warning("%s: failed to set SO_KEEPALIVE: %s", G_STRFUNC, g_strerror(errno));
-		}
-
-		return FALSE;
-	}
-
-	IDLE_DEBUG("connection failed");
-
-	if (next == NULL) {
-		IDLE_DEBUG("and this was the last address we can try, tough luck.");
-		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
-
-		return FALSE;
-	}
-
-	if ((next->ai_family == cur->ai_family) &&
-			(next->ai_socktype == cur->ai_socktype) &&
-			(next->ai_protocol == cur->ai_protocol)) {
-		IDLE_DEBUG("re-using existing socket for trying again");
-
-		errno = 0;
-		rc = connect(fd, next->ai_addr, next->ai_addrlen);
-
-		for (int i = 0; i < 5 && errno == ECONNABORTED; i++) {
-			IDLE_DEBUG("got ECONNABORTED for %ith time", i + 1);
-			errno = 0;
-			connect(fd, next->ai_addr, next->ai_addrlen);
-		}
-
-		if ((errno != EINPROGRESS) && (rc == -1)) {
-			IDLE_DEBUG("connect() failed: %s", g_strerror(errno));
-			change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
-			return FALSE;
-		}
-
-		connect_data->cur = next;
-
-		return TRUE;
-	}
-
-	IDLE_DEBUG("we'll have to create a new socket since the address family/socket type/protocol is different");
-
-	for (cur = next; cur != NULL; cur = cur->ai_next) {
-		fd = socket(cur->ai_family, cur->ai_socktype, cur->ai_protocol);
-
-		if (fd == -1) {
-			if ((errno == EINVAL) || (errno == EAFNOSUPPORT)) {
-				continue;
-			}
-
-			IDLE_DEBUG("socket() failed: %s", g_strerror(errno));
-			return FALSE;
-		}
-		else {
-			break;
-		}
-	}
-	connect_data->cur = cur;
-
-	if (fd == -1) {
-		IDLE_DEBUG("could not socket(): %s", g_strerror(errno));
-		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
-		return FALSE;
-	}
-
-	io_chan = g_io_channel_unix_new(fd);
-	g_io_channel_set_encoding(io_chan, NULL, NULL);
-	g_io_channel_set_buffered(io_chan, FALSE);
-
-	rc = fcntl(fd, F_SETFL, O_NONBLOCK);
-
-	if (rc != 0) {
-		IDLE_DEBUG("failed to set socket to non-blocking mode: %s", g_strerror(errno));
-		g_io_channel_shutdown(io_chan, FALSE, NULL);
-		g_io_channel_unref(io_chan);
-		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
-		return FALSE;
-	}
-
-	errno = 0;
-	rc = connect(fd, cur->ai_addr, cur->ai_addrlen);
-
-	if ((errno != EINPROGRESS) && (rc == -1)) {
-		IDLE_DEBUG("initial connect() failed: %s", g_strerror(errno));
-		g_io_channel_shutdown(io_chan, FALSE, NULL);
-		g_io_channel_unref(io_chan);
-		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
-		return FALSE;
-	}
-
-	g_io_channel_shutdown(connect_data->io_chan, FALSE, NULL);
-	g_io_channel_unref(connect_data->io_chan);
-	connect_data->io_chan = io_chan;
-
-	connect_data->watch_id = g_io_add_watch(io_chan, G_IO_OUT | G_IO_ERR, connect_io_func, conn);
-
-	return FALSE;
-}
-
-static void dns_result_callback(guint unused, IdleDNSResult *results, gpointer user_data) {
+static void _close_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
+	GIOStream *io_stream = G_IO_STREAM(source_object);
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(user_data);
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
-	IdleDNSResult *cur;
-	int fd = -1;
-	int rc = -1;
-	GIOChannel *io_chan;
+	GError *error = NULL;
 
-	if (!results) {
-	  IDLE_DEBUG("no DNS results received");
-	  change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
-	  return;
+	change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, priv->reason);
+	g_object_unref(conn);
+
+	if (!g_io_stream_close_finish(io_stream, res, &error)) {
+		IDLE_DEBUG("g_io_stream_close failed: %s", error->message);
+		g_error_free(error);
 	}
-
-	for (cur = results; cur != NULL; cur = cur->ai_next) {
-		fd = socket(cur->ai_family, cur->ai_socktype, cur->ai_protocol);
-
-		if (fd == -1) {
-			if ((errno == EINVAL) || (errno = EAFNOSUPPORT))
-				continue;
-
-			IDLE_DEBUG("socket() failed: %s", g_strerror(errno));
-			return;
-		} else {
-			break;
-		}
-	}
-
-	if (fd == -1) {
-		IDLE_DEBUG("failed: %s", g_strerror(errno));
-		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
-		return;
-	}
-
-	rc = fcntl(fd, F_SETFL, O_NONBLOCK);
-
-	if (rc != 0) {
-		IDLE_DEBUG("failed to set socket to non-blocking mode: %s", g_strerror(errno));
-		close(fd);
-		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
-		return;
-	}
-
-	rc = connect(fd, cur->ai_addr, cur->ai_addrlen);
-
-	g_assert(rc == -1);
-
-	if (errno != EINPROGRESS) {
-		IDLE_DEBUG("initial connect() failed: %s", g_strerror(errno));
-		close(fd);
-		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
-		return;
-	}
-
-	if (priv->connect_data != NULL) {
-		async_connect_data_destroy(priv->connect_data);
-	}
-
-	priv->connect_data = async_connect_data_new();
-
-	io_chan = g_io_channel_unix_new(fd);
-	g_io_channel_set_encoding(io_chan, NULL, NULL);
-	g_io_channel_set_buffered(io_chan, FALSE);
-
-	priv->connect_data->io_chan = io_chan;
-	priv->connect_data->res = results;
-	priv->connect_data->cur = cur;
-	priv->connect_data->watch_id = g_io_add_watch(io_chan, G_IO_OUT | G_IO_ERR, connect_io_func, conn);
-}
-
-static gboolean do_connect(IdleServerConnection *conn) {
-	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
-
-	idle_dns_resolver_query(priv->resolver, priv->host, priv->port, dns_result_callback, conn);
-
-	return TRUE;
 }
 
 static gboolean iface_disconnect_impl(IdleServerConnectionIface *iface, GError **error) {
@@ -560,8 +345,6 @@ static gboolean iface_disconnect_impl(IdleServerConnectionIface *iface, GError *
 static gboolean iface_disconnect_impl_full(IdleServerConnectionIface *iface, GError **error, guint reason) {
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(iface);
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
-	GError *io_error = NULL;
-	GIOStatus status;
 
 	g_assert(priv != NULL);
 
@@ -571,90 +354,72 @@ static gboolean iface_disconnect_impl_full(IdleServerConnectionIface *iface, GEr
 		return FALSE;
 	}
 
-	if (priv->read_watch_id != 0) {
-		g_source_remove(priv->read_watch_id);
-		priv->read_watch_id = 0;
-	}
+	g_cancellable_cancel(priv->cancellable);
 
-	if (priv->io_chan != NULL) {
-		status = g_io_channel_shutdown(priv->io_chan, TRUE, &io_error);
+	priv->reason = reason;
+	g_object_ref(conn);
 
-		if (status != G_IO_STATUS_NORMAL && io_error) {
-			IDLE_DEBUG("g_io_channel_shutdown failed: %s", io_error->message);
-			g_error_free(io_error);
-		}
-
-		g_io_channel_unref(priv->io_chan);
-		priv->io_chan = NULL;
-	}
-
-	change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, reason);
+	g_io_stream_close_async(priv->io_stream, G_PRIORITY_DEFAULT, NULL, _close_ready, conn);
+	g_object_unref(priv->io_stream);
+	priv->io_stream = NULL;
 
 	return TRUE;
+}
+
+static void _write_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
+	GOutputStream *output_stream = G_OUTPUT_STREAM(source_object);
+	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(user_data);
+	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
+	gssize nwrite;
+	GError *error = NULL;
+
+	nwrite = g_output_stream_write_finish(output_stream, res, &error);
+	if (nwrite == -1) {
+		IDLE_DEBUG("g_output_stream_write failed : %s", error->message);
+		g_error_free(error);
+		goto cleanup;
+	}
+
+	priv->nwritten += nwrite;
+	if (priv->nwritten < priv->count) {
+		g_object_ref(conn);
+		g_output_stream_write_async(output_stream, priv->output_buffer + priv->nwritten, priv->count - priv->nwritten, G_PRIORITY_DEFAULT, priv->cancellable, _write_ready, conn);
+	}
+
+cleanup:
+	g_object_unref(conn);
 }
 
 static gboolean iface_send_impl(IdleServerConnectionIface *iface, const gchar *cmd, GError **error) {
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(iface);
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
-	GIOStatus status;
-	gsize written;
-	GError *local_error = NULL;
+	GOutputStream *output_stream;
+	gsize output_buffer_size = sizeof(priv->output_buffer);
 
 	if (priv->state != SERVER_CONNECTION_STATE_CONNECTED) {
 		IDLE_DEBUG("connection was not open!");
-
 		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection was not open!");
-
 		return FALSE;
 	}
 
-	status = g_io_channel_write_chars(priv->io_chan,
-									  cmd,
-									  -1,
-									  &written,
-									  &local_error);
+	priv->count = strlen(cmd);
+	if (priv->count > output_buffer_size)
+		priv->count = output_buffer_size;
 
-	if (local_error) {
-		IDLE_DEBUG("error: %s", local_error->message);
-		g_error_free(local_error);
-	}
+	/* We only need to copy priv->count bytes, but padding the rest
+         * with null bytes gives us cleaner debug messages, without
+         * affecting the readability of the code.
+         */
+	strncpy(priv->output_buffer, cmd, output_buffer_size);
 
-	switch (status) {
-		case G_IO_STATUS_ERROR:
-			IDLE_DEBUG("got G_IO_STATUS_ERROR");
+	priv->nwritten = 0;
+	g_object_ref(conn);
 
-			iface_disconnect_impl_full(IDLE_SERVER_CONNECTION_IFACE(conn), NULL, SERVER_CONNECTION_STATE_REASON_ERROR);
+	output_stream = g_io_stream_get_output_stream(priv->io_stream);
+	g_output_stream_write_async(output_stream, priv->output_buffer, priv->count, G_PRIORITY_DEFAULT, priv->cancellable, _write_ready, conn);
 
-			g_set_error(error, TP_ERRORS, TP_ERROR_NETWORK_ERROR, "got G_IO_STATUS_ERROR");
-
-			return FALSE;
-
-		case G_IO_STATUS_NORMAL:
-			IDLE_DEBUG("sent \"%s\" to IOChannel %p", cmd, priv->io_chan);
-
-			return TRUE;
-
-		case G_IO_STATUS_EOF:
-			IDLE_DEBUG("got G_IO_STATUS_EOF");
-
-			if (iface_disconnect_impl_full(IDLE_SERVER_CONNECTION_IFACE(conn), &local_error, SERVER_CONNECTION_STATE_REASON_ERROR))
-				g_error_free(local_error);
-
-			g_set_error(error, TP_ERRORS, TP_ERROR_NETWORK_ERROR, "got G_IO_STATUS_EOF");
-
-			return FALSE;
-
-		case G_IO_STATUS_AGAIN:
-			IDLE_DEBUG("got G_IO_STATUS_AGAIN");
-
-			g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "got G_IO_STATUS_AGAIN");
-
-			return FALSE;
-
-		default:
-			g_assert_not_reached();
-			return FALSE;
-	}
+	IDLE_DEBUG("sending \"%s\" to OutputStream %p", priv->output_buffer, output_stream);
+	return TRUE;
 }
 
 static IdleServerConnectionState iface_get_state_impl(IdleServerConnectionIface *iface) {
