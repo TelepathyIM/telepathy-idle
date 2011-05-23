@@ -1428,12 +1428,9 @@ void idle_muc_channel_topic(IdleMUCChannel *chan, const char *topic) {
 	GValue prop = {0, };
 	GValue val = {0, };
 	GPtrArray *arr;
-	IdleMUCChannelPrivate *priv;
 
 	g_assert(chan != NULL);
 	g_assert(topic != NULL);
-
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
 
 	g_value_init(&prop, TP_TYPE_PROPERTY_VALUE_STRUCT);
 	g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_TYPE_PROPERTY_VALUE_STRUCT));
@@ -1992,8 +1989,6 @@ static void idle_muc_channel_list_properties (TpSvcPropertiesInterface *iface, D
 	for (int i = 0; i < LAST_TP_PROPERTY_ENUM; i++) {
 		GValue prop = {0, };
 		const gchar *dbus_sig;
-		const gchar *name;
-		guint flags;
 
 		switch (property_signatures[i].type) {
 			case G_TYPE_BOOLEAN:
@@ -2021,9 +2016,6 @@ static void idle_muc_channel_list_properties (TpSvcPropertiesInterface *iface, D
 		g_value_init(&prop, TP_TYPE_PROPERTY_INFO_STRUCT);
 		g_value_take_boxed(&prop,
 				dbus_g_type_specialized_construct(TP_TYPE_PROPERTY_INFO_STRUCT));
-
-		name = property_signatures[i].name;
-		flags = priv->properties[i].flags;
 
 		dbus_g_type_struct_set(&prop,
 				0, i,
