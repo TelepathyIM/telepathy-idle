@@ -24,6 +24,7 @@
 #include <glib-object.h>
 #include <telepathy-glib/base-connection.h>
 #include <telepathy-glib/handle.h>
+#include <telepathy-glib/contacts-mixin.h>
 
 #include "idle-parser.h"
 
@@ -36,10 +37,12 @@ typedef struct _IdleConnectionClass IdleConnectionClass;
 
 struct _IdleConnectionClass {
 	TpBaseConnectionClass parent_class;
+	TpContactsMixinClass contacts;
 };
 
 struct _IdleConnection {
 	TpBaseConnection parent;
+	TpContactsMixin contacts;
 	IdleParser *parser;
 	GQueue *contact_info_requests;
 };

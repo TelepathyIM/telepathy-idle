@@ -79,7 +79,9 @@ static void _renaming_iface_init(gpointer, gpointer);
 G_DEFINE_TYPE_WITH_CODE(IdleConnection, idle_connection, TP_TYPE_BASE_CONNECTION,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING, _aliasing_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACT_INFO, idle_contact_info_iface_init);
-		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SVC_CONNECTION_INTERFACE_RENAMING, _renaming_iface_init));
+		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SVC_CONNECTION_INTERFACE_RENAMING, _renaming_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACTS, tp_contacts_mixin_iface_init);
+);
 
 typedef struct _IdleOutputPendingMsg IdleOutputPendingMsg;
 struct _IdleOutputPendingMsg {
@@ -223,6 +225,9 @@ static void idle_connection_init(IdleConnection *obj) {
 
 	priv->sconn_status = SERVER_CONNECTION_STATE_NOT_CONNECTED;
 	priv->msg_queue = g_queue_new();
+
+	tp_contacts_mixin_init((GObject *) obj, G_STRUCT_OFFSET(IdleConnection, contacts));
+	tp_base_connection_register_with_contacts_mixin ((TpBaseConnection *) obj);
 }
 
 static void
@@ -402,6 +407,7 @@ static void idle_connection_finalize (GObject *object) {
 		idle_output_pending_msg_free(msg);
 
 	g_queue_free(priv->msg_queue);
+	tp_contacts_mixin_finalize(object);
 
 	G_OBJECT_CLASS(idle_connection_parent_class)->finalize(object);
 }
@@ -411,6 +417,7 @@ static const gchar * interfaces_always_present[] = {
 	TP_IFACE_CONNECTION_INTERFACE_CONTACT_INFO,
 	IDLE_IFACE_CONNECTION_INTERFACE_RENAMING,
 	TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
+	TP_IFACE_CONNECTION_INTERFACE_CONTACTS,
 	NULL};
 
 const gchar * const *idle_connection_get_implemented_interfaces (void) {
@@ -475,6 +482,7 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 	param_spec = g_param_spec_boolean("password-prompt", "Password prompt", "Whether the connection should pop up a SASL channel if no password is given", FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
 	g_object_class_install_property(object_class, PROP_PASSWORD_PROMPT, param_spec);
 
+	tp_contacts_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleConnectionClass, contacts));
 	idle_contact_info_class_init(klass);
 }
 
