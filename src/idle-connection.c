@@ -225,14 +225,13 @@ static void idle_connection_init(IdleConnection *obj) {
 	priv->msg_queue = g_queue_new();
 }
 
-static GObject *idle_connection_constructor(GType type, guint n_params, GObjectConstructParam *params) {
-	IdleConnection *self = IDLE_CONNECTION(G_OBJECT_CLASS(idle_connection_parent_class)->constructor(type, n_params, params));
+static void
+idle_connection_constructed (GObject *object)
+{
+  IdleConnection *self = IDLE_CONNECTION (object);
 
-	self->parser = g_object_new(IDLE_TYPE_PARSER, "connection", self, NULL);
-
-	idle_contact_info_init(self);
-
-	return (GObject *) self;
+  self->parser = g_object_new (IDLE_TYPE_PARSER, "connection", self, NULL);
+  idle_contact_info_init (self);
 }
 
 static void idle_connection_set_property(GObject *obj, guint prop_id, const GValue *value, GParamSpec *pspec) {
@@ -426,7 +425,7 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 
 	g_type_class_add_private(klass, sizeof(IdleConnectionPrivate));
 
-	object_class->constructor = idle_connection_constructor;
+	object_class->constructed = idle_connection_constructed;
 	object_class->set_property = idle_connection_set_property;
 	object_class->get_property = idle_connection_get_property;
 	object_class->dispose = idle_connection_dispose;
