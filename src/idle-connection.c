@@ -1170,6 +1170,51 @@ static void idle_connection_get_alias_flags(TpSvcConnectionInterfaceAliasing *if
 	tp_svc_connection_interface_aliasing_return_from_get_alias_flags(context, 0);
 }
 
+static const gchar *
+gimme_an_alias (
+    TpHandleRepoIface *repo,
+    TpHandle handle)
+{
+  const gchar *alias = tp_handle_get_qdata (repo, handle, _canon_nick_quark());
+
+  if (alias != NULL)
+    return alias;
+  else
+    return tp_handle_inspect (repo, handle);
+}
+
+static void
+idle_connection_get_aliases (
+    TpSvcConnectionInterfaceAliasing *iface,
+    const GArray *handles,
+    DBusGMethodInvocation *context)
+{
+  TpHandleRepoIface *repo = tp_base_connection_get_handles (
+      TP_BASE_CONNECTION (iface), TP_HANDLE_TYPE_CONTACT);
+  GError *error = NULL;
+
+  if (!tp_handles_are_valid(repo, handles, FALSE, &error))
+    {
+      dbus_g_method_return_error(context, error);
+      g_error_free(error);
+      return;
+    }
+
+  GHashTable *aliases = g_hash_table_new (NULL, NULL);
+
+  for (guint i = 0; i < handles->len; i++)
+    {
+      TpHandle handle = g_array_index (handles, TpHandle, i);
+
+      g_hash_table_insert (aliases, GUINT_TO_POINTER (handle),
+          (gpointer) gimme_an_alias (repo, handle));
+    }
+
+  tp_svc_connection_interface_aliasing_return_from_get_aliases (context,
+      aliases);
+  g_hash_table_unref (aliases);
+}
+
 static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing *iface, const GArray *handles, DBusGMethodInvocation *context) {
 	TpHandleRepoIface *repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(iface), TP_HANDLE_TYPE_CONTACT);
 	GError *error = NULL;
@@ -1184,15 +1229,10 @@ static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing *if
 	for (guint i = 0; i < handles->len; i++) {
 		TpHandle handle = g_array_index(handles, TpHandle, i);
 
-		const gchar *alias = tp_handle_get_qdata(repo, handle, _canon_nick_quark());
-		if (!alias)
-			alias = tp_handle_inspect(repo, handle);
-
-		aliases[i] = alias;
+		aliases[i] = gimme_an_alias (repo, handle);
 	}
 
 	tp_svc_connection_interface_aliasing_return_from_request_aliases(context, aliases);
-
 	g_free(aliases);
 }
 
@@ -1301,6 +1341,7 @@ static void _aliasing_iface_init(gpointer g_iface, gpointer iface_data) {
 #define IMPLEMENT(x) tp_svc_connection_interface_aliasing_implement_##x (\
 		klass, idle_connection_##x)
 	IMPLEMENT(get_alias_flags);
+	IMPLEMENT(get_aliases);
 	IMPLEMENT(request_aliases);
 	IMPLEMENT(set_aliases);
 #undef IMPLEMENT
