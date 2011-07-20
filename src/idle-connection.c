@@ -36,6 +36,8 @@
 #include <telepathy-glib/simple-password-manager.h>
 #include <telepathy-glib/svc-connection.h>
 #include <telepathy-glib/channel-manager.h>
+#include <telepathy-glib/gtypes.h>
+#include <telepathy-glib/util.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_CONNECTION
 #include "idle-contact-info.h"
@@ -66,13 +68,9 @@
 #define SERVER_CMD_NORMAL_PRIORITY G_MAXUINT/2
 #define SERVER_CMD_MAX_PRIORITY G_MAXUINT
 
-/* FIXME use this from telepathy-glib as soon as it gets there */
-#define IDLE_TP_ALIAS_PAIR_TYPE (dbus_g_type_get_struct ("GValueArray", \
-			G_TYPE_UINT, G_TYPE_STRING, G_TYPE_INVALID))
-
 static void _free_alias_pair(gpointer data, gpointer user_data)
 {
-	g_boxed_free(IDLE_TP_ALIAS_PAIR_TYPE, data);
+	g_boxed_free(TP_STRUCT_TYPE_ALIAS_PAIR, data);
 }
 
 static void _aliasing_iface_init(gpointer, gpointer);
@@ -1121,17 +1119,11 @@ void _queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *al
 	if (!priv->queued_aliases)
 		priv->queued_aliases = g_ptr_array_new();
 
-	GValue value = {0, };
-
-	g_value_init(&value, IDLE_TP_ALIAS_PAIR_TYPE);
-	g_value_take_boxed(&value, dbus_g_type_specialized_construct(IDLE_TP_ALIAS_PAIR_TYPE));
-
-	dbus_g_type_struct_set(&value,
-			0, handle,
-			1, alias,
-			G_MAXUINT);
-
-	g_ptr_array_add(priv->queued_aliases, g_value_get_boxed(&value));
+	g_ptr_array_add(priv->queued_aliases,
+		tp_value_array_build (2,
+			G_TYPE_UINT, handle,
+			G_TYPE_STRING, alias,
+			G_TYPE_INVALID));
 }
 
 static GQuark _canon_nick_quark() {
