@@ -219,6 +219,10 @@ static gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gc
 static void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **output);
 
 static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint priority);
+static void conn_aliasing_fill_contact_attributes (
+    GObject *obj,
+    const GArray *contacts,
+    GHashTable *attributes_hash);
 
 static void idle_connection_init(IdleConnection *obj) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(obj);
@@ -237,6 +241,9 @@ idle_connection_constructed (GObject *object)
 
   self->parser = g_object_new (IDLE_TYPE_PARSER, "connection", self, NULL);
   idle_contact_info_init (self);
+  tp_contacts_mixin_add_contact_attributes_iface (object,
+      TP_IFACE_CONNECTION_INTERFACE_ALIASING,
+      conn_aliasing_fill_contact_attributes);
 }
 
 static void idle_connection_set_property(GObject *obj, guint prop_id, const GValue *value, GParamSpec *pspec) {
@@ -1188,6 +1195,30 @@ gimme_an_alias (
     return alias;
   else
     return tp_handle_inspect (repo, handle);
+}
+
+static void
+conn_aliasing_fill_contact_attributes (
+    GObject *obj,
+    const GArray *contacts,
+    GHashTable *attributes_hash)
+{
+  IdleConnection *self = IDLE_CONNECTION (obj);
+  TpHandleRepoIface *repo = tp_base_connection_get_handles (
+      TP_BASE_CONNECTION (self), TP_HANDLE_TYPE_CONTACT);
+  guint i;
+
+  for (i = 0; i < contacts->len; i++)
+    {
+      TpHandle handle = g_array_index (contacts, TpHandle, i);
+      const gchar *alias = gimme_an_alias (repo, handle);
+
+      g_assert (alias != NULL);
+
+      tp_contacts_mixin_set_contact_attribute (attributes_hash,
+          handle, TP_IFACE_CONNECTION_INTERFACE_ALIASING"/alias",
+          tp_g_value_slice_new_string (alias));
+    }
 }
 
 static void
