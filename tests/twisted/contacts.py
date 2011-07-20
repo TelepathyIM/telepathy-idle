@@ -16,6 +16,7 @@ def test(q, bus, conn, stream):
     attr_ifaces = conn.Properties.Get(cs.CONN_IFACE_CONTACTS,
         "ContactAttributeInterfaces")
     assertContains(cs.CONN_IFACE_ALIASING, attr_ifaces)
+    assertContains(cs.CONN_IFACE_CONTACT_INFO, attr_ifaces)
 
     brillana, miriam = conn.RequestHandles(cs.HT_CONTACT,
         ["brillana", "miriam"])

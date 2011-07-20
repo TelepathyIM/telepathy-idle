@@ -495,6 +495,22 @@ void idle_contact_info_class_init (IdleConnectionClass *klass) {
 		props);
 }
 
+static void
+idle_contact_info_fill_contact_attributes (
+    GObject *obj,
+    const GArray *contacts,
+    GHashTable *attributes_hash)
+{
+  /* We don't cache contact info, so we just never put /info into the
+   * attributes hash. This is spec-compliant: we don't implement
+   * GetContactInfo, and the spec says the attribute should be the same as the
+   * value returned by that method (or omitted if unknown). This function
+   * exists at all to make ContactInfo show up in ContactAttributeInterfaces
+   * (otherwise tp-glib might be justified in falling back to
+   * GetContactInfo(), which we know will fail).
+   */
+}
+
 void idle_contact_info_init (IdleConnection *conn) {
 	conn->contact_info_requests = g_queue_new();
 
@@ -512,6 +528,10 @@ void idle_contact_info_init (IdleConnection *conn) {
 
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_NOSUCHSERVER, _no_such_server_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_TRYAGAIN, _try_again_handler, conn);
+
+	tp_contacts_mixin_add_contact_attributes_iface ((GObject *) conn,
+		TP_IFACE_CONNECTION_INTERFACE_CONTACT_INFO,
+		idle_contact_info_fill_contact_attributes);
 }
 
 void idle_contact_info_iface_init(gpointer g_iface, gpointer iface_data) {
