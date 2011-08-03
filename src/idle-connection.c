@@ -36,6 +36,8 @@
 #include <telepathy-glib/simple-password-manager.h>
 #include <telepathy-glib/svc-connection.h>
 #include <telepathy-glib/channel-manager.h>
+#include <telepathy-glib/gtypes.h>
+#include <telepathy-glib/util.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_CONNECTION
 #include "idle-contact-info.h"
@@ -66,13 +68,9 @@
 #define SERVER_CMD_NORMAL_PRIORITY G_MAXUINT/2
 #define SERVER_CMD_MAX_PRIORITY G_MAXUINT
 
-/* FIXME use this from telepathy-glib as soon as it gets there */
-#define IDLE_TP_ALIAS_PAIR_TYPE (dbus_g_type_get_struct ("GValueArray", \
-			G_TYPE_UINT, G_TYPE_STRING, G_TYPE_INVALID))
-
 static void _free_alias_pair(gpointer data, gpointer user_data)
 {
-	g_boxed_free(IDLE_TP_ALIAS_PAIR_TYPE, data);
+	g_boxed_free(TP_STRUCT_TYPE_ALIAS_PAIR, data);
 }
 
 static void _aliasing_iface_init(gpointer, gpointer);
@@ -81,7 +79,9 @@ static void _renaming_iface_init(gpointer, gpointer);
 G_DEFINE_TYPE_WITH_CODE(IdleConnection, idle_connection, TP_TYPE_BASE_CONNECTION,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING, _aliasing_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACT_INFO, idle_contact_info_iface_init);
-		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SVC_CONNECTION_INTERFACE_RENAMING, _renaming_iface_init));
+		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SVC_CONNECTION_INTERFACE_RENAMING, _renaming_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACTS, tp_contacts_mixin_iface_init);
+);
 
 typedef struct _IdleOutputPendingMsg IdleOutputPendingMsg;
 struct _IdleOutputPendingMsg {
@@ -219,22 +219,31 @@ static gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gc
 static void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **output);
 
 static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint priority);
+static void conn_aliasing_fill_contact_attributes (
+    GObject *obj,
+    const GArray *contacts,
+    GHashTable *attributes_hash);
 
 static void idle_connection_init(IdleConnection *obj) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(obj);
 
 	priv->sconn_status = SERVER_CONNECTION_STATE_NOT_CONNECTED;
 	priv->msg_queue = g_queue_new();
+
+	tp_contacts_mixin_init ((GObject *) obj, G_STRUCT_OFFSET (IdleConnection, contacts));
+	tp_base_connection_register_with_contacts_mixin ((TpBaseConnection *) obj);
 }
 
-static GObject *idle_connection_constructor(GType type, guint n_params, GObjectConstructParam *params) {
-	IdleConnection *self = IDLE_CONNECTION(G_OBJECT_CLASS(idle_connection_parent_class)->constructor(type, n_params, params));
+static void
+idle_connection_constructed (GObject *object)
+{
+  IdleConnection *self = IDLE_CONNECTION (object);
 
-	self->parser = g_object_new(IDLE_TYPE_PARSER, "connection", self, NULL);
-
-	idle_contact_info_init(self);
-
-	return (GObject *) self;
+  self->parser = g_object_new (IDLE_TYPE_PARSER, "connection", self, NULL);
+  idle_contact_info_init (self);
+  tp_contacts_mixin_add_contact_attributes_iface (object,
+      TP_IFACE_CONNECTION_INTERFACE_ALIASING,
+      conn_aliasing_fill_contact_attributes);
 }
 
 static void idle_connection_set_property(GObject *obj, guint prop_id, const GValue *value, GParamSpec *pspec) {
@@ -405,6 +414,7 @@ static void idle_connection_finalize (GObject *object) {
 		idle_output_pending_msg_free(msg);
 
 	g_queue_free(priv->msg_queue);
+	tp_contacts_mixin_finalize (object);
 
 	G_OBJECT_CLASS(idle_connection_parent_class)->finalize(object);
 }
@@ -414,6 +424,7 @@ static const gchar * interfaces_always_present[] = {
 	TP_IFACE_CONNECTION_INTERFACE_CONTACT_INFO,
 	IDLE_IFACE_CONNECTION_INTERFACE_RENAMING,
 	TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
+	TP_IFACE_CONNECTION_INTERFACE_CONTACTS,
 	NULL};
 
 const gchar * const *idle_connection_get_implemented_interfaces (void) {
@@ -428,7 +439,7 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 
 	g_type_class_add_private(klass, sizeof(IdleConnectionPrivate));
 
-	object_class->constructor = idle_connection_constructor;
+	object_class->constructed = idle_connection_constructed;
 	object_class->set_property = idle_connection_set_property;
 	object_class->get_property = idle_connection_get_property;
 	object_class->dispose = idle_connection_dispose;
@@ -478,6 +489,7 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 	param_spec = g_param_spec_boolean("password-prompt", "Password prompt", "Whether the connection should pop up a SASL channel if no password is given", FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
 	g_object_class_install_property(object_class, PROP_PASSWORD_PROMPT, param_spec);
 
+	tp_contacts_mixin_class_init (object_class, G_STRUCT_OFFSET (IdleConnectionClass, contacts));
 	idle_contact_info_class_init(klass);
 }
 
@@ -1121,17 +1133,11 @@ void _queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *al
 	if (!priv->queued_aliases)
 		priv->queued_aliases = g_ptr_array_new();
 
-	GValue value = {0, };
-
-	g_value_init(&value, IDLE_TP_ALIAS_PAIR_TYPE);
-	g_value_take_boxed(&value, dbus_g_type_specialized_construct(IDLE_TP_ALIAS_PAIR_TYPE));
-
-	dbus_g_type_struct_set(&value,
-			0, handle,
-			1, alias,
-			G_MAXUINT);
-
-	g_ptr_array_add(priv->queued_aliases, g_value_get_boxed(&value));
+	g_ptr_array_add(priv->queued_aliases,
+		tp_value_array_build (2,
+			G_TYPE_UINT, handle,
+			G_TYPE_STRING, alias,
+			G_TYPE_INVALID));
 }
 
 static GQuark _canon_nick_quark() {
@@ -1178,6 +1184,75 @@ static void idle_connection_get_alias_flags(TpSvcConnectionInterfaceAliasing *if
 	tp_svc_connection_interface_aliasing_return_from_get_alias_flags(context, 0);
 }
 
+static const gchar *
+gimme_an_alias (
+    TpHandleRepoIface *repo,
+    TpHandle handle)
+{
+  const gchar *alias = tp_handle_get_qdata (repo, handle, _canon_nick_quark());
+
+  if (alias != NULL)
+    return alias;
+  else
+    return tp_handle_inspect (repo, handle);
+}
+
+static void
+conn_aliasing_fill_contact_attributes (
+    GObject *obj,
+    const GArray *contacts,
+    GHashTable *attributes_hash)
+{
+  IdleConnection *self = IDLE_CONNECTION (obj);
+  TpHandleRepoIface *repo = tp_base_connection_get_handles (
+      TP_BASE_CONNECTION (self), TP_HANDLE_TYPE_CONTACT);
+  guint i;
+
+  for (i = 0; i < contacts->len; i++)
+    {
+      TpHandle handle = g_array_index (contacts, TpHandle, i);
+      const gchar *alias = gimme_an_alias (repo, handle);
+
+      g_assert (alias != NULL);
+
+      tp_contacts_mixin_set_contact_attribute (attributes_hash,
+          handle, TP_IFACE_CONNECTION_INTERFACE_ALIASING"/alias",
+          tp_g_value_slice_new_string (alias));
+    }
+}
+
+static void
+idle_connection_get_aliases (
+    TpSvcConnectionInterfaceAliasing *iface,
+    const GArray *handles,
+    DBusGMethodInvocation *context)
+{
+  TpHandleRepoIface *repo = tp_base_connection_get_handles (
+      TP_BASE_CONNECTION (iface), TP_HANDLE_TYPE_CONTACT);
+  GError *error = NULL;
+
+  if (!tp_handles_are_valid (repo, handles, FALSE, &error))
+    {
+      dbus_g_method_return_error(context, error);
+      g_error_free(error);
+      return;
+    }
+
+  GHashTable *aliases = g_hash_table_new (NULL, NULL);
+
+  for (guint i = 0; i < handles->len; i++)
+    {
+      TpHandle handle = g_array_index (handles, TpHandle, i);
+
+      g_hash_table_insert (aliases, GUINT_TO_POINTER (handle),
+          (gpointer) gimme_an_alias (repo, handle));
+    }
+
+  tp_svc_connection_interface_aliasing_return_from_get_aliases (context,
+      aliases);
+  g_hash_table_unref (aliases);
+}
+
 static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing *iface, const GArray *handles, DBusGMethodInvocation *context) {
 	TpHandleRepoIface *repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(iface), TP_HANDLE_TYPE_CONTACT);
 	GError *error = NULL;
@@ -1192,15 +1267,10 @@ static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing *if
 	for (guint i = 0; i < handles->len; i++) {
 		TpHandle handle = g_array_index(handles, TpHandle, i);
 
-		const gchar *alias = tp_handle_get_qdata(repo, handle, _canon_nick_quark());
-		if (!alias)
-			alias = tp_handle_inspect(repo, handle);
-
-		aliases[i] = alias;
+		aliases[i] = gimme_an_alias (repo, handle);
 	}
 
 	tp_svc_connection_interface_aliasing_return_from_request_aliases(context, aliases);
-
 	g_free(aliases);
 }
 
@@ -1309,6 +1379,7 @@ static void _aliasing_iface_init(gpointer g_iface, gpointer iface_data) {
 #define IMPLEMENT(x) tp_svc_connection_interface_aliasing_implement_##x (\
 		klass, idle_connection_##x)
 	IMPLEMENT(get_alias_flags);
+	IMPLEMENT(get_aliases);
 	IMPLEMENT(request_aliases);
 	IMPLEMENT(set_aliases);
 #undef IMPLEMENT
