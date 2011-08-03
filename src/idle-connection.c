@@ -230,7 +230,7 @@ static void idle_connection_init(IdleConnection *obj) {
 	priv->sconn_status = SERVER_CONNECTION_STATE_NOT_CONNECTED;
 	priv->msg_queue = g_queue_new();
 
-	tp_contacts_mixin_init((GObject *) obj, G_STRUCT_OFFSET(IdleConnection, contacts));
+	tp_contacts_mixin_init ((GObject *) obj, G_STRUCT_OFFSET (IdleConnection, contacts));
 	tp_base_connection_register_with_contacts_mixin ((TpBaseConnection *) obj);
 }
 
@@ -414,7 +414,7 @@ static void idle_connection_finalize (GObject *object) {
 		idle_output_pending_msg_free(msg);
 
 	g_queue_free(priv->msg_queue);
-	tp_contacts_mixin_finalize(object);
+	tp_contacts_mixin_finalize (object);
 
 	G_OBJECT_CLASS(idle_connection_parent_class)->finalize(object);
 }
@@ -489,7 +489,7 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 	param_spec = g_param_spec_boolean("password-prompt", "Password prompt", "Whether the connection should pop up a SASL channel if no password is given", FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
 	g_object_class_install_property(object_class, PROP_PASSWORD_PROMPT, param_spec);
 
-	tp_contacts_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleConnectionClass, contacts));
+	tp_contacts_mixin_class_init (object_class, G_STRUCT_OFFSET (IdleConnectionClass, contacts));
 	idle_contact_info_class_init(klass);
 }
 
@@ -1231,7 +1231,7 @@ idle_connection_get_aliases (
       TP_BASE_CONNECTION (iface), TP_HANDLE_TYPE_CONTACT);
   GError *error = NULL;
 
-  if (!tp_handles_are_valid(repo, handles, FALSE, &error))
+  if (!tp_handles_are_valid (repo, handles, FALSE, &error))
     {
       dbus_g_method_return_error(context, error);
       g_error_free(error);
