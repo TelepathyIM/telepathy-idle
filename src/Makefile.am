@@ -1,6 +1,6 @@
 BUILT_SOURCES = \
-		idle-server-connection-iface-signals-marshal.h \
-		idle-server-connection-iface-signals-marshal.c
+		idle-server-connection-signals-marshal.h \
+		idle-server-connection-signals-marshal.c
 
 # correctly clean the generated source files
 CLEANFILES = $(BUILT_SOURCES) $(man_MANS)
@@ -36,13 +36,9 @@ libidle_convenience_la_SOURCES = \
 	protocol.h \
 	idle-server-connection.c \
 	idle-server-connection.h \
-	idle-server-connection-iface.c \
-	idle-server-connection-iface.h \
-	idle-ssl-server-connection.h \
-	idle-ssl-server-connection.c \
 	idle-text.h \
 	idle-text.c \
-	idle-server-connection-iface-signals-marshal.list
+	idle-server-connection-signals-marshal.list
 
 nodist_libidle_convenience_la_SOURCES = \
 	$(BUILT_SOURCES)

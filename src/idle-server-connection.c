@@ -32,15 +32,19 @@
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_NETWORK
 #include "idle-connection.h"
 #include "idle-debug.h"
-#include "idle-server-connection-iface.h"
+#include "idle-server-connection-signals-marshal.h"
 
-static void _server_connection_iface_init(gpointer, gpointer);
 typedef struct _IdleServerConnectionPrivate IdleServerConnectionPrivate;
 
 #define IDLE_SERVER_CONNECTION_GET_PRIVATE(conn) (G_TYPE_INSTANCE_GET_PRIVATE((conn), IDLE_TYPE_SERVER_CONNECTION, IdleServerConnectionPrivate))
 
-G_DEFINE_TYPE_WITH_CODE(IdleServerConnection, idle_server_connection, G_TYPE_OBJECT,
-		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SERVER_CONNECTION_IFACE, _server_connection_iface_init));
+G_DEFINE_TYPE(IdleServerConnection, idle_server_connection, G_TYPE_OBJECT)
+
+enum {
+	STATUS_CHANGED,
+	RECEIVED,
+	LAST_SIGNAL
+};
 
 enum {
 	PROP_HOST = 1,
@@ -67,6 +71,8 @@ struct _IdleServerConnectionPrivate {
 };
 
 static GObject *idle_server_connection_constructor(GType type, guint n_props, GObjectConstructParam *props);
+
+static guint signals[LAST_SIGNAL] = {0};
 
 static void idle_server_connection_init(IdleServerConnection *conn) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
@@ -101,7 +107,7 @@ static void idle_server_connection_dispose(GObject *obj) {
 	priv->dispose_has_run = TRUE;
 
 	if (priv->state == SERVER_CONNECTION_STATE_CONNECTED)
-		idle_server_connection_iface_disconnect(IDLE_SERVER_CONNECTION_IFACE(obj), NULL);
+		idle_server_connection_disconnect(conn, NULL);
 
 	if (priv->cancellable != NULL) {
 		g_cancellable_cancel(priv->cancellable);
@@ -196,6 +202,23 @@ static void idle_server_connection_class_init(IdleServerConnectionClass *klass) 
 							  G_PARAM_STATIC_BLURB);
 
 	g_object_class_install_property(object_class, PROP_PORT, pspec);
+
+	signals[STATUS_CHANGED] = g_signal_new("status-changed",
+						G_OBJECT_CLASS_TYPE(klass),
+						G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
+						0,
+						NULL, NULL,
+						idle_server_connection_marshal_VOID__UINT_UINT,
+						G_TYPE_NONE, 2, G_TYPE_UINT, G_TYPE_UINT);
+
+	signals[RECEIVED] = g_signal_new("received",
+						G_OBJECT_CLASS_TYPE(klass),
+						G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
+						0,
+						NULL, NULL,
+						g_cclosure_marshal_VOID__STRING,
+						G_TYPE_NONE, 1, G_TYPE_STRING);
+
 }
 
 static void change_state(IdleServerConnection *conn, IdleServerConnectionState state, guint reason) {
@@ -217,12 +240,10 @@ static void _input_stream_read(IdleServerConnection *conn, GInputStream *input_s
 	g_input_stream_read_async (input_stream, &priv->input_buffer, sizeof(priv->input_buffer) - 1, G_PRIORITY_DEFAULT, priv->cancellable, callback, conn);
 }
 
-static gboolean iface_disconnect_impl_full(IdleServerConnectionIface *iface, GError **error, guint reason);
-
 static void io_err_cleanup_func(gpointer data) {
 	GError *error = NULL;
 
-	if (!iface_disconnect_impl_full(IDLE_SERVER_CONNECTION_IFACE(data), &error, SERVER_CONNECTION_STATE_REASON_ERROR)) {
+	if (!idle_server_connection_disconnect_full(IDLE_SERVER_CONNECTION(data), &error, SERVER_CONNECTION_STATE_REASON_ERROR)) {
 		IDLE_DEBUG("disconnect: %s", error->message);
 		g_error_free(error);
 	}
@@ -292,8 +313,7 @@ static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gp
 	change_state(conn, SERVER_CONNECTION_STATE_CONNECTED, SERVER_CONNECTION_STATE_REASON_REQUESTED);
 }
 
-static gboolean iface_connect_impl(IdleServerConnectionIface *iface, GError **error) {
-	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(iface);
+gboolean idle_server_connection_connect(IdleServerConnection *conn, GError **error) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 
 	if (priv->state != SERVER_CONNECTION_STATE_NOT_CONNECTED) {
@@ -338,12 +358,11 @@ static void _close_ready(GObject *source_object, GAsyncResult *res, gpointer use
 	}
 }
 
-static gboolean iface_disconnect_impl(IdleServerConnectionIface *iface, GError **error) {
-	return iface_disconnect_impl_full(iface, error, SERVER_CONNECTION_STATE_REASON_REQUESTED);
+gboolean idle_server_connection_disconnect(IdleServerConnection *conn, GError **error) {
+	return idle_server_connection_disconnect_full(conn, error, SERVER_CONNECTION_STATE_REASON_REQUESTED);
 }
 
-static gboolean iface_disconnect_impl_full(IdleServerConnectionIface *iface, GError **error, guint reason) {
-	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(iface);
+gboolean idle_server_connection_disconnect_full(IdleServerConnection *conn, GError **error, guint reason) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 
 	g_assert(priv != NULL);
@@ -390,8 +409,7 @@ cleanup:
 	g_object_unref(conn);
 }
 
-static gboolean iface_send_impl(IdleServerConnectionIface *iface, const gchar *cmd, GError **error) {
-	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(iface);
+gboolean idle_server_connection_send(IdleServerConnection *conn, const gchar *cmd, GError **error) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 	GOutputStream *output_stream;
 	gsize output_buffer_size = sizeof(priv->output_buffer);
@@ -422,18 +440,12 @@ static gboolean iface_send_impl(IdleServerConnectionIface *iface, const gchar *c
 	return TRUE;
 }
 
-static IdleServerConnectionState iface_get_state_impl(IdleServerConnectionIface *iface) {
-	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(iface);
+IdleServerConnectionState idle_server_connection_get_state(IdleServerConnection *conn) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
-
 	return priv->state;
 }
 
-static void _server_connection_iface_init(gpointer g_iface, gpointer iface_data) {
-	IdleServerConnectionIfaceClass *klass = (IdleServerConnectionIfaceClass *)(g_iface);
-
-	klass->connect = iface_connect_impl;
-	klass->disconnect = iface_disconnect_impl;
-	klass->send = iface_send_impl;
-	klass->get_state = iface_get_state_impl;
+void idle_server_connection_set_tls(IdleServerConnection *conn, gboolean tls) {
+	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
+	g_socket_client_set_tls(priv->socket_client, tls);
 }

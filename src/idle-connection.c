@@ -47,8 +47,6 @@
 #include "idle-muc-manager.h"
 #include "idle-parser.h"
 #include "idle-server-connection.h"
-#include "idle-server-connection-iface.h"
-#include "idle-ssl-server-connection.h"
 
 #include "extensions/extensions.h"    /* Renaming */
 
@@ -141,7 +139,7 @@ struct _IdleConnectionPrivate {
 	 * network connection
 	 */
 
-	IdleServerConnectionIface *conn;
+	IdleServerConnection *conn;
 	guint sconn_status;
 
 	/* IRC connection properties */
@@ -208,8 +206,8 @@ static IdleParserHandlerResult _version_privmsg_handler(IdleParser *parser, Idle
 static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _whois_user_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 
-static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServerConnectionState state, IdleServerConnectionStateReason reason, IdleConnection *conn);
-static void sconn_received_cb(IdleServerConnectionIface *sconn, gchar *raw_msg, IdleConnection *conn);
+static void sconn_status_changed_cb(IdleServerConnection *sconn, IdleServerConnectionState state, IdleServerConnectionStateReason reason, IdleConnection *conn);
+static void sconn_received_cb(IdleServerConnection *sconn, gchar *raw_msg, IdleConnection *conn);
 
 static void irc_handshakes(IdleConnection *conn);
 static void send_quit_request(IdleConnection *conn);
@@ -547,7 +545,7 @@ _force_disconnect (gpointer data)
 {
 	IdleConnection *conn = IDLE_CONNECTION(data);
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	idle_server_connection_iface_disconnect(priv->conn, NULL);
+	idle_server_connection_disconnect(priv->conn, NULL);
 	return FALSE;
 }
 
@@ -579,7 +577,7 @@ static void _iface_shut_down(TpBaseConnection *self) {
 		return;
 
 	if (priv->sconn_status != SERVER_CONNECTION_STATE_NOT_CONNECTED) {
-		if (!idle_server_connection_iface_disconnect(priv->conn, &error))
+		if (!idle_server_connection_disconnect(priv->conn, &error))
 			g_error_free(error);
 	} else {
 		g_idle_add(_finish_shutdown_idle_func, self);;
@@ -644,8 +642,7 @@ static void _start_connecting_continue(IdleConnection *conn) {
 	TpBaseConnection *base_conn = TP_BASE_CONNECTION(conn);
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	GError *conn_error = NULL;
-	IdleServerConnectionIface *sconn;
-	GType connection_type = (priv->use_ssl) ? IDLE_TYPE_SSL_SERVER_CONNECTION : IDLE_TYPE_SERVER_CONNECTION;
+	IdleServerConnection *sconn;
 
 	if (!priv->realname || !priv->realname[0]) {
 		const gchar *g_realname = g_get_real_name();
@@ -663,11 +660,13 @@ static void _start_connecting_continue(IdleConnection *conn) {
 		priv->username = g_strdup(g_get_user_name());
 	}
 
-	sconn = IDLE_SERVER_CONNECTION_IFACE(g_object_new(connection_type, "host", priv->server, "port", priv->port, NULL));
+	sconn = g_object_new(IDLE_TYPE_SERVER_CONNECTION, "host", priv->server, "port", priv->port, NULL);
+	if (priv->use_ssl)
+		idle_server_connection_set_tls(sconn, TRUE);
 
 	g_signal_connect(sconn, "status-changed", (GCallback)(sconn_status_changed_cb), conn);
 
-	if (!idle_server_connection_iface_connect(sconn, &conn_error)) {
+	if (!idle_server_connection_connect(sconn, &conn_error)) {
 		IDLE_DEBUG("server connection failed to connect: %s", conn_error->message);
 
 		tp_base_connection_disconnect_with_dbus_error(base_conn,
@@ -699,7 +698,7 @@ static void _start_connecting_continue(IdleConnection *conn) {
 
 static gboolean keepalive_timeout_cb(gpointer user_data);
 
-static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServerConnectionState state, IdleServerConnectionStateReason reason, IdleConnection *conn) {
+static void sconn_status_changed_cb(IdleServerConnection *sconn, IdleServerConnectionState state, IdleServerConnectionStateReason reason, IdleConnection *conn) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	TpConnectionStatusReason tp_reason;
 
@@ -761,7 +760,7 @@ static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServer
 	priv->sconn_status = state;
 }
 
-static void sconn_received_cb(IdleServerConnectionIface *sconn, gchar *raw_msg, IdleConnection *conn) {
+static void sconn_received_cb(IdleServerConnection *sconn, gchar *raw_msg, IdleConnection *conn) {
 	gchar *converted;
 
 	idle_connection_ntoh(conn, raw_msg, &converted);
@@ -824,7 +823,7 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 			break;
 	}
 
-	if (idle_server_connection_iface_send(priv->conn, msg, &error)) {
+	if (idle_server_connection_send(priv->conn, msg, &error)) {
 		for (j = 0; j < i; j++) {
 			output_msg = g_queue_pop_head(priv->msg_queue);
 			idle_output_pending_msg_free(output_msg);
@@ -908,7 +907,7 @@ static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint pr
 	     curr_time - priv->last_msg_sent > MSG_QUEUE_TIMEOUT)) {
 		priv->last_msg_sent = curr_time;
 
-		if (!idle_server_connection_iface_send(priv->conn, converted, &error)) {
+		if (!idle_server_connection_send(priv->conn, converted, &error)) {
 			IDLE_DEBUG("server connection failed to send: %s", error->message);
 			g_error_free(error);
 		} else {
