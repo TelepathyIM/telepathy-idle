@@ -230,7 +230,7 @@ static void change_state(IdleServerConnection *conn, IdleServerConnectionState s
 	IDLE_DEBUG("emitting status-changed, state %u, reason %u", state, reason);
 
 	priv->state = state;
-	g_signal_emit_by_name(conn, "status-changed", state, reason);
+	g_signal_emit(conn, signals[STATUS_CHANGED], 0, state, reason);
 }
 
 static void _input_stream_read(IdleServerConnection *conn, GInputStream *input_stream, GAsyncReadyCallback callback) {
@@ -263,7 +263,7 @@ static void _input_stream_read_ready(GObject *source_object, GAsyncResult *res, 
 		goto disconnect;
 	}
 
-	g_signal_emit_by_name(conn, "received", priv->input_buffer);
+	g_signal_emit(conn, signals[RECEIVED], 0, priv->input_buffer);
 
 	if (g_cancellable_is_cancelled(priv->cancellable))
 		goto disconnect;
