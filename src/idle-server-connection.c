@@ -26,7 +26,6 @@
 #include <netinet/tcp.h>
 #include <sys/socket.h>
 
-#include <gio/gio.h>
 #include <telepathy-glib/errors.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_NETWORK
@@ -280,7 +279,8 @@ cleanup:
 
 static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
 	GSocketClient *socket_client = G_SOCKET_CLIENT(source_object);
-	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(user_data);
+	GSimpleAsyncResult *result = G_SIMPLE_ASYNC_RESULT(user_data);
+	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(g_async_result_get_source_object(G_ASYNC_RESULT(result)));
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 	GInputStream *input_stream;
 	GSocket *socket;
@@ -292,10 +292,11 @@ static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gp
 	socket_connection = g_socket_client_connect_to_host_finish(socket_client, res, &error);
 	if (socket_connection == NULL) {
 		IDLE_DEBUG("g_socket_client_connect_to_host failed: %s", error->message);
+		g_simple_async_result_set_error(result, TP_ERRORS, TP_ERROR_NETWORK_ERROR, "%s", error->message);
 		g_error_free(error);
 		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
 		g_object_unref(conn);
-		return;
+		goto cleanup;
 	}
 
 	socket = g_socket_connection_get_socket(socket_connection);
@@ -308,39 +309,55 @@ static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gp
 
 	priv->io_stream = G_IO_STREAM(socket_connection);
 
+	g_cancellable_reset(priv->cancellable);
 	input_stream = g_io_stream_get_input_stream(priv->io_stream);
 	_input_stream_read(conn, input_stream, _input_stream_read_ready);
 	change_state(conn, SERVER_CONNECTION_STATE_CONNECTED, SERVER_CONNECTION_STATE_REASON_REQUESTED);
+
+cleanup:
+	g_simple_async_result_complete(result);
+	g_object_unref(result);
 }
 
-gboolean idle_server_connection_connect(IdleServerConnection *conn, GError **error) {
+void idle_server_connection_connect_async(IdleServerConnection *conn, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
+	GSimpleAsyncResult *result;
 
 	if (priv->state != SERVER_CONNECTION_STATE_NOT_CONNECTED) {
 		IDLE_DEBUG("already connecting or connected!");
-		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "already connecting or connected!");
-		return FALSE;
+		g_simple_async_report_error_in_idle(G_OBJECT(conn),
+			callback, user_data,
+			TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+			"already connecting or connected!");
+		return;
 	}
 
 	if ((priv->host == NULL) || (priv->host[0] == '\0')) {
 		IDLE_DEBUG("host not set!");
-		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "host not set!");
-		return FALSE;
+		g_simple_async_report_error_in_idle(G_OBJECT(conn),
+			callback, user_data,
+			TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+			"host not set!");
+		return;
 	}
 
 	if (priv->port == 0) {
 		IDLE_DEBUG("port not set!");
-		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "port not set!");
-		return FALSE;
+		g_simple_async_report_error_in_idle(G_OBJECT(conn),
+			callback, user_data,
+			TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+			"port not set!");
+		return;
 	}
 
-	g_cancellable_reset(priv->cancellable);
-	g_object_ref(conn);
-	g_socket_client_connect_to_host_async(priv->socket_client, priv->host, priv->port, priv->cancellable, _connect_to_host_ready, conn);
-
+	result = g_simple_async_result_new(G_OBJECT(conn), callback, user_data, idle_server_connection_connect_async);
+	g_socket_client_connect_to_host_async(priv->socket_client, priv->host, priv->port, cancellable, _connect_to_host_ready, result);
 	change_state(conn, SERVER_CONNECTION_STATE_CONNECTING, SERVER_CONNECTION_STATE_REASON_REQUESTED);
+}
 
-	return TRUE;
+gboolean idle_server_connection_connect_finish(IdleServerConnection *conn, GAsyncResult *result, GError **error) {
+	g_return_val_if_fail(g_simple_async_result_is_valid(result, G_OBJECT(conn), idle_server_connection_connect_async), FALSE);
+	return !g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT(result), error);
 }
 
 static void _close_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {

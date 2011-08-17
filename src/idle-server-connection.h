@@ -22,6 +22,7 @@
 #ifndef __IDLE_SERVER_CONNECTION_H__
 #define __IDLE_SERVER_CONNECTION_H__
 
+#include <gio/gio.h>
 #include <glib-object.h>
 
 G_BEGIN_DECLS
@@ -68,7 +69,8 @@ GType idle_server_connection_get_type(void);
 #define IDLE_SERVER_CONNECTION_GET_CLASS(obj) \
 	(G_TYPE_INSTANCE_GET_CLASS((obj), IDLE_TYPE_SERVER_CONNECTION, IdleServerConnectionClass))
 
-gboolean idle_server_connection_connect(IdleServerConnection *conn, GError **error);
+void idle_server_connection_connect_async(IdleServerConnection *conn, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+gboolean idle_server_connection_connect_finish(IdleServerConnection *conn, GAsyncResult *result, GError **error);
 gboolean idle_server_connection_disconnect(IdleServerConnection *conn, GError **error);
 gboolean idle_server_connection_disconnect_full(IdleServerConnection *conn, GError **error, guint reason);
 gboolean idle_server_connection_send(IdleServerConnection *conn, const gchar *cmd, GError **error);

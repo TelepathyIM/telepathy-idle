@@ -638,10 +638,45 @@ static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error) 
 	return TRUE;
 }
 
-static void _start_connecting_continue(IdleConnection *conn) {
-	TpBaseConnection *base_conn = TP_BASE_CONNECTION(conn);
+static void _connection_connect_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
+	IdleServerConnection *sconn = IDLE_SERVER_CONNECTION(source_object);
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	GError *conn_error = NULL;
+	GError *error = NULL;
+
+	if (!idle_server_connection_connect_finish(sconn, res, &error)) {
+		IDLE_DEBUG("idle_server_connection_connect failed: %s", error->message);
+
+		tp_base_connection_disconnect_with_dbus_error(TP_BASE_CONNECTION(conn),
+							      tp_error_get_dbus_name(error->code),
+							      NULL,
+							      TP_CONNECTION_STATUS_REASON_NETWORK_ERROR);
+
+		g_error_free(error);
+		g_object_unref(sconn);
+		return;
+	}
+
+	priv->conn = sconn;
+
+	g_signal_connect(sconn, "received", (GCallback)(sconn_received_cb), conn);
+
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_ERROR, _error_handler, conn);
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_ERRONEOUSNICKNAME, _erroneous_nickname_handler, conn);
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_NICKNAMEINUSE, _nickname_in_use_handler, conn);
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WELCOME, _welcome_handler, conn);
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISUSER, _whois_user_handler, conn);
+
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
+
+	idle_parser_add_handler_with_priority(conn->parser, IDLE_PARSER_PREFIXCMD_NICK, _nick_handler, conn, IDLE_PARSER_HANDLER_PRIORITY_FIRST);
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_USER, _version_privmsg_handler, conn);
+
+	irc_handshakes(conn);
+}
+
+static void _start_connecting_continue(IdleConnection *conn) {
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	IdleServerConnection *sconn;
 
 	if (!priv->realname || !priv->realname[0]) {
@@ -666,34 +701,7 @@ static void _start_connecting_continue(IdleConnection *conn) {
 
 	g_signal_connect(sconn, "status-changed", (GCallback)(sconn_status_changed_cb), conn);
 
-	if (!idle_server_connection_connect(sconn, &conn_error)) {
-		IDLE_DEBUG("server connection failed to connect: %s", conn_error->message);
-
-		tp_base_connection_disconnect_with_dbus_error(base_conn,
-							      TP_ERROR_STR_NETWORK_ERROR,
-							      NULL,
-							      TP_CONNECTION_STATUS_REASON_NETWORK_ERROR);
-
-		g_object_unref(sconn);
-		return;
-	}
-
-	priv->conn = sconn;
-
-	g_signal_connect(sconn, "received", (GCallback)(sconn_received_cb), conn);
-
-	idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_ERROR, _error_handler, conn);
-	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_ERRONEOUSNICKNAME, _erroneous_nickname_handler, conn);
-	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_NICKNAMEINUSE, _nickname_in_use_handler, conn);
-	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WELCOME, _welcome_handler, conn);
-	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISUSER, _whois_user_handler, conn);
-
-	idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
-
-	idle_parser_add_handler_with_priority(conn->parser, IDLE_PARSER_PREFIXCMD_NICK, _nick_handler, conn, IDLE_PARSER_HANDLER_PRIORITY_FIRST);
-	idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_USER, _version_privmsg_handler, conn);
-
-	irc_handshakes(conn);
+	idle_server_connection_connect_async(sconn, NULL, _connection_connect_ready, conn);
 }
 
 static gboolean keepalive_timeout_cb(gpointer user_data);
