@@ -559,7 +559,7 @@ _force_disconnect (gpointer data)
 {
 	IdleConnection *conn = IDLE_CONNECTION(data);
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	idle_server_connection_disconnect(priv->conn, NULL);
+	idle_server_connection_disconnect_async(priv->conn, NULL, NULL, NULL);
 	return FALSE;
 }
 
@@ -586,7 +586,6 @@ static void _iface_disconnected(TpBaseConnection *self) {
 
 static void _iface_shut_down(TpBaseConnection *self) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(self);
-	GError *error = NULL;
 
 	if (priv->quitting)
 		return;
@@ -597,8 +596,7 @@ static void _iface_shut_down(TpBaseConnection *self) {
 	if (priv->conn == NULL) {
 		g_idle_add(_finish_shutdown_idle_func, self);;
 	} else {
-		if (!idle_server_connection_disconnect(priv->conn, &error))
-			g_error_free(error);
+		idle_server_connection_disconnect_async(priv->conn, NULL, NULL, NULL);
 	}
 }
 

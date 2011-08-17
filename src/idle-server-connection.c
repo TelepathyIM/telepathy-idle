@@ -106,7 +106,7 @@ static void idle_server_connection_dispose(GObject *obj) {
 	priv->dispose_has_run = TRUE;
 
 	if (priv->state == SERVER_CONNECTION_STATE_CONNECTED)
-		idle_server_connection_disconnect(conn, NULL);
+		idle_server_connection_disconnect_async(conn, NULL, NULL, NULL);
 
 	if (priv->cancellable != NULL) {
 		g_cancellable_cancel(priv->cancellable);
@@ -239,15 +239,6 @@ static void _input_stream_read(IdleServerConnection *conn, GInputStream *input_s
 	g_input_stream_read_async (input_stream, &priv->input_buffer, sizeof(priv->input_buffer) - 1, G_PRIORITY_DEFAULT, priv->cancellable, callback, conn);
 }
 
-static void io_err_cleanup_func(gpointer data) {
-	GError *error = NULL;
-
-	if (!idle_server_connection_disconnect_full(IDLE_SERVER_CONNECTION(data), &error, SERVER_CONNECTION_STATE_REASON_ERROR)) {
-		IDLE_DEBUG("disconnect: %s", error->message);
-		g_error_free(error);
-	}
-}
-
 static void _input_stream_read_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
 	GInputStream *input_stream = G_INPUT_STREAM(source_object);
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(user_data);
@@ -272,7 +263,7 @@ static void _input_stream_read_ready(GObject *source_object, GAsyncResult *res, 
 
 disconnect:
 	if (priv->state == SERVER_CONNECTION_STATE_CONNECTED)
-		io_err_cleanup_func(conn);
+		idle_server_connection_disconnect_full_async(conn, SERVER_CONNECTION_STATE_REASON_ERROR, NULL, NULL, NULL);
 cleanup:
 	g_object_unref(conn);
 }
@@ -362,7 +353,8 @@ gboolean idle_server_connection_connect_finish(IdleServerConnection *conn, GAsyn
 
 static void _close_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
 	GIOStream *io_stream = G_IO_STREAM(source_object);
-	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(user_data);
+	GSimpleAsyncResult *result = G_SIMPLE_ASYNC_RESULT(user_data);
+	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(g_async_result_get_source_object(G_ASYNC_RESULT(result)));
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 	GError *error = NULL;
 
@@ -371,35 +363,50 @@ static void _close_ready(GObject *source_object, GAsyncResult *res, gpointer use
 
 	if (!g_io_stream_close_finish(io_stream, res, &error)) {
 		IDLE_DEBUG("g_io_stream_close failed: %s", error->message);
+		g_simple_async_result_set_error(result, TP_ERRORS, TP_ERROR_NETWORK_ERROR, "%s", error->message);
 		g_error_free(error);
 	}
+
+	g_simple_async_result_complete(result);
+	g_object_unref(result);
 }
 
-gboolean idle_server_connection_disconnect(IdleServerConnection *conn, GError **error) {
-	return idle_server_connection_disconnect_full(conn, error, SERVER_CONNECTION_STATE_REASON_REQUESTED);
+void idle_server_connection_disconnect_async(IdleServerConnection *conn, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
+	idle_server_connection_disconnect_full_async(conn,
+						     SERVER_CONNECTION_STATE_REASON_REQUESTED,
+						     cancellable,
+						     callback,
+						     user_data);
 }
 
-gboolean idle_server_connection_disconnect_full(IdleServerConnection *conn, GError **error, guint reason) {
+void idle_server_connection_disconnect_full_async(IdleServerConnection *conn, guint reason, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
+	GSimpleAsyncResult *result;
 
 	g_assert(priv != NULL);
 
 	if (priv->state != SERVER_CONNECTION_STATE_CONNECTED) {
 		IDLE_DEBUG("the connection was not open");
-		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "the connection was not open");
-		return FALSE;
+		g_simple_async_report_error_in_idle(G_OBJECT(conn),
+			callback, user_data,
+			TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+			"the connection was not open");
+		return;
 	}
 
 	g_cancellable_cancel(priv->cancellable);
 
 	priv->reason = reason;
-	g_object_ref(conn);
 
-	g_io_stream_close_async(priv->io_stream, G_PRIORITY_DEFAULT, NULL, _close_ready, conn);
+	result = g_simple_async_result_new(G_OBJECT(conn), callback, user_data, idle_server_connection_disconnect_full_async);
+	g_io_stream_close_async(priv->io_stream, G_PRIORITY_DEFAULT, cancellable, _close_ready, result);
 	g_object_unref(priv->io_stream);
 	priv->io_stream = NULL;
+}
 
-	return TRUE;
+gboolean idle_server_connection_disconnect_finish(IdleServerConnection *conn, GAsyncResult *result, GError **error) {
+	g_return_val_if_fail(g_simple_async_result_is_valid(result, G_OBJECT(conn), idle_server_connection_disconnect_full_async), FALSE);
+	return !g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT(result), error);
 }
 
 static void _write_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
