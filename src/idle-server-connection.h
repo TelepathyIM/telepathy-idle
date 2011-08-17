@@ -73,7 +73,8 @@ void idle_server_connection_connect_async(IdleServerConnection *conn, GCancellab
 gboolean idle_server_connection_connect_finish(IdleServerConnection *conn, GAsyncResult *result, GError **error);
 gboolean idle_server_connection_disconnect(IdleServerConnection *conn, GError **error);
 gboolean idle_server_connection_disconnect_full(IdleServerConnection *conn, GError **error, guint reason);
-gboolean idle_server_connection_send(IdleServerConnection *conn, const gchar *cmd, GError **error);
+void idle_server_connection_send_async(IdleServerConnection *conn, const gchar *cmd, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
+gboolean idle_server_connection_send_finish(IdleServerConnection *conn, GAsyncResult *result, GError **error);
 IdleServerConnectionState idle_server_connection_get_state(IdleServerConnection *conn);
 void idle_server_connection_set_tls(IdleServerConnection *conn, gboolean tls);
 

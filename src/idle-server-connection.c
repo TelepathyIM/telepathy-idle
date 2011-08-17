@@ -404,37 +404,46 @@ gboolean idle_server_connection_disconnect_full(IdleServerConnection *conn, GErr
 
 static void _write_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
 	GOutputStream *output_stream = G_OUTPUT_STREAM(source_object);
-	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(user_data);
+	GSimpleAsyncResult *result = G_SIMPLE_ASYNC_RESULT(user_data);
+	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(g_async_result_get_source_object(G_ASYNC_RESULT(result)));
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 	gssize nwrite;
 	GError *error = NULL;
 
+	g_object_unref(conn);
+
 	nwrite = g_output_stream_write_finish(output_stream, res, &error);
 	if (nwrite == -1) {
 		IDLE_DEBUG("g_output_stream_write failed : %s", error->message);
+		g_simple_async_result_set_error(result, TP_ERRORS, TP_ERROR_NETWORK_ERROR, "%s", error->message);
 		g_error_free(error);
 		goto cleanup;
 	}
 
 	priv->nwritten += nwrite;
 	if (priv->nwritten < priv->count) {
-		g_object_ref(conn);
-		g_output_stream_write_async(output_stream, priv->output_buffer + priv->nwritten, priv->count - priv->nwritten, G_PRIORITY_DEFAULT, priv->cancellable, _write_ready, conn);
+		g_output_stream_write_async(output_stream, priv->output_buffer + priv->nwritten, priv->count - priv->nwritten, G_PRIORITY_DEFAULT, priv->cancellable, _write_ready, result);
+		return;
 	}
 
 cleanup:
-	g_object_unref(conn);
+	g_simple_async_result_complete(result);
+	g_object_unref(result);
 }
 
-gboolean idle_server_connection_send(IdleServerConnection *conn, const gchar *cmd, GError **error) {
+void idle_server_connection_send_async(IdleServerConnection *conn, const gchar *cmd, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 	GOutputStream *output_stream;
+	GSimpleAsyncResult *result;
 	gsize output_buffer_size = sizeof(priv->output_buffer);
 
 	if (priv->state != SERVER_CONNECTION_STATE_CONNECTED) {
 		IDLE_DEBUG("connection was not open!");
-		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection was not open!");
-		return FALSE;
+		g_simple_async_report_error_in_idle(G_OBJECT(conn),
+			callback, user_data,
+			TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+			"connection was not open!");
+		return;
 	}
 
 	priv->count = strlen(cmd);
@@ -448,13 +457,17 @@ gboolean idle_server_connection_send(IdleServerConnection *conn, const gchar *cm
 	strncpy(priv->output_buffer, cmd, output_buffer_size);
 
 	priv->nwritten = 0;
-	g_object_ref(conn);
 
 	output_stream = g_io_stream_get_output_stream(priv->io_stream);
-	g_output_stream_write_async(output_stream, priv->output_buffer, priv->count, G_PRIORITY_DEFAULT, priv->cancellable, _write_ready, conn);
+	result = g_simple_async_result_new(G_OBJECT(conn), callback, user_data, idle_server_connection_send_async);
+	g_output_stream_write_async(output_stream, priv->output_buffer, priv->count, G_PRIORITY_DEFAULT, priv->cancellable, _write_ready, result);
 
 	IDLE_DEBUG("sending \"%s\" to OutputStream %p", priv->output_buffer, output_stream);
-	return TRUE;
+}
+
+gboolean idle_server_connection_send_finish(IdleServerConnection *conn, GAsyncResult *result, GError **error) {
+	g_return_val_if_fail(g_simple_async_result_is_valid(result, G_OBJECT(conn), idle_server_connection_send_async), FALSE);
+	return !g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT(result), error);
 }
 
 IdleServerConnectionState idle_server_connection_get_state(IdleServerConnection *conn) {

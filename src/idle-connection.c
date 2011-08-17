@@ -82,10 +82,24 @@ G_DEFINE_TYPE_WITH_CODE(IdleConnection, idle_connection, TP_TYPE_BASE_CONNECTION
 );
 
 typedef struct _IdleOutputPendingMsg IdleOutputPendingMsg;
+typedef struct _MsgQueueTimeoutData MsgQueueTimeoutData;
+typedef struct _SendWithPriorityData SendWithPriorityData;
+
 struct _IdleOutputPendingMsg {
 	gchar *message;
 	guint priority;
 	guint64 id;
+};
+
+struct _MsgQueueTimeoutData {
+	IdleConnection *conn;
+	gint limit;
+};
+
+struct _SendWithPriorityData {
+	IdleConnection *conn;
+	gchar *msg;
+	guint priority;
 };
 
 static IdleOutputPendingMsg *idle_output_pending_msg_new() {
@@ -799,13 +813,39 @@ static gboolean keepalive_timeout_cb(gpointer user_data) {
 	return TRUE;
 }
 
+static void _msg_queue_timeout_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
+	IdleServerConnection *sconn = IDLE_SERVER_CONNECTION(source_object);
+	MsgQueueTimeoutData *data = (MsgQueueTimeoutData *) user_data;
+	IdleConnection *conn = data->conn;
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleOutputPendingMsg *output_msg;
+	int i;
+	int limit = data->limit;
+	GError *error = NULL;
+
+	g_slice_free(MsgQueueTimeoutData, data);
+
+	if (!idle_server_connection_send_finish(sconn, res, &error)) {
+		IDLE_DEBUG("idle_server_connection_send failed: %s", error->message);
+		g_error_free(error);
+		return;
+	}
+
+	for (i = 0; i < limit; i++) {
+		output_msg = g_queue_pop_head(priv->msg_queue);
+		idle_output_pending_msg_free(output_msg);
+	}
+
+	priv->last_msg_sent = time(NULL);
+}
+
 static gboolean msg_queue_timeout_cb(gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	int i, j;
+	int i;
 	IdleOutputPendingMsg *output_msg;
+	MsgQueueTimeoutData *data;
 	gchar msg[IRC_MSG_MAXLEN + 3];
-	GError *error = NULL;
 
 	IDLE_DEBUG("called");
 
@@ -835,20 +875,44 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 			break;
 	}
 
-	if (idle_server_connection_send(priv->conn, msg, &error)) {
-		for (j = 0; j < i; j++) {
-			output_msg = g_queue_pop_head(priv->msg_queue);
-			idle_output_pending_msg_free(output_msg);
-		}
+	data = g_slice_new0(MsgQueueTimeoutData);
+	data->conn = conn;
+	data->limit = i;
 
-		priv->last_msg_sent = time(NULL);
-	} else {
-		IDLE_DEBUG("low-level network connection failed to send: %s", error->message);
+	idle_server_connection_send_async(priv->conn, msg, NULL, _msg_queue_timeout_ready, data);
+	return TRUE;
+}
 
+static void _add_msg_to_queue(IdleConnection *conn, gchar *msg, guint priority) {
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleOutputPendingMsg *output_msg;
+
+	output_msg = idle_output_pending_msg_new();
+	output_msg->message = msg;
+	output_msg->priority = priority;
+
+	g_queue_insert_sorted(priv->msg_queue, output_msg, pending_msg_compare, NULL);
+	idle_connection_add_queue_timeout (conn);
+}
+
+static void _send_with_max_priority_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
+	IdleServerConnection *sconn = IDLE_SERVER_CONNECTION(source_object);
+	SendWithPriorityData *data = (SendWithPriorityData *) user_data;
+	IdleConnection *conn = data->conn;
+	gchar *msg = data->msg;
+	guint priority = data->priority;
+	GError *error = NULL;
+
+	g_slice_free(SendWithPriorityData, data);
+
+	if (!idle_server_connection_send_finish(sconn, res, &error)) {
+		IDLE_DEBUG("idle_server_connection_send failed: %s", error->message);
 		g_error_free(error);
+		_add_msg_to_queue(conn, msg, priority);
+		return;
 	}
 
-	return TRUE;
+	g_free(msg);
 }
 
 static void
@@ -885,12 +949,11 @@ idle_connection_clear_queue_timeout (IdleConnection *self)
 static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint priority) {
 	gchar cmd[IRC_MSG_MAXLEN + 3];
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	SendWithPriorityData *data;
 	int len;
-	GError *error = NULL;
 	gchar *converted;
 	GError *convert_error = NULL;
 	time_t curr_time = time(NULL);
-	IdleOutputPendingMsg *output_msg;
 
 	g_assert(msg != NULL);
 
@@ -919,22 +982,16 @@ static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint pr
 	     curr_time - priv->last_msg_sent > MSG_QUEUE_TIMEOUT)) {
 		priv->last_msg_sent = curr_time;
 
-		if (!idle_server_connection_send(priv->conn, converted, &error)) {
-			IDLE_DEBUG("server connection failed to send: %s", error->message);
-			g_error_free(error);
-		} else {
-			g_free(converted);
-			return;
-		}
+		data = g_slice_new0(SendWithPriorityData);
+		data->conn = conn;
+		data->msg = converted;
+		data->priority = priority;
+
+		idle_server_connection_send_async(priv->conn, converted, NULL, _send_with_max_priority_ready, data);
+		return;
 	}
 
-	output_msg = idle_output_pending_msg_new();
-	output_msg->message = converted;
-	output_msg->priority = priority;
-
-	g_queue_insert_sorted(priv->msg_queue, output_msg, pending_msg_compare, NULL);
-
-	idle_connection_add_queue_timeout (conn);
+	_add_msg_to_queue(conn, converted, priority);
 }
 
 void idle_connection_send(IdleConnection *conn, const gchar *msg) {
