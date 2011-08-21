@@ -18,8 +18,6 @@ libidle_convenience_la_SOURCES = \
 	idle-ctcp.h \
 	idle-debug.c \
 	idle-debug.h \
-	idle-dns-resolver.c \
-	idle-dns-resolver.h \
 	idle-handles.c \
 	idle-handles.h \
 	idle-im-channel.c \
