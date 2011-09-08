@@ -37,13 +37,20 @@ check-twisted:
 	$(MAKE) -C tools
 	rm -f tools/core
 	rm -f tools/idle-testing.log
-	sh $(srcdir)/tools/with-session-bus.sh --config-file=tools/tmp-session-bus.conf -- $(MAKE) check-TESTS \
+	failed=0; \
+	sh $(srcdir)/tools/with-session-bus.sh \
+		--config-file=tools/tmp-session-bus.conf \
+		-- $(MAKE) check-TESTS \
 		TESTS="$(TWISTED_TESTS)" \
-		TESTS_ENVIRONMENT="$(TESTS_ENVIRONMENT) $(TEST_PYTHON)"
-	@if test -e tools/core; then\
-		echo "Core dump exists: tools/core";\
+		TESTS_ENVIRONMENT="$(TESTS_ENVIRONMENT) $(TEST_PYTHON) -u" || \
+		failed=1; \
+	if test -e tools/core; then\
+		echo -e "\033[0;31;1mCore dump exists: tools/core\033[0m";\
 		exit 1;\
-	fi
+	fi; \
+	if test $$failed = 1; then\
+		exit 1;\
+	fi;
 
 endif
 
