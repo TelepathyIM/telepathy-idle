@@ -31,6 +31,7 @@
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/errors.h>
+#include <telepathy-glib/gtypes.h>
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/handle.h>
 #include <telepathy-glib/svc-channel.h>
@@ -125,29 +126,6 @@ typedef struct {
 	guint topic_toucher;
 } IRCChannelModeState;
 
-#define TP_TYPE_PROPERTY_INFO_STRUCT (dbus_g_type_get_struct ("GValueArray", \
-			G_TYPE_UINT, \
-			G_TYPE_STRING, \
-			G_TYPE_STRING, \
-			G_TYPE_UINT, \
-			G_TYPE_INVALID))
-#define TP_TYPE_PROPERTY_INFO_LIST (dbus_g_type_get_collection ("GPtrArray", \
-			TP_TYPE_PROPERTY_INFO_STRUCT))
-
-#define TP_TYPE_PROPERTY_VALUE_STRUCT (dbus_g_type_get_struct ("GValueArray", \
-			G_TYPE_UINT, \
-			G_TYPE_VALUE, \
-			G_TYPE_INVALID))
-#define TP_TYPE_PROPERTY_VALUE_LIST (dbus_g_type_get_collection ("GPtrArray", \
-			TP_TYPE_PROPERTY_VALUE_STRUCT))
-
-#define TP_TYPE_PROPERTY_FLAGS_STRUCT (dbus_g_type_get_struct ("GValueArray", \
-			G_TYPE_UINT, \
-			G_TYPE_UINT, \
-			G_TYPE_INVALID))
-#define TP_TYPE_PROPERTY_FLAGS_LIST (dbus_g_type_get_collection ("GPtrArray", \
-			TP_TYPE_PROPERTY_FLAGS_STRUCT))
-
 typedef enum {
 	TP_PROPERTY_INVITE_ONLY = 0,
 	TP_PROPERTY_LIMIT,
@@ -204,17 +182,17 @@ static const gchar *ascii_muc_states[] = {
 
 static void _free_prop_value_struct(gpointer data, gpointer user_data)
 {
-	g_boxed_free(TP_TYPE_PROPERTY_VALUE_STRUCT, data);
+	g_boxed_free(TP_STRUCT_TYPE_PROPERTY_VALUE, data);
 }
 
 static void _free_flags_struct(gpointer data, gpointer user_data)
 {
-	g_boxed_free(TP_TYPE_PROPERTY_FLAGS_STRUCT, data);
+	g_boxed_free(TP_STRUCT_TYPE_PROPERTY_FLAGS_CHANGE, data);
 }
 
 static void _free_prop_info_struct(gpointer data, gpointer user_data)
 {
-	g_boxed_free(TP_TYPE_PROPERTY_INFO_STRUCT, data);
+	g_boxed_free(TP_STRUCT_TYPE_PROPERTY_SPEC, data);
 }
 
 
@@ -720,7 +698,7 @@ static void change_tp_properties(IdleMUCChannel *chan, const GPtrArray *props) {
 		GValue *new_val;
 		guint prop_id;
 
-		g_value_init(&prop, TP_TYPE_PROPERTY_VALUE_STRUCT);
+		g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_VALUE);
 		g_value_set_static_boxed(&prop, g_ptr_array_index(props, i));
 
 		dbus_g_type_struct_get(&prop,
@@ -784,8 +762,8 @@ static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpP
 			if (curr_flags != flags) {
 				GValue prop = {0, };
 
-				g_value_init(&prop, TP_TYPE_PROPERTY_FLAGS_STRUCT);
-				g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_TYPE_PROPERTY_FLAGS_STRUCT));
+				g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_FLAGS_CHANGE);
+				g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_STRUCT_TYPE_PROPERTY_FLAGS_CHANGE));
 
 				dbus_g_type_struct_set(&prop,
 										0, i,
@@ -806,8 +784,8 @@ static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpP
 			if (curr_flags != flags) {
 				GValue prop = {0, };
 
-				g_value_init(&prop, TP_TYPE_PROPERTY_FLAGS_STRUCT);
-				g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_TYPE_PROPERTY_FLAGS_STRUCT));
+				g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_FLAGS_CHANGE);
+				g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_STRUCT_TYPE_PROPERTY_FLAGS_CHANGE));
 
 				dbus_g_type_struct_set(&prop,
 										0, prop_id,
@@ -1020,8 +998,8 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 				GValue *val = &val_auto_is_fine;
 				GType type = property_signatures[tp_prop_id].type;
 
-				g_value_init(&prop, TP_TYPE_PROPERTY_VALUE_STRUCT);
-				g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_TYPE_PROPERTY_VALUE_STRUCT));
+				g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_VALUE);
+				g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_STRUCT_TYPE_PROPERTY_VALUE));
 
 				g_value_init(val, type);
 
@@ -1044,8 +1022,8 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 					GValue val_auto_is_fine = {0, };
 					GValue *val = &val_auto_is_fine;
 
-					g_value_init(&prop, TP_TYPE_PROPERTY_VALUE_STRUCT);
-					g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_TYPE_PROPERTY_VALUE_STRUCT));
+					g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_VALUE);
+					g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_STRUCT_TYPE_PROPERTY_VALUE));
 
 					if (i == MODE_FLAG_USER_LIMIT) {
 						g_value_init(val, G_TYPE_UINT);
@@ -1429,8 +1407,8 @@ void idle_muc_channel_topic(IdleMUCChannel *chan, const char *topic) {
 	g_assert(chan != NULL);
 	g_assert(topic != NULL);
 
-	g_value_init(&prop, TP_TYPE_PROPERTY_VALUE_STRUCT);
-	g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_TYPE_PROPERTY_VALUE_STRUCT));
+	g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_VALUE);
+	g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_STRUCT_TYPE_PROPERTY_VALUE));
 
 	g_value_init(&val, G_TYPE_STRING);
 	g_value_set_string(&val, topic);
@@ -1458,8 +1436,8 @@ void idle_muc_channel_topic_touch(IdleMUCChannel *chan, const TpHandle toucher, 
 	g_assert(chan != NULL);
 	g_assert(toucher != 0);
 
-	g_value_init(&prop, TP_TYPE_PROPERTY_VALUE_STRUCT);
-	g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_TYPE_PROPERTY_VALUE_STRUCT));
+	g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_VALUE);
+	g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_STRUCT_TYPE_PROPERTY_VALUE));
 
 	g_value_init(&val, G_TYPE_UINT);
 	g_value_set_uint(&val, toucher);
@@ -1498,8 +1476,8 @@ void idle_muc_channel_topic_full(IdleMUCChannel *chan, const TpHandle toucher, c
 	g_assert(chan != NULL);
 	g_assert(toucher != 0);
 
-	g_value_init(&prop, TP_TYPE_PROPERTY_VALUE_STRUCT);
-	g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_TYPE_PROPERTY_VALUE_STRUCT));
+	g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_VALUE);
+	g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_STRUCT_TYPE_PROPERTY_VALUE));
 
 	g_value_init(&val, G_TYPE_UINT);
 	g_value_set_uint(&val, toucher);
@@ -1940,9 +1918,9 @@ static void idle_muc_channel_get_properties (TpSvcPropertiesInterface *iface, co
 		IdleMUCChannelTPProperty prop = g_array_index(properties, guint, i);
 		GValue prop_val = {0, };
 
-		g_value_init(&prop_val, TP_TYPE_PROPERTY_VALUE_STRUCT);
+		g_value_init(&prop_val, TP_STRUCT_TYPE_PROPERTY_VALUE);
 		g_value_take_boxed(&prop_val,
-				dbus_g_type_specialized_construct(TP_TYPE_PROPERTY_VALUE_STRUCT));
+				dbus_g_type_specialized_construct(TP_STRUCT_TYPE_PROPERTY_VALUE));
 
 		dbus_g_type_struct_set(&prop_val,
 								0, prop,
@@ -2010,9 +1988,9 @@ static void idle_muc_channel_list_properties (TpSvcPropertiesInterface *iface, D
 				return;
 		}
 
-		g_value_init(&prop, TP_TYPE_PROPERTY_INFO_STRUCT);
+		g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_SPEC);
 		g_value_take_boxed(&prop,
-				dbus_g_type_specialized_construct(TP_TYPE_PROPERTY_INFO_STRUCT));
+				dbus_g_type_specialized_construct(TP_STRUCT_TYPE_PROPERTY_SPEC));
 
 		dbus_g_type_struct_set(&prop,
 				0, i,
@@ -2110,7 +2088,7 @@ static int prop_arr_find(const GPtrArray *props, IdleMUCChannelTPProperty needle
 		GValue prop = {0, };
 		guint prop_id;
 
-		g_value_init(&prop, TP_TYPE_PROPERTY_VALUE_STRUCT);
+		g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_VALUE);
 		g_value_set_static_boxed(&prop, g_ptr_array_index(props, i));
 
 		dbus_g_type_struct_get(&prop,
@@ -2150,7 +2128,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 		GValue *prop_val;
 		char irc_mode;
 
-		g_value_init(&prop, TP_TYPE_PROPERTY_VALUE_STRUCT);
+		g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_VALUE);
 		g_value_set_static_boxed(&prop, g_ptr_array_index(properties, i));
 
 		dbus_g_type_struct_get(&prop,
@@ -2221,7 +2199,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 		IdleMUCChannelTPProperty prop_id;
 		GValue *prop_val;
 
-		g_value_init(&prop, TP_TYPE_PROPERTY_VALUE_STRUCT);
+		g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_VALUE);
 		g_value_set_static_boxed(&prop, g_ptr_array_index(waiting, i));
 
 		dbus_g_type_struct_get(&prop,
@@ -2302,7 +2280,7 @@ static void idle_muc_channel_set_properties (TpSvcPropertiesInterface *iface, co
 		IdleMUCChannelTPProperty prop_id;
 		GValue *prop_val;
 
-		g_value_init(&prop, TP_TYPE_PROPERTY_VALUE_STRUCT);
+		g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_VALUE);
 		g_value_set_static_boxed(&prop, g_ptr_array_index(properties, i));
 
 		dbus_g_type_struct_get(&prop,
