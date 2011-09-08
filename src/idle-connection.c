@@ -62,6 +62,7 @@
 
 #define MSG_QUEUE_UNLOAD_AT_A_TIME 1
 #define MSG_QUEUE_TIMEOUT 2
+static gboolean flush_queue_faster = FALSE;
 
 #define SERVER_CMD_MIN_PRIORITY 0
 #define SERVER_CMD_NORMAL_PRIORITY G_MAXUINT/2
@@ -493,6 +494,10 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 
 	tp_contacts_mixin_class_init (object_class, G_STRUCT_OFFSET (IdleConnectionClass, contacts));
 	idle_contact_info_class_init(klass);
+
+	/* This is a hack to make the test suite run in finite time. */
+	if (!tp_str_empty (g_getenv ("IDLE_HTFU")))
+		flush_queue_faster = TRUE;
 }
 
 static GPtrArray *_iface_create_channel_managers(TpBaseConnection *self) {
@@ -841,8 +846,14 @@ idle_connection_add_queue_timeout (IdleConnection *self)
   IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE (self);
 
   if (priv->msg_queue_timeout == 0)
-    priv->msg_queue_timeout = g_timeout_add_seconds (MSG_QUEUE_TIMEOUT,
-        msg_queue_timeout_cb, self);
+    {
+      if (flush_queue_faster)
+        priv->msg_queue_timeout = g_timeout_add (MSG_QUEUE_TIMEOUT,
+            msg_queue_timeout_cb, self);
+      else
+        priv->msg_queue_timeout = g_timeout_add_seconds (MSG_QUEUE_TIMEOUT,
+            msg_queue_timeout_cb, self);
+    }
 }
 
 static void
