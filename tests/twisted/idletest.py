@@ -12,6 +12,8 @@ from twisted.words.protocols import irc
 from twisted.internet import reactor, ssl
 
 def make_irc_event(type, data):
+    if data is not None:
+        data[-1] = data[-1].rstrip('\r\n')
     event = servicetest.Event(type, data=data)
     return event
 
@@ -125,7 +127,7 @@ class BaseIRCServer(irc.IRC):
         self.sendMessage('366', self.nick, room, ':End of /NAMES list', prefix='idle.test.server')
 
     def handleQUIT(self, args, prefix):
-        quit_msg = ' '.join(args).rstrip('\r\n')
+        quit_msg = ' '.join(args)
         self.sendMessage('ERROR', ':Closing Link: idle.test.server (Quit: %s)' % quit_msg)
         self.transport.loseConnection()
 

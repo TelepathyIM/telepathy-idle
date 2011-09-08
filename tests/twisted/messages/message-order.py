@@ -33,7 +33,7 @@ def test(q, bus, conn, stream):
     for i in range(NUM_MESSAGES):
         message = q.expect('stream-PRIVMSG')
         assert message.data[0] == CHANNEL_NAME
-        assert message.data[1].rstrip('\r\n') == str(i)
+        assert message.data[1] == str(i)
 
     call_async(q, conn, 'Disconnect')
     return True

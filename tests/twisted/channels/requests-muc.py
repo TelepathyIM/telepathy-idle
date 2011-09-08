@@ -99,9 +99,8 @@ def test(q, bus, conn, stream):
 
     # This is a regression test for
     # <https://bugs.freedesktop.org/show_bug.cgi?id=34812>, where part messages
-    # were not correctly colon-quoted. rstrip seems to be needed to get rid of
-    # the \r\n...
-    assertEquals("bye bye cruel world", part_event.data[1].rstrip())
+    # were not correctly colon-quoted.
+    assertEquals("bye bye cruel world", part_event.data[1])
 
     stream.sendPart('#idletest', stream.nick)
 
