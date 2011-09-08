@@ -20,7 +20,6 @@
 
 #include "idle-connection-manager.h"
 
-#define DBUS_API_SUBJECT_TO_CHANGE
 #include <dbus/dbus-protocol.h>
 #include <telepathy-glib/enums.h>
 
