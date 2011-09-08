@@ -36,6 +36,7 @@ G_BEGIN_DECLS
 
 typedef struct _IdleMUCChannel IdleMUCChannel;
 typedef struct _IdleMUCChannelClass IdleMUCChannelClass;
+typedef struct _IdleMUCChannelPrivate IdleMUCChannelPrivate;
 
 struct _IdleMUCChannelClass {
 	TpBaseChannelClass parent_class;
@@ -48,6 +49,8 @@ struct _IdleMUCChannel {
 
 	TpGroupMixin group;
 	TpMessageMixin message_mixin;
+
+	IdleMUCChannelPrivate *priv;
 };
 
 typedef enum {

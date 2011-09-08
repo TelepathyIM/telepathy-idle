@@ -187,8 +187,6 @@ static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *prop_ids, 
 static guint signals[LAST_SIGNAL] = {0};
 
 /* private structure */
-typedef struct _IdleMUCChannelPrivate IdleMUCChannelPrivate;
-
 struct _IdleMUCChannelPrivate {
 	const gchar *channel_name;
 
@@ -211,11 +209,11 @@ struct _IdleMUCChannelPrivate {
 
 static void change_password_flags(IdleMUCChannel *chan, guint flag, gboolean state);
 
-#define IDLE_MUC_CHANNEL_GET_PRIVATE(o)     (G_TYPE_INSTANCE_GET_PRIVATE ((o), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelPrivate))
-
 static void idle_muc_channel_init (IdleMUCChannel *obj) {
-	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (obj);
+	IdleMUCChannelPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (obj,
+		IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelPrivate);
 
+	obj->priv = priv;
 	priv->password_flags = 0;
 
 	priv->state = MUC_STATE_CREATED;
@@ -236,8 +234,9 @@ static void idle_muc_channel_finalize (GObject *object);
 static void
 idle_muc_channel_constructed (GObject *obj)
 {
+	IdleMUCChannel *self = IDLE_MUC_CHANNEL (obj);
 	TpBaseChannel *base = TP_BASE_CHANNEL (obj);
-	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	IdleMUCChannelPrivate *priv = self->priv;
 	TpBaseConnection *conn = tp_base_channel_get_connection (base);
 	TpHandleRepoIface *room_handles = tp_base_connection_get_handles(conn, TP_HANDLE_TYPE_ROOM);
 	TpHandleRepoIface *contact_handles = tp_base_connection_get_handles(conn, TP_HANDLE_TYPE_CONTACT);
@@ -339,7 +338,7 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
 
 void idle_muc_channel_dispose (GObject *object) {
 	IdleMUCChannel *self = IDLE_MUC_CHANNEL (object);
-	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (self);
+	IdleMUCChannelPrivate *priv = self->priv;
 
 	if (priv->dispose_has_run)
 		return;
@@ -352,7 +351,7 @@ void idle_muc_channel_dispose (GObject *object) {
 
 void idle_muc_channel_finalize (GObject *object) {
 	IdleMUCChannel *self = IDLE_MUC_CHANNEL (object);
-	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (self);
+	IdleMUCChannelPrivate *priv = self->priv;
 
 	if (priv->mode_state.topic)
 		g_free(priv->mode_state.topic);
@@ -394,7 +393,7 @@ static void muc_channel_tp_properties_init(IdleMUCChannel *chan) {
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	priv = chan->priv;
 	props = priv->properties;
 
 	for (i = 0; i < LAST_TP_PROPERTY_ENUM; i++) {
@@ -417,7 +416,7 @@ static void muc_channel_tp_properties_destroy(IdleMUCChannel *chan) {
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	priv = chan->priv;
 	props = priv->properties;
 
 	for (int i = 0; i < LAST_TP_PROPERTY_ENUM; i++) {
@@ -480,7 +479,7 @@ static void change_tp_properties(IdleMUCChannel *chan, const GPtrArray *props) {
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
 	g_assert(props != NULL);
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	priv = chan->priv;
 
 	changed_props = g_ptr_array_new();
 	flags = g_array_new(FALSE, FALSE, sizeof(guint));
@@ -541,7 +540,7 @@ static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpP
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	priv = chan->priv;
 
 	changed_props = g_ptr_array_new();
 
@@ -607,7 +606,7 @@ static void provide_password_reply(IdleMUCChannel *chan, gboolean success) {
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	priv = chan->priv;
 
 	if (priv->passwd_ctx != NULL) {
 		tp_svc_channel_interface_password_return_from_provide_password(priv->passwd_ctx, success);
@@ -628,7 +627,7 @@ static void change_state(IdleMUCChannel *obj, IdleMUCState state) {
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	priv = obj->priv;
 
 	if ((state > MUC_STATE_JOINING) && (!priv->join_ready)) {
 		IDLE_DEBUG("emitting join-ready");
@@ -660,7 +659,7 @@ gboolean idle_muc_channel_is_ready(IdleMUCChannel *obj) {
 	g_return_val_if_fail(obj != NULL, FALSE);
 	g_return_val_if_fail(IDLE_IS_MUC_CHANNEL(obj), FALSE);
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	priv = obj->priv;
 
 	return priv->join_ready;
 }
@@ -701,7 +700,7 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 
 	remove &= ~add;
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	priv = obj->priv;
 	flags = priv->mode_state.flags;
 
 	tp_props_to_change = g_ptr_array_new();
@@ -860,7 +859,7 @@ static void change_password_flags(IdleMUCChannel *obj, guint flag, gboolean stat
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	priv = obj->priv;
 
 	if (state) {
 		add = (~(priv->password_flags)) & flag;
@@ -900,7 +899,7 @@ static void send_mode_query_request(IdleMUCChannel *chan) {
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	priv = chan->priv;
 
 	g_snprintf(cmd, IRC_MSG_MAXLEN + 2, "MODE %s", priv->channel_name);
 
@@ -908,7 +907,7 @@ static void send_mode_query_request(IdleMUCChannel *chan) {
 }
 
 void idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner) {
-	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	IdleMUCChannelPrivate *priv = chan->priv;
 	TpBaseConnection *base_conn = tp_base_channel_get_connection (
 		TP_BASE_CHANNEL (chan));
 	TpIntSet *set;
@@ -986,7 +985,7 @@ void idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter) {
 }
 
 void idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
-	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	IdleMUCChannelPrivate *priv = chan->priv;
 	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
 	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 
@@ -1027,7 +1026,7 @@ void idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
 }
 
 void idle_muc_channel_namereply_end(IdleMUCChannel *chan) {
-	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	IdleMUCChannelPrivate *priv = chan->priv;
 	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
 	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 
@@ -1058,7 +1057,7 @@ static guint _modechar_to_modeflag(gchar modechar) {
 }
 
 void idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args) {
-	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	IdleMUCChannelPrivate *priv = chan->priv;
 	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
 	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 	TpHandleRepoIface *handles = tp_base_connection_get_handles(base_conn, TP_HANDLE_TYPE_CONTACT);
@@ -1351,7 +1350,7 @@ void idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError e
 	g_assert(chan != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(chan));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	priv = chan->priv;
 
 	if (!priv->join_ready) {
 		priv->join_ready = TRUE;
@@ -1399,7 +1398,7 @@ static void send_join_request(IdleMUCChannel *obj, const gchar *password) {
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	priv = obj->priv;
 
 	if (password)
 		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "JOIN %s %s", priv->channel_name, password);
@@ -1422,7 +1421,7 @@ static gboolean send_invite_request(IdleMUCChannel *obj, TpHandle handle, GError
 
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	priv = obj->priv;
 
 	nick = tp_handle_inspect(tp_base_connection_get_handles(base_conn, TP_HANDLE_TYPE_CONTACT), handle);
 
@@ -1450,7 +1449,7 @@ static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gc
 
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	priv = obj->priv;
 
 	nick = tp_handle_inspect(tp_base_connection_get_handles(base_conn, TP_HANDLE_TYPE_CONTACT), handle);
 
@@ -1475,7 +1474,7 @@ static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gc
 
 static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message, GError **error) {
 	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(gobj);
-	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	IdleMUCChannelPrivate *priv = obj->priv;
 	TpBaseChannel *base = TP_BASE_CHANNEL (obj);
 	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 
@@ -1533,7 +1532,7 @@ static void part_from_channel(IdleMUCChannel *obj, const gchar *msg) {
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	priv = obj->priv;
 
 	if (msg != NULL) {
 		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "PART %s :%s", priv->channel_name, msg);
@@ -1575,7 +1574,7 @@ idle_muc_channel_close (
     TpBaseChannel *base)
 {
 	IdleMUCChannel *self = IDLE_MUC_CHANNEL (base);
-	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (self);
+	IdleMUCChannelPrivate *priv = self->priv;
 
 	IDLE_DEBUG ("called on %p", self);
 
@@ -1606,7 +1605,7 @@ static void idle_muc_channel_get_password_flags (TpSvcChannelInterfacePassword *
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	priv = obj->priv;
 
 	tp_svc_channel_interface_password_return_from_get_password_flags(context, priv->password_flags);
 }
@@ -1633,7 +1632,7 @@ static void idle_muc_channel_get_properties (TpSvcPropertiesInterface *iface, co
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	priv = obj->priv;
 
 	for (guint i = 0; i < properties->len; i++) {
 		IdleMUCChannelTPProperty prop = g_array_index(properties, guint, i);
@@ -1704,7 +1703,7 @@ static void idle_muc_channel_list_properties (TpSvcPropertiesInterface *iface, D
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	priv = obj->priv;
 
 	ret = g_ptr_array_sized_new(LAST_TP_PROPERTY_ENUM);
 
@@ -1775,7 +1774,7 @@ static void idle_muc_channel_provide_password (TpSvcChannelInterfacePassword *if
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	priv = obj->priv;
 
 	if (!(priv->password_flags & TP_CHANNEL_PASSWORD_FLAG_PROVIDE) || (priv->passwd_ctx != NULL)) {
 		GError *error = g_error_new (TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
@@ -1803,7 +1802,7 @@ static void
 idle_muc_channel_send (GObject *obj, TpMessage *message, TpMessageSendingFlags flags)
 {
 	IdleMUCChannel *self = (IdleMUCChannel *) obj;
-	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(self);
+	IdleMUCChannelPrivate *priv = self->priv;
 	TpBaseChannel *base = TP_BASE_CHANNEL (self);
 	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 
@@ -1862,7 +1861,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 	g_assert(properties != NULL);
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	priv = obj->priv;
 
 	waiting = g_ptr_array_new();
 
@@ -2019,7 +2018,7 @@ static void idle_muc_channel_set_properties (TpSvcPropertiesInterface *iface, co
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	priv = obj->priv;
 
 	to_change = g_ptr_array_new();
 
