@@ -1,64 +1,71 @@
-
 """
 Test connecting topic settings a IRC channel
 """
 
-from idletest import exec_test
-from servicetest import EventPattern, call_async, wrap_channel, assertEquals
-from servicetest import sync_dbus
-from constants import *
+from idletest import exec_test, sync_stream
+from servicetest import (
+    EventPattern, call_async, wrap_channel, assertEquals, assertContains,
+    sync_dbus
+)
 import dbus
+from constants import *
 
 room = "#idletest"
 
-def get_subject_flags (channel):
-  props = channel.TpProperties.ListProperties()
-  for x in props:
-      if x[1] == 'subject':
-          return x[3]
+def expect_subject_props_changed(q, expected_changed, exact_timestamp=False):
+    e = q.expect('dbus-signal', signal='PropertiesChanged',
+        interface=PROPERTIES_IFACE,
+        predicate=lambda e: e.args[0] == CHANNEL_IFACE_SUBJECT)
 
-def get_subject_id (channel):
-  props = channel.TpProperties.ListProperties()
-  for x in props:
-      if x[1] == 'subject':
-          return x[0]
+    _, changed, invalidated = e.args
+    assertEquals([], invalidated)
 
-def has_subject_property (event, subject_id, flags = None):
-   for (k,v) in event.args[0]:
-       if k == subject_id:
-           if flags != None:
-               assertEquals (flags, v)
-           return True
-   return False
+    # If we're expecting Timestamp to be present but don't know its exact
+    # value, we just check that it has some value in 'changed', and then remove
+    # it from both so we can compare the remains directly.
+    if not exact_timestamp:
+        if 'Timestamp' in expected_changed:
+            assert 'Timestamp' in changed
+            del changed['Timestamp']
+            del expected_changed['Timestamp']
+
+    assertEquals(expected_changed, changed)
+
+def expect_and_check_can_set(q, channel, can_set):
+    expect_subject_props_changed(q, { 'CanSet': can_set })
+    assertEquals(can_set,
+        channel.Properties.Get(CHANNEL_IFACE_SUBJECT, 'CanSet'))
+
+    if can_set:
+        # FIXME: this shouldn't return until the server gets back to us with
+        # RPL_TOPIC
+        channel.Subject2.SetSubject('what up')
+        e = q.expect('stream-TOPIC', data=[room, 'what up'])
+    else:
+        call_async(q, channel.Subject2, 'SetSubject', 'boo hoo')
+        q.expect('dbus-error', method='SetSubject',
+            name=PERMISSION_DENIED)
 
 def change_channel_mode (stream, mode_change):
     stream.sendMessage ('324', stream.nick, room, mode_change,
         prefix='idle.test.server')
 
-def test_topic_write_flag (q, stream, channel, subject_id, r = 0):
-    assertEquals (r | PROPERTY_FLAG_WRITE, get_subject_flags (channel))
+def test_can_set(q, stream, channel):
+    """
+    When the user's not an op, checks that flipping +t on and off again turns
+    CanSet off and on again in sympathy.
+    """
+    assert channel.Properties.Get(CHANNEL_IFACE_SUBJECT, 'CanSet')
 
     change_channel_mode (stream, '+t')
-    q.expect('dbus-signal', signal="PropertyFlagsChanged",
-      predicate= lambda e:
-        has_subject_property (e, subject_id, r))
-    assertEquals (r, get_subject_flags (channel))
-
+    expect_and_check_can_set(q, channel, False)
 
     change_channel_mode (stream, '-t')
-    q.expect('dbus-signal', signal="PropertyFlagsChanged",
-      predicate= lambda e:
-        has_subject_property (e, subject_id, r | PROPERTY_FLAG_WRITE))
-    assertEquals (r | PROPERTY_FLAG_WRITE, get_subject_flags (channel))
+    expect_and_check_can_set(q, channel, True)
 
 def test(q, bus, conn, stream):
     conn.Connect()
 
-    q.expect_many(
-            EventPattern('dbus-signal', signal='StatusChanged', args=[1, 1]),
-            EventPattern('irc-connected'))
-    q.expect('dbus-signal', signal='SelfHandleChanged',
-        args=[1L])
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
 
     call_async(q, conn.Requests, 'CreateChannel',
@@ -70,21 +77,53 @@ def test(q, bus, conn, stream):
     event = q.expect('dbus-return', method='CreateChannel')
     path = event.value[0]
 
-    channel = wrap_channel (bus.get_object(conn.bus_name, path), 'Text')
-    subject_id = get_subject_id (channel)
+    channel = wrap_channel(bus.get_object(conn.bus_name, path), 'Text',
+        ['Subject2'])
 
-    # No topic set so it's not readable
-    test_topic_write_flag (q, stream, channel, subject_id)
+    assertContains(CHANNEL_IFACE_SUBJECT,
+        channel.Properties.Get(CHANNEL, 'Interfaces'))
 
-    # Someone sets the topic so it should become readable
-    stream.sendMessage ('332', stream.nick, room, ':Test123',
+    # No topic set
+    subject_props = channel.Properties.GetAll(CHANNEL_IFACE_SUBJECT)
+    assertEquals('', subject_props['Subject'])
+    assertEquals(0, subject_props['Timestamp'])
+    assertEquals('', subject_props['Actor'])
+
+    # Before the topic arrives from the server, check that our API works okay.
+    # FIXME: when we make SetSubject return asynchronously, this will need
+    # revising.
+    test_can_set(q, stream, channel)
+
+    # We're told the channel's topic, and (in a separte message) who set it and
+    # when.
+    stream.sendMessage('332', stream.nick, room, ':Test123',
         prefix='idle.test.server')
-    q.expect('dbus-signal', signal="PropertyFlagsChanged")
-    test_topic_write_flag (q, stream, channel, subject_id, PROPERTY_FLAG_READ)
+    stream.sendMessage('333', stream.nick, room, 'bob', '1307802600',
+        prefix='idle.test.server')
+
+    # FIXME: signal these together, if possible.
+    expect_subject_props_changed(q, { 'Subject': 'Test123' })
+    expect_subject_props_changed(q,
+        { 'Timestamp': 1307802600,
+          'Actor': 'bob',
+        }, exact_timestamp=True)
+
+    # Another user changes the topic.
+    stream.sendMessage('TOPIC', room, ':I am as high as a kite',
+        prefix='alice')
+    expect_subject_props_changed(q,
+        { 'Subject': 'I am as high as a kite',
+          'Actor': 'alice',
+          'Timestamp': 1234,
+        })
+
+    test_can_set(q, stream, channel)
 
     # Topic is read/write, if we get ops it should stay that way
-    forbidden = [ EventPattern('dbus-signal', signal="PropertyFlagsChanged",
-            predicate= lambda e: has_subject_property (e, subject_id))]
+    forbidden = [
+        EventPattern('dbus-signal', signal='PropertiesChanged',
+            predicate=lambda e: e.args[0] == CHANNEL_IFACE_SUBJECT)
+    ]
     q.forbid_events(forbidden)
 
     # Set ops, check that t flag becomes a no-op
@@ -100,36 +139,33 @@ def test(q, bus, conn, stream):
     change_channel_mode (stream, '+to ' + stream.nick)
     change_channel_mode (stream, '-to ' + stream.nick)
 
+    sync_stream(q, stream)
     sync_dbus(bus, q, conn)
     q.unforbid_events(forbidden)
 
     # back to normal?
-    test_topic_write_flag (q, stream, channel, subject_id, PROPERTY_FLAG_READ)
+    test_can_set(q, stream, channel)
 
     # Check if setting ops gives us write access on +t channels
     change_channel_mode (stream, '+t')
-    q.expect('dbus-signal', signal="PropertyFlagsChanged",
-      predicate= lambda e: has_subject_property (e, subject_id,
-        PROPERTY_FLAG_READ))
+    expect_and_check_can_set(q, channel, False)
 
     change_channel_mode (stream, '+o ' + stream.nick)
-    q.expect('dbus-signal', signal="PropertyFlagsChanged",
-      predicate= lambda e: has_subject_property (e, subject_id,
-        PROPERTY_FLAGS_RW))
+    expect_and_check_can_set(q, channel, True)
 
     change_channel_mode (stream, '-o ' + stream.nick)
-    q.expect('dbus-signal', signal="PropertyFlagsChanged",
-      predicate= lambda e: has_subject_property (e, subject_id,
-        PROPERTY_FLAG_READ))
+    expect_and_check_can_set(q, channel, False)
 
     change_channel_mode (stream, '-t')
-    q.expect('dbus-signal', signal="PropertyFlagsChanged",
-      predicate= lambda e: has_subject_property (e, subject_id,
-        PROPERTY_FLAGS_RW))
+    expect_and_check_can_set(q, channel, True)
 
     # And back to normal again ?
-    test_topic_write_flag (q, stream, channel, subject_id, PROPERTY_FLAG_READ)
-    return True
+    test_can_set(q, stream, channel)
+
+    channel.Subject2.SetSubject('')
+    # Verify that we send an empty final parameter ("clear the topic") as
+    # opposed to no final parameter ("what is the topic").
+    q.expect('stream-TOPIC', data=[room, ''])
 
 if __name__ == '__main__':
     exec_test(test)

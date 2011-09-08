@@ -157,6 +157,10 @@ class SSLIRCServer(BaseIRCServer):
         return reactor.listenSSL(port, factory,
                 ssl.DefaultOpenSSLContextFactory(key_file, cert_file))
 
+def sync_stream(q, stream):
+    stream.sendMessage('PING', 'sup')
+    q.expect('stream-PONG')
+
 def install_colourer():
     def red(s):
         return '\x1b[31m%s\x1b[0m' % s
