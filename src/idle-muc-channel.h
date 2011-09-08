@@ -23,6 +23,7 @@
 
 #include <glib-object.h>
 
+#include <telepathy-glib/base-channel.h>
 #include <telepathy-glib/enums.h>
 #include <telepathy-glib/group-mixin.h>
 #include <telepathy-glib/handle.h>
@@ -37,13 +38,14 @@ typedef struct _IdleMUCChannel IdleMUCChannel;
 typedef struct _IdleMUCChannelClass IdleMUCChannelClass;
 
 struct _IdleMUCChannelClass {
-	GObjectClass parent_class;
+	TpBaseChannelClass parent_class;
+
 	TpGroupMixinClass group_class;
-	TpDBusPropertiesMixinClass dbus_props_class;
 };
 
 struct _IdleMUCChannel {
-	GObject parent;
+	TpBaseChannel parent;
+
 	TpGroupMixin group;
 	TpMessageMixin message_mixin;
 };
@@ -71,7 +73,7 @@ GType idle_muc_channel_get_type(void);
 #define IDLE_MUC_CHANNEL_GET_CLASS(obj) \
 	(G_TYPE_INSTANCE_GET_CLASS ((obj), IDLE_TYPE_MUC_CHANNEL, IdleMUCChannelClass))
 
-IdleMUCChannel *idle_muc_channel_new(IdleConnection *conn, const gchar *object_path, TpHandle handle, TpHandle initiator, gboolean requested);
+IdleMUCChannel *idle_muc_channel_new(IdleConnection *conn, TpHandle handle, TpHandle initiator, gboolean requested);
 
 void idle_muc_channel_badchannelkey(IdleMUCChannel *chan);
 void idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter);

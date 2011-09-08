@@ -42,45 +42,25 @@
 #include "idle-debug.h"
 #include "idle-text.h"
 
-static void _channel_iface_init(gpointer, gpointer);
 static void _password_iface_init(gpointer, gpointer);
 static void _properties_iface_init(gpointer, gpointer);
 
 static void idle_muc_channel_send (GObject *obj, TpMessage *message, TpMessageSendingFlags flags);
+static void idle_muc_channel_close (TpBaseChannel *base);
 
-G_DEFINE_TYPE_WITH_CODE(IdleMUCChannel, idle_muc_channel, G_TYPE_OBJECT,
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL, _channel_iface_init);
+G_DEFINE_TYPE_WITH_CODE(IdleMUCChannel, idle_muc_channel, TP_TYPE_BASE_CHANNEL,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_GROUP, tp_group_mixin_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_PASSWORD, _password_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, tp_message_mixin_text_iface_init);
 		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_MESSAGES, tp_message_mixin_messages_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_PROPERTIES_INTERFACE, _properties_iface_init);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_EXPORTABLE_CHANNEL, NULL);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_IFACE, NULL);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_DBUS_PROPERTIES, tp_dbus_properties_mixin_iface_init);)
+		)
 
 
 /* signal enum */
 enum {
 	JOIN_READY,
 	LAST_SIGNAL
-};
-
-/* property enum */
-enum {
-	PROP_CONNECTION = 1,
-	PROP_OBJECT_PATH,
-	PROP_INTERFACES,
-	PROP_CHANNEL_TYPE,
-	PROP_HANDLE_TYPE,
-	PROP_HANDLE,
-	PROP_TARGET_ID,
-	PROP_REQUESTED,
-	PROP_INITIATOR_HANDLE,
-	PROP_INITIATOR_ID,
-	PROP_CHANNEL_DESTROYED,
-	PROP_CHANNEL_PROPERTIES,
-	LAST_PROPERTY_ENUM
 };
 
 typedef enum {
@@ -210,13 +190,7 @@ static guint signals[LAST_SIGNAL] = {0};
 typedef struct _IdleMUCChannelPrivate IdleMUCChannelPrivate;
 
 struct _IdleMUCChannelPrivate {
-	IdleConnection *connection;
-	gchar *object_path;
-	TpHandle handle;
 	const gchar *channel_name;
-
-	TpHandle initiator;
-	gboolean requested;
 
 	IdleMUCState state;
 
@@ -231,7 +205,6 @@ struct _IdleMUCChannelPrivate {
 	TpHandleSet *namereply_set;
 
 	gboolean join_ready;
-	gboolean closed;
 
 	gboolean dispose_has_run;
 };
@@ -245,7 +218,6 @@ static void idle_muc_channel_init (IdleMUCChannel *obj) {
 
 	priv->password_flags = 0;
 
-	priv->closed = FALSE;
 	priv->state = MUC_STATE_CREATED;
 
 	priv->mode_state.flags = 0;
@@ -261,11 +233,12 @@ static void idle_muc_channel_init (IdleMUCChannel *obj) {
 static void idle_muc_channel_dispose (GObject *object);
 static void idle_muc_channel_finalize (GObject *object);
 
-static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectConstructParam *props) {
-	GObject *obj = G_OBJECT_CLASS(idle_muc_channel_parent_class)->constructor(type, n_props, props);
+static void
+idle_muc_channel_constructed (GObject *obj)
+{
+	TpBaseChannel *base = TP_BASE_CHANNEL (obj);
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
-	TpDBusDaemon *bus;
-	TpBaseConnection *conn = TP_BASE_CONNECTION(priv->connection);
+	TpBaseConnection *conn = tp_base_channel_get_connection (base);
 	TpHandleRepoIface *room_handles = tp_base_connection_get_handles(conn, TP_HANDLE_TYPE_ROOM);
 	TpHandleRepoIface *contact_handles = tp_base_connection_get_handles(conn, TP_HANDLE_TYPE_CONTACT);
 	TpChannelTextMessageType types[] = {
@@ -278,17 +251,14 @@ static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectC
 			NULL
 	};
 
-	tp_handle_ref(room_handles, priv->handle);
-	g_assert(tp_handle_is_valid(room_handles, priv->handle, NULL));
-	priv->channel_name = tp_handle_inspect(room_handles, priv->handle);
+	G_OBJECT_CLASS (idle_muc_channel_parent_class)->constructed (obj);
 
-	if (priv->initiator)
-		tp_handle_ref(room_handles, priv->initiator);
+	priv->channel_name = tp_handle_inspect (room_handles, tp_base_channel_get_target_handle (base));
+	g_assert (priv->channel_name != NULL);
 
-	bus = tp_base_connection_get_dbus_daemon (conn);
-	tp_dbus_daemon_register_object (bus, priv->object_path, obj);
+	tp_base_channel_register (base);
 
-	tp_group_mixin_init(obj, G_STRUCT_OFFSET(IdleMUCChannel, group), contact_handles, priv->connection->parent.self_handle);
+	tp_group_mixin_init(obj, G_STRUCT_OFFSET(IdleMUCChannel, group), contact_handles, conn->self_handle);
 	tp_group_mixin_change_flags(obj, TP_CHANNEL_GROUP_FLAG_PROPERTIES, 0);
 
 	/* initialize message mixin */
@@ -299,240 +269,70 @@ static GObject *idle_muc_channel_constructor(GType type, guint n_props, GObjectC
 			TP_DELIVERY_REPORTING_SUPPORT_FLAG_RECEIVE_FAILURES,
 			supported_content_types);
 
-	if (priv->requested) {
+	if (tp_base_channel_is_requested (base)) {
 		/* Add ourself to 'remote-pending' while we are joining the channel */
 		TpIntSet *remote;
+		TpHandle initiator = tp_base_channel_get_initiator (base);
 
-		g_assert (priv->initiator == priv->connection->parent.self_handle);
+		g_assert (initiator == conn->self_handle);
 
-		remote = tp_intset_new_containing (priv->initiator);
+		remote = tp_intset_new_containing (initiator);
 		tp_group_mixin_change_members (obj, "", NULL, NULL, NULL, remote,
-			priv->initiator, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+			initiator, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 		tp_intset_destroy (remote);
 	}
-
-	return obj;
 }
 
-static void idle_muc_channel_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec) {
-	IdleMUCChannel *chan;
-	IdleMUCChannelPrivate *priv;
-
-	g_assert(object != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(object));
-
-	chan = IDLE_MUC_CHANNEL(object);
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
-
-	switch (property_id) {
-		case PROP_CONNECTION:
-			g_value_set_object(value, priv->connection);
-			break;
-
-		case PROP_OBJECT_PATH:
-			g_value_set_string(value, priv->object_path);
-			break;
-
-		case PROP_INTERFACES:
-			g_value_set_static_boxed(value, muc_channel_interfaces);
-			break;
-
-		case PROP_CHANNEL_TYPE:
-			g_value_set_string(value, TP_IFACE_CHANNEL_TYPE_TEXT);
-			break;
-
-		case PROP_HANDLE_TYPE:
-			g_value_set_uint(value, TP_HANDLE_TYPE_ROOM);
-			break;
-
-		case PROP_HANDLE:
-			g_value_set_uint(value, priv->handle);
-			break;
-
-		case PROP_TARGET_ID:
-			g_value_set_string(value, priv->channel_name);
-			break;
-
-		case PROP_REQUESTED:
-			g_value_set_boolean(value, priv->requested);
-			break;
-
-		case PROP_INITIATOR_HANDLE:
-			g_value_set_uint(value, priv->initiator);
-			break;
-
-		case PROP_INITIATOR_ID:
-			if (priv->initiator != 0) {
-				TpHandleRepoIface *handles = tp_base_connection_get_handles(
-					TP_BASE_CONNECTION(priv->connection),
-					TP_HANDLE_TYPE_CONTACT);
-				g_value_set_string(value,
-					tp_handle_inspect(handles, priv->initiator));
-			} else {
-				g_value_set_static_string(value, "");
-			}
-
-			break;
-
-		case PROP_CHANNEL_DESTROYED:
-			/* TODO: this should be FALSE if there are still pending messages, so
-			 *       the channel manager can respawn the channel.
-			 */
-			g_value_set_boolean (value, TRUE);
-			break;
-
-		case PROP_CHANNEL_PROPERTIES:
-		{
-			GHashTable *props =
-				tp_dbus_properties_mixin_make_properties_hash (
-					object,
-					TP_IFACE_CHANNEL, "Interfaces",
-					TP_IFACE_CHANNEL, "ChannelType",
-					TP_IFACE_CHANNEL, "TargetHandleType",
-					TP_IFACE_CHANNEL, "TargetHandle",
-					TP_IFACE_CHANNEL, "TargetID",
-					TP_IFACE_CHANNEL, "InitiatorHandle",
-					TP_IFACE_CHANNEL, "InitiatorID",
-					TP_IFACE_CHANNEL, "Requested",
-					TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessagePartSupportFlags",
-					TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "DeliveryReportingSupport",
-					TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "SupportedContentTypes",
-					TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessageTypes",
-					NULL);
-			g_value_take_boxed (value, props);
-			break;
-		}
-
-		default:
-			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-			break;
-	}
+static gchar *
+idle_muc_channel_get_path_suffix (
+    TpBaseChannel *chan)
+{
+  return g_strdup_printf("MucChannel%u",
+      tp_base_channel_get_target_handle (chan));
 }
 
-static void idle_muc_channel_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec) {
-	IdleMUCChannel *chan = IDLE_MUC_CHANNEL(object);
-	IdleMUCChannelPrivate *priv;
+static void
+idle_muc_channel_fill_immutable_properties (
+    TpBaseChannel *chan,
+    GHashTable *properties)
+{
+  TpBaseChannelClass *parent_class =
+      TP_BASE_CHANNEL_CLASS (idle_muc_channel_parent_class);
 
-	g_assert(chan != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(chan));
+  parent_class->fill_immutable_properties (chan, properties);
 
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
-
-	switch (property_id) {
-		case PROP_CONNECTION:
-			priv->connection = g_value_get_object(value);
-			break;
-
-		case PROP_OBJECT_PATH:
-			if (priv->object_path)
-				g_free(priv->object_path);
-
-			priv->object_path = g_value_dup_string(value);
-			break;
-
-		case PROP_HANDLE:
-			priv->handle = g_value_get_uint(value);
-			IDLE_DEBUG("setting handle to %u", priv->handle);
-			break;
-
-		case PROP_INITIATOR_HANDLE:
-			priv->initiator = g_value_get_uint(value);
-			break;
-
-		case PROP_REQUESTED:
-			priv->requested = g_value_get_boolean(value);
-			break;
-
-		case PROP_CHANNEL_TYPE:
-		case PROP_HANDLE_TYPE:
-			/* writeable in the interface, but setting them makes
-			no sense, so ignore them */
-			break;
-
-		default:
-			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-			break;
-	}
+  tp_dbus_properties_mixin_fill_properties_hash (
+      G_OBJECT (chan), properties,
+      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessagePartSupportFlags",
+      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "DeliveryReportingSupport",
+      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "SupportedContentTypes",
+      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessageTypes",
+      NULL);
 }
 
 static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class) {
 	GObjectClass *object_class = G_OBJECT_CLASS (idle_muc_channel_class);
-	GParamSpec *param_spec;
+	TpBaseChannelClass *base_channel_class = TP_BASE_CHANNEL_CLASS (idle_muc_channel_class);
 
 	g_type_class_add_private (idle_muc_channel_class, sizeof (IdleMUCChannelPrivate));
 
-	object_class->constructor = idle_muc_channel_constructor;
-
-	object_class->get_property = idle_muc_channel_get_property;
-	object_class->set_property = idle_muc_channel_set_property;
-
-	g_object_class_override_property (object_class, PROP_OBJECT_PATH, "object-path");
-	g_object_class_override_property (object_class, PROP_CHANNEL_TYPE, "channel-type");
-	g_object_class_override_property (object_class, PROP_HANDLE_TYPE, "handle-type");
-	g_object_class_override_property (object_class, PROP_HANDLE, "handle");
-	g_object_class_override_property (object_class, PROP_CHANNEL_DESTROYED, "channel-destroyed");
-	g_object_class_override_property (object_class, PROP_CHANNEL_PROPERTIES, "channel-properties");
-
+	object_class->constructed = idle_muc_channel_constructed;
 	object_class->dispose = idle_muc_channel_dispose;
 	object_class->finalize = idle_muc_channel_finalize;
 
-	param_spec = g_param_spec_object ("connection", "IdleConnection object", "The IdleConnection object that owns this MUCChannel object.", IDLE_TYPE_CONNECTION, G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB);
-	g_object_class_install_property (object_class, PROP_CONNECTION, param_spec);
+	base_channel_class->channel_type = TP_IFACE_CHANNEL_TYPE_TEXT;
+	base_channel_class->target_handle_type = TP_HANDLE_TYPE_ROOM;
+	base_channel_class->interfaces = muc_channel_interfaces;
 
-	param_spec = g_param_spec_boxed ("interfaces", "Extra D-Bus interfaces",
-		"Interfaces implemented by this object besides Channel",
-		G_TYPE_STRV, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-	g_object_class_install_property (object_class, PROP_INTERFACES, param_spec);
-
-	param_spec = g_param_spec_string ("target-id", "Room's identifier",
-		"The name of the IRC channel",
-		NULL, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-	g_object_class_install_property (object_class, PROP_TARGET_ID, param_spec);
-
-	param_spec = g_param_spec_boolean ("requested", "Requested?",
-		"True if this channel was requested by the local user",
-		FALSE,
-		G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-	g_object_class_install_property (object_class, PROP_REQUESTED, param_spec);
-
-	param_spec = g_param_spec_uint ("initiator-handle", "Initiator's handle",
-		"The contact who initiated the channel",
-		0, G_MAXUINT32, 0,
-		G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-	g_object_class_install_property (object_class, PROP_INITIATOR_HANDLE, param_spec);
-
-	param_spec = g_param_spec_string ("initiator-id", "Initiator's bare JID",
-		"The string obtained by inspecting the initiator-handle",
-		NULL, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-	g_object_class_install_property (object_class, PROP_INITIATOR_ID, param_spec);
+	base_channel_class->close = idle_muc_channel_close;
+	base_channel_class->fill_immutable_properties = idle_muc_channel_fill_immutable_properties;
+	base_channel_class->get_object_path_suffix = idle_muc_channel_get_path_suffix;
 
 	signals[JOIN_READY] = g_signal_new("join-ready", G_OBJECT_CLASS_TYPE(idle_muc_channel_class), G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED, 0, NULL, NULL, g_cclosure_marshal_VOID__UINT, G_TYPE_NONE, 1, G_TYPE_UINT);
 
 	tp_group_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleMUCChannelClass, group_class), add_member, remove_member);
 	tp_message_mixin_init_dbus_properties (object_class);
 
-	static TpDBusPropertiesMixinPropImpl channel_props[] = {
-		{ "Interfaces", "interfaces", NULL },
-		{ "ChannelType", "channel-type", NULL },
-		{ "TargetHandleType", "handle-type", NULL },
-		{ "TargetHandle", "handle", NULL },
-		{ "TargetID", "target-id", NULL },
-		{ "InitiatorHandle", "initiator-handle", NULL },
-		{ "InitiatorID", "initiator-id", NULL },
-		{ "Requested", "requested", NULL },
-		{ NULL }
-	};
-	static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
-		{ TP_IFACE_CHANNEL,
-			tp_dbus_properties_mixin_getter_gobject_properties,
-			NULL,
-			channel_props,
-		},
-		{ NULL }
-	};
-
-	idle_muc_channel_class->dbus_props_class.interfaces = prop_interfaces;
-	tp_dbus_properties_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleMUCChannelClass, dbus_props_class));
 	tp_group_mixin_init_dbus_properties (object_class);
 	tp_group_mixin_class_allow_self_removal (object_class);
 }
@@ -546,9 +346,6 @@ void idle_muc_channel_dispose (GObject *object) {
 
 	priv->dispose_has_run = TRUE;
 
-	if (!priv->closed)
-		tp_svc_channel_emit_closed((TpSvcChannel *)(self));
-
 	if (G_OBJECT_CLASS (idle_muc_channel_parent_class)->dispose)
 		G_OBJECT_CLASS (idle_muc_channel_parent_class)->dispose (object);
 }
@@ -556,14 +353,6 @@ void idle_muc_channel_dispose (GObject *object) {
 void idle_muc_channel_finalize (GObject *object) {
 	IdleMUCChannel *self = IDLE_MUC_CHANNEL (object);
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (self);
-	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_ROOM);
-	tp_handle_unref(handles, priv->handle);
-
-	if (priv->initiator)
-		tp_handle_unref(handles, priv->initiator);
-
-	if (priv->object_path)
-		g_free(priv->object_path);
 
 	if (priv->mode_state.topic)
 		g_free(priv->mode_state.topic);
@@ -583,10 +372,14 @@ void idle_muc_channel_finalize (GObject *object) {
 	G_OBJECT_CLASS (idle_muc_channel_parent_class)->finalize (object);
 }
 
-IdleMUCChannel *idle_muc_channel_new(IdleConnection *conn, const gchar *object_path, TpHandle handle, TpHandle initiator, gboolean requested) {
+IdleMUCChannel *
+idle_muc_channel_new (
+    IdleConnection *conn,
+    TpHandle handle,
+    TpHandle initiator,
+    gboolean requested) {
 	return g_object_new(IDLE_TYPE_MUC_CHANNEL,
 		"connection", conn,
-		"object-path", object_path,
 		"handle", handle,
 		"initiator-handle", initiator,
 		"requested", requested,
@@ -820,7 +613,8 @@ static void provide_password_reply(IdleMUCChannel *chan, gboolean success) {
 		tp_svc_channel_interface_password_return_from_provide_password(priv->passwd_ctx, success);
 		priv->passwd_ctx = NULL;
 	} else {
-		IDLE_DEBUG("don't have a ProvidePassword context to return with! (channel handle %u)", priv->handle);
+		IDLE_DEBUG("don't have a ProvidePassword context to return with! (%s, aka %u)",
+			priv->channel_name, tp_base_channel_get_target_handle (TP_BASE_CHANNEL (chan)));
 	}
 
 	if (success) {
@@ -857,7 +651,7 @@ static void change_state(IdleMUCChannel *obj, IdleMUCState state) {
 
 	priv->state = state;
 
-	IDLE_DEBUG("IdleMUCChannel %u changed to state %s", priv->handle, ascii_muc_states[state]);
+	IDLE_DEBUG("IdleMUCChannel %s changed to state %s", priv->channel_name, ascii_muc_states[state]);
 }
 
 gboolean idle_muc_channel_is_ready(IdleMUCChannel *obj) {
@@ -1083,10 +877,20 @@ static void change_password_flags(IdleMUCChannel *obj, guint flag, gboolean stat
 }
 
 gboolean idle_muc_channel_receive(IdleMUCChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *text) {
-	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (chan);
-	TpBaseConnection *base_conn = TP_BASE_CONNECTION (priv->connection);
+	TpBaseConnection *base_conn = tp_base_channel_get_connection (TP_BASE_CHANNEL (chan));
 
 	return idle_text_received (G_OBJECT (chan), base_conn, type, text, sender);
+}
+
+static void
+send_command (
+    IdleMUCChannel *self,
+    const gchar *cmd)
+{
+  TpBaseChannel *base = TP_BASE_CHANNEL (self);
+  TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
+
+  idle_connection_send (IDLE_CONNECTION (base_conn), cmd);
 }
 
 static void send_mode_query_request(IdleMUCChannel *chan) {
@@ -1100,17 +904,19 @@ static void send_mode_query_request(IdleMUCChannel *chan) {
 
 	g_snprintf(cmd, IRC_MSG_MAXLEN + 2, "MODE %s", priv->channel_name);
 
-	idle_connection_send(priv->connection, cmd);
+	send_command (chan, cmd);
 }
 
 void idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner) {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	TpBaseConnection *base_conn = tp_base_channel_get_connection (
+		TP_BASE_CHANNEL (chan));
 	TpIntSet *set;
 
 	set = tp_intset_new();
 	tp_intset_add(set, joiner);
 
-	if (joiner == priv->connection->parent.self_handle) {
+	if (joiner == base_conn->self_handle) {
 		/* woot we managed to get into a channel, great */
 		change_state(chan, MUC_STATE_JOINED);
 		tp_group_mixin_change_members((GObject *)(chan), NULL, set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
@@ -1134,18 +940,18 @@ void idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner) {
 }
 
 static void _network_member_left(IdleMUCChannel *chan, TpHandle leaver, TpHandle actor, const gchar *message, TpChannelGroupChangeReason reason) {
-	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
+TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 	TpIntSet *set = tp_intset_new();
 
 	tp_intset_add(set, leaver);
 	tp_group_mixin_change_members((GObject *) chan, message, NULL, set, NULL, NULL, actor, reason);
 
-	if (leaver == priv->connection->parent.self_handle) {
+	if (leaver == base_conn->self_handle) {
 		change_state(chan, MUC_STATE_PARTED);
 
-		if (!priv->closed) {
-			priv->closed = TRUE;
-			tp_svc_channel_emit_closed((TpSvcChannel *) chan);
+		if (!tp_base_channel_is_destroyed (base)) {
+			tp_base_channel_destroyed (base);
 		}
 	}
 
@@ -1165,12 +971,13 @@ void idle_muc_channel_quit(IdleMUCChannel *chan, TpHandle quitter, const gchar *
 }
 
 void idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter) {
-	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	TpBaseConnection *base_conn =
+		tp_base_channel_get_connection (TP_BASE_CHANNEL (chan));
 	TpIntSet *add = tp_intset_new();
 	TpIntSet *local = tp_intset_new();
 
 	tp_intset_add(add, inviter);
-	tp_intset_add(local, priv->connection->parent.self_handle);
+	tp_intset_add(local, base_conn->self_handle);
 
 	tp_group_mixin_change_members((GObject *)(chan), NULL, add, NULL, local, NULL, inviter, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 
@@ -1180,15 +987,17 @@ void idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter) {
 
 void idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
+	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 
 	if (!priv->namereply_set)
-		priv->namereply_set = tp_handle_set_new(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT));
+		priv->namereply_set = tp_handle_set_new(tp_base_connection_get_handles(base_conn, TP_HANDLE_TYPE_CONTACT));
 
 	for (guint i = 1; (i + 1) < args->n_values; i += 2) {
 		TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, i));
 		gchar modechar = g_value_get_char(g_value_array_get_nth(args, i + 1));
 
-		if (handle == priv->connection->parent.self_handle) {
+		if (handle == base_conn->self_handle) {
 			guint remove = MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_VOICE_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE;
 			guint add = 0;
 
@@ -1219,13 +1028,15 @@ void idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
 
 void idle_muc_channel_namereply_end(IdleMUCChannel *chan) {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
+	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
+	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 
 	if (!priv->namereply_set) {
 		IDLE_DEBUG("no NAMEREPLY received before NAMEREPLY_END");
 		return;
 	}
 
-	idle_connection_emit_queued_aliases_changed(priv->connection);
+	idle_connection_emit_queued_aliases_changed(IDLE_CONNECTION (base_conn));
 
 	tp_group_mixin_change_members((GObject *) chan, NULL, tp_handle_set_peek(priv->namereply_set), NULL, NULL, NULL, 0, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 
@@ -1248,7 +1059,9 @@ static guint _modechar_to_modeflag(gchar modechar) {
 
 void idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args) {
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(chan);
-	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
+	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
+	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
+	TpHandleRepoIface *handles = tp_base_connection_get_handles(base_conn, TP_HANDLE_TYPE_CONTACT);
 	GArray *flags_to_change = g_array_new(FALSE, FALSE, sizeof(guint));
 	static const guint flags_helper[] = {
 		TP_PROPERTY_INVITE_ONLY,
@@ -1284,7 +1097,7 @@ void idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args) {
 					if ((i + 1) < args->n_values) {
 						TpHandle handle = tp_handle_ensure(handles, g_value_get_string(g_value_array_get_nth(args, ++i)), NULL, NULL);
 
-						if (handle == priv->connection->parent.self_handle) {
+						if (handle == base_conn->self_handle) {
 							IDLE_DEBUG("got MODE '%c' concerning us", *modes);
 							mode_accum |= _modechar_to_modeflag(*modes);
 						}
@@ -1593,7 +1406,7 @@ static void send_join_request(IdleMUCChannel *obj, const gchar *password) {
 	else
 		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "JOIN %s", priv->channel_name);
 
-	idle_connection_send(priv->connection, cmd);
+	send_command (obj, cmd);
 }
 
 void idle_muc_channel_join_attempt(IdleMUCChannel *obj) {
@@ -1602,15 +1415,16 @@ void idle_muc_channel_join_attempt(IdleMUCChannel *obj) {
 
 static gboolean send_invite_request(IdleMUCChannel *obj, TpHandle handle, GError **error) {
 	IdleMUCChannelPrivate *priv;
+	TpBaseChannel *base = TP_BASE_CHANNEL (obj);
+	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 	gchar cmd[IRC_MSG_MAXLEN + 1];
 	const gchar *nick;
 
-	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	nick = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), handle);
+	nick = tp_handle_inspect(tp_base_connection_get_handles(base_conn, TP_HANDLE_TYPE_CONTACT), handle);
 
 	if ((nick == NULL) || (nick[0] == '\0')) {
 		IDLE_DEBUG("invalid handle %u passed", handle);
@@ -1622,22 +1436,23 @@ static gboolean send_invite_request(IdleMUCChannel *obj, TpHandle handle, GError
 
 	g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "INVITE %s %s", nick, priv->channel_name);
 
-	idle_connection_send(priv->connection, cmd);
+	send_command (obj, cmd);
 
 	return TRUE;
 }
 
 static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gchar *msg, GError **error) {
 	IdleMUCChannelPrivate *priv;
+	TpBaseChannel *base = TP_BASE_CHANNEL (obj);
+	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 	gchar cmd[IRC_MSG_MAXLEN + 1];
 	const gchar *nick;
 
-	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
 
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
-	nick = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), handle);
+	nick = tp_handle_inspect(tp_base_connection_get_handles(base_conn, TP_HANDLE_TYPE_CONTACT), handle);
 
 	if ((nick == NULL) || (nick[0] == '\0')) {
 		IDLE_DEBUG("invalid handle %u passed", handle);
@@ -1653,7 +1468,7 @@ static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gc
 		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "KICK %s %s", priv->channel_name, nick);
 	}
 
-	idle_connection_send(priv->connection, cmd);
+	send_command (obj, cmd);
 
 	return TRUE;
 }
@@ -1661,13 +1476,15 @@ static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gc
 static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message, GError **error) {
 	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(gobj);
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	TpBaseChannel *base = TP_BASE_CHANNEL (obj);
+	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 
-	if (handle == priv->connection->parent.self_handle) {
+	if (handle == base_conn->self_handle) {
 		if (tp_handle_set_is_member(obj->group.members, handle) || tp_handle_set_is_member(obj->group.remote_pending, handle)) {
-			IDLE_DEBUG("we are already a member of or trying to join the channel with handle %u", priv->handle);
-
-			g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "we are already a member of or trying to join the channel with handle %u", priv->handle);
-
+			GError *e = g_error_new (TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+				"we are already a member of or trying to join %s", priv->channel_name);
+			IDLE_DEBUG ("%s", e->message);
+			g_propagate_error (error, e);
 			return FALSE;
 		} else {
 			TpIntSet *add_set = tp_intset_new();
@@ -1682,10 +1499,13 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 		}
 	} else {
 		if (tp_handle_set_is_member(obj->group.members, handle) || tp_handle_set_is_member(obj->group.remote_pending, handle)) {
-			IDLE_DEBUG("the requested contact (handle %u) to be added to the room (handle %u) is already a member of or has already been invited to join the room", handle, priv->handle);
-
-			g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "the requested contact (handle %u) to be added to the room (handle %u) is already a member of or has already been invited to join the room", handle, priv->handle);
-
+			GError *e = g_error_new (TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+				"the requested contact (handle %u) to be added "
+				"to the room (%s) is already a member of, or "
+				"has already been invited to join, the room",
+				handle, priv->channel_name);
+			IDLE_DEBUG ("%s", e->message);
+			g_propagate_error (error, e);
 			return FALSE;
 		} else {
 			GError *invite_error;
@@ -1699,7 +1519,7 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 
 			tp_intset_add(add_set, handle);
 
-			tp_group_mixin_change_members(gobj, NULL, NULL, NULL, NULL, add_set, priv->connection->parent.self_handle, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
+			tp_group_mixin_change_members(gobj, NULL, NULL, NULL, NULL, add_set, base_conn->self_handle, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 		}
 	}
 
@@ -1721,14 +1541,15 @@ static void part_from_channel(IdleMUCChannel *obj, const gchar *msg) {
 		g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "PART %s", priv->channel_name);
 	}
 
-	idle_connection_send(priv->connection, cmd);
+	send_command(obj, cmd);
 }
 
 static gboolean remove_member(GObject *gobj, TpHandle handle, const gchar *message, GError **error) {
 	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(gobj);
-	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	TpBaseChannel *base = TP_BASE_CHANNEL (obj);
+	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 
-	if (handle == priv->connection->parent.self_handle) {
+	if (handle == base_conn->self_handle) {
 		part_from_channel(obj, message);
 		return TRUE;
 	}
@@ -1749,95 +1570,21 @@ static gboolean remove_member(GObject *gobj, TpHandle handle, const gchar *messa
 	return TRUE;
 }
 
-/**
- * idle_muc_channel_close
- *
- * Implements DBus method Close
- * on interface org.freedesktop.Telepathy.Channel
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-static void idle_muc_channel_close (TpSvcChannel *obj, DBusGMethodInvocation *context) {
-	IdleMUCChannelPrivate *priv;
+static void
+idle_muc_channel_close (
+    TpBaseChannel *base)
+{
+	IdleMUCChannel *self = IDLE_MUC_CHANNEL (base);
+	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE (self);
 
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(obj));
-
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
+	IDLE_DEBUG ("called on %p", self);
 
 	if (priv->state == MUC_STATE_JOINED)
-		part_from_channel((IdleMUCChannel*)(obj), NULL);
+		part_from_channel (self, NULL);
 
-	if (priv->state < MUC_STATE_JOINED){
-		if (!priv->closed) {
-			tp_svc_channel_emit_closed(obj);
-			priv->closed = TRUE;
-		}
-	}
-
-	IDLE_DEBUG("called on %p", obj);
-
-	tp_svc_channel_return_from_close(context);
-}
-
-/**
- * idle_muc_channel_get_channel_type
- *
- * Implements DBus method GetChannelType
- * on interface org.freedesktop.Telepathy.Channel
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-static void idle_muc_channel_get_channel_type (TpSvcChannel *iface, DBusGMethodInvocation *context) {
-	tp_svc_channel_return_from_get_channel_type(context, TP_IFACE_CHANNEL_TYPE_TEXT);
-}
-
-/**
- * idle_muc_channel_get_handle
- *
- * Implements DBus method GetHandle
- * on interface org.freedesktop.Telepathy.Channel
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-static void idle_muc_channel_get_handle (TpSvcChannel *iface, DBusGMethodInvocation *context) {
-	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
-	IdleMUCChannelPrivate *priv;
-
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(obj));
-
-	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
-
-	tp_svc_channel_return_from_get_handle(context, TP_HANDLE_TYPE_ROOM, priv->handle);
-}
-
-/**
- * idle_muc_channel_get_interfaces
- *
- * Implements DBus method GetInterfaces
- * on interface org.freedesktop.Telepathy.Channel
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-static void idle_muc_channel_get_interfaces (TpSvcChannel *obj, DBusGMethodInvocation *context) {
-	tp_svc_channel_return_from_get_interfaces(context, muc_channel_interfaces);
+	/* FIXME: this is wrong if called while JOIN is in flight. */
+	if (priv->state < MUC_STATE_JOINED)
+		tp_base_channel_destroyed (base);
 }
 
 /**
@@ -2024,7 +1771,6 @@ static void idle_muc_channel_list_properties (TpSvcPropertiesInterface *iface, D
 static void idle_muc_channel_provide_password (TpSvcChannelInterfacePassword *iface, const gchar * password, DBusGMethodInvocation *context) {
 	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
 	IdleMUCChannelPrivate *priv;
-	GError *error;
 
 	g_assert(obj != NULL);
 	g_assert(IDLE_IS_MUC_CHANNEL(obj));
@@ -2032,12 +1778,12 @@ static void idle_muc_channel_provide_password (TpSvcChannelInterfacePassword *if
 	priv = IDLE_MUC_CHANNEL_GET_PRIVATE(obj);
 
 	if (!(priv->password_flags & TP_CHANNEL_PASSWORD_FLAG_PROVIDE) || (priv->passwd_ctx != NULL)) {
-		IDLE_DEBUG("don't need a password now or authentication already in process (handle %u)", priv->handle);
-
-		error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "don't need a password now or authentication already in process (handle %u)", priv->handle);
+		GError *error = g_error_new (TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+			"don't need a password now or authentication already "
+			"in progress (%s)", priv->channel_name);
+		IDLE_DEBUG ("%s", error->message);
 		dbus_g_method_return_error(context, error);
 		g_error_free(error);
-
 		return;
 	}
 
@@ -2058,6 +1804,8 @@ idle_muc_channel_send (GObject *obj, TpMessage *message, TpMessageSendingFlags f
 {
 	IdleMUCChannel *self = (IdleMUCChannel *) obj;
 	IdleMUCChannelPrivate *priv = IDLE_MUC_CHANNEL_GET_PRIVATE(self);
+	TpBaseChannel *base = TP_BASE_CHANNEL (self);
+	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 
 	if ((priv->mode_state.flags & MODE_FLAG_MODERATED) && !(priv->mode_state.flags & (MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE | MODE_FLAG_VOICE_PRIVILEGE))) {
 		GError error = { TP_ERRORS, TP_ERROR_PERMISSION_DENIED, "Channel is moderated" };
@@ -2067,7 +1815,7 @@ idle_muc_channel_send (GObject *obj, TpMessage *message, TpMessageSendingFlags f
 		return;
 	}
 
-	idle_text_send(obj, message, flags, priv->channel_name, priv->connection);
+	idle_text_send(obj, message, flags, priv->channel_name, IDLE_CONNECTION (base_conn));
 }
 
 static char to_irc_mode(IdleMUCChannelTPProperty prop_id) {
@@ -2150,7 +1898,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 			body[seq++] = irc_mode;
 			body[seq++] = '\0';
 
-			idle_connection_send(priv->connection, cmd);
+			send_command (obj, cmd);
 		} else {
 			if (prop_id == TP_PROPERTY_SUBJECT) {
 				const gchar *subject = g_value_get_string(prop_val);
@@ -2158,7 +1906,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 
 				g_snprintf(cmd, IRC_MSG_MAXLEN + 2, "TOPIC %s :%s", priv->channel_name, subject);
 
-				idle_connection_send(priv->connection, cmd);
+				send_command (obj, cmd);
 			} else {
 				g_ptr_array_add(waiting, g_value_get_boxed(&prop));
 			}
@@ -2244,7 +1992,7 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 			}
 		}
 
-		idle_connection_send(priv->connection, cmd);
+		send_command (obj, cmd);
 	}
 
 	g_ptr_array_free(waiting, TRUE);
@@ -2377,18 +2125,6 @@ gboolean idle_muc_channel_is_typechar(gchar c)
 		default:
 			return FALSE;
 	}
-}
-
-static void _channel_iface_init(gpointer g_iface, gpointer iface_data) {
-	TpSvcChannelClass *klass = (TpSvcChannelClass *)g_iface;
-
-#define IMPLEMENT(x) tp_svc_channel_implement_##x (\
-		klass, idle_muc_channel_##x)
-	IMPLEMENT(close);
-	IMPLEMENT(get_channel_type);
-	IMPLEMENT(get_handle);
-	IMPLEMENT(get_interfaces);
-#undef IMPLEMENT
 }
 
 static void _password_iface_init(gpointer g_iface, gpointer iface_data) {

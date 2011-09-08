@@ -630,19 +630,15 @@ static IdleMUCChannel *_muc_manager_new_channel(IdleMUCManager *manager, TpHandl
 {
 	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(manager);
 	IdleMUCChannel *chan;
-	gchar *object_path;
 
 	g_assert(g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(handle)) == NULL);
 
-	object_path = g_strdup_printf("%s/MucChannel%u", priv->conn->parent.object_path, handle);
-	chan = idle_muc_channel_new(priv->conn, object_path, handle, initiator, requested);
+	chan = idle_muc_channel_new(priv->conn, handle, initiator, requested);
 
 	g_signal_connect(chan, "closed", (GCallback) _channel_closed_cb, manager);
 	g_signal_connect(chan, "join-ready", (GCallback) _channel_join_ready_cb, manager);
 
 	g_hash_table_insert(priv->channels, GUINT_TO_POINTER(handle), chan);
-
-	g_free(object_path);
 
 	return chan;
 }
