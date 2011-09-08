@@ -90,8 +90,6 @@ typedef enum {
 	MUC_STATE_PARTED
 } IdleMUCState;
 
-#define LAST_MODE_FLAG_SHIFT (15)
-
 typedef enum {
 	MODE_FLAG_CREATOR = 1,
 	MODE_FLAG_OPERATOR_PRIVILEGE = 2,
