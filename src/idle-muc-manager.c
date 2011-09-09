@@ -83,14 +83,6 @@ static void connection_status_changed_cb (IdleConnection *conn, guint status, gu
 static void _muc_manager_close_all(IdleMUCManager *manager);
 static void _muc_manager_add_handlers(IdleMUCManager *manager);
 
-static void _muc_manager_foreach_channel(TpChannelManager *manager, TpExportableChannelFunc func, gpointer user_data);
-static void _muc_manager_type_foreach_channel_class (GType type, TpChannelManagerTypeChannelClassFunc func, gpointer user_data);
-
-static gboolean _muc_manager_create_channel (TpChannelManager *manager, gpointer request_token, GHashTable *request_properties);
-static gboolean _muc_manager_request_channel (TpChannelManager *manager, gpointer request_token, GHashTable *request_properties);
-static gboolean _muc_manager_ensure_channel (TpChannelManager *manager, gpointer request_token, GHashTable *request_properties);
-static gboolean _muc_manager_request (IdleMUCManager *self, gpointer request_token, GHashTable *request_properties, gboolean require_new);
-
 static IdleMUCChannel *_muc_manager_new_channel(IdleMUCManager *manager, TpHandle handle, TpHandle initiator, gboolean requested);
 
 static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data);
@@ -603,28 +595,28 @@ static void _muc_manager_foreach_channel(TpChannelManager *iface, TpExportableCh
 }
 
 static void
-_muc_manager_type_foreach_channel_class (GType type,
-									TpChannelManagerTypeChannelClassFunc func,
-									gpointer user_data)
+_muc_manager_type_foreach_channel_class (
+    GType type,
+    TpChannelManagerTypeChannelClassFunc func,
+    gpointer user_data)
 {
-	GHashTable *table = g_hash_table_new_full (g_str_hash, g_str_equal,
-											   NULL, (GDestroyNotify) tp_g_value_slice_free);
-	GValue *channel_type_value, *handle_type_value;
+  GHashTable *table = g_hash_table_new_full (g_str_hash, g_str_equal,
+      NULL, (GDestroyNotify) tp_g_value_slice_free);
+  GValue *channel_type_value, *handle_type_value;
 
-	channel_type_value = tp_g_value_slice_new (G_TYPE_STRING);
-	g_value_set_static_string (channel_type_value, TP_IFACE_CHANNEL_TYPE_TEXT);
-	g_hash_table_insert (table, TP_IFACE_CHANNEL ".ChannelType",
-						 channel_type_value);
+  channel_type_value = tp_g_value_slice_new (G_TYPE_STRING);
+  g_value_set_static_string (channel_type_value, TP_IFACE_CHANNEL_TYPE_TEXT);
+  g_hash_table_insert (table, TP_IFACE_CHANNEL ".ChannelType",
+      channel_type_value);
 
-	handle_type_value = tp_g_value_slice_new (G_TYPE_UINT);
-	g_value_set_uint (handle_type_value, TP_HANDLE_TYPE_ROOM);
-	g_hash_table_insert (table, TP_IFACE_CHANNEL ".TargetHandleType",
-						 handle_type_value);
+  handle_type_value = tp_g_value_slice_new (G_TYPE_UINT);
+  g_value_set_uint (handle_type_value, TP_HANDLE_TYPE_ROOM);
+  g_hash_table_insert (table, TP_IFACE_CHANNEL ".TargetHandleType",
+      handle_type_value);
 
-	func (type, table, muc_channel_allowed_properties,
-		  user_data);
+  func (type, table, muc_channel_allowed_properties, user_data);
 
-	g_hash_table_destroy (table);
+  g_hash_table_destroy (table);
 }
 
 
@@ -733,126 +725,125 @@ out:
 	g_slist_free (reqs);
 }
 
-
 static gboolean
-_muc_manager_create_channel (TpChannelManager *manager,
-							 gpointer request_token,
-							 GHashTable *request_properties)
+_muc_manager_request (
+    IdleMUCManager *self,
+    gpointer request_token,
+    GHashTable *request_properties,
+    gboolean require_new)
 {
-	IdleMUCManager *self = IDLE_MUC_MANAGER (manager);
+  IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE (self);
+  TpBaseConnection *base_conn = (TpBaseConnection *) priv->conn;
+  TpHandleRepoIface *room_repo = tp_base_connection_get_handles (base_conn,
+      TP_HANDLE_TYPE_ROOM);
+  GError *error = NULL;
+  TpHandle handle;
+  const gchar *channel_type;
+  IdleMUCChannel *channel;
 
-	return _muc_manager_request (self, request_token, request_properties,
-								 TRUE);
-}
+  if (tp_asv_get_uint32 (request_properties,
+        TP_IFACE_CHANNEL ".TargetHandleType", NULL) != TP_HANDLE_TYPE_ROOM)
+    return FALSE;
 
+  handle = tp_asv_get_uint32 (request_properties,
+      TP_IFACE_CHANNEL ".TargetHandle", NULL);
 
-static gboolean
-_muc_manager_request_channel (TpChannelManager *manager,
-							  gpointer request_token,
-							  GHashTable *request_properties)
-{
-	IdleMUCManager *self = IDLE_MUC_MANAGER (manager);
+  if (!tp_handle_is_valid (room_repo, handle, &error))
+    goto error;
 
-	return _muc_manager_request (self, request_token, request_properties,
-								 FALSE);
-}
+  channel_type = tp_asv_get_string (request_properties,
+      TP_IFACE_CHANNEL ".ChannelType");
 
+  if (!tp_strdiff (channel_type, TP_IFACE_CHANNEL_TYPE_TEXT))
+    {
+      if (tp_channel_manager_asv_has_unknown_properties (request_properties,
+            muc_channel_fixed_properties, muc_channel_allowed_properties,
+            &error))
+      goto error;
 
-static gboolean
-_muc_manager_ensure_channel (TpChannelManager *manager,
-							 gpointer request_token,
-							 GHashTable *request_properties)
-{
-	IdleMUCManager *self = IDLE_MUC_MANAGER (manager);
+      channel = g_hash_table_lookup (priv->channels, GINT_TO_POINTER (handle));
 
-	return _muc_manager_request (self, request_token, request_properties,
-								 FALSE);
-}
+      if (channel != NULL)
+        {
+          if (require_new)
+            {
+              g_set_error (&error, TP_ERROR, TP_ERROR_NOT_AVAILABLE,
+                     "That channel has already been created (or requested)");
+              goto error;
+            }
+          else if (idle_muc_channel_is_ready (channel))
+            {
+              tp_channel_manager_emit_request_already_satisfied (self,
+                  request_token, TP_EXPORTABLE_CHANNEL (channel));
+              return TRUE;
+            }
+        }
+      else
+        {
+          channel = _muc_manager_new_channel (self, handle, base_conn->self_handle, TRUE);
+          idle_muc_channel_join_attempt (channel);
+        }
 
-static gboolean
-_muc_manager_request (IdleMUCManager *self,
-					  gpointer request_token,
-					  GHashTable *request_properties,
-					  gboolean require_new)
-{
-	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE (self);
-	TpBaseConnection *base_conn = (TpBaseConnection *) priv->conn;
-	TpHandleRepoIface *room_repo = tp_base_connection_get_handles (base_conn,
-																   TP_HANDLE_TYPE_ROOM);
-	GError *error = NULL;
-	TpHandle handle;
-	const gchar *channel_type;
-	IdleMUCChannel *channel;
+      associate_request (self, channel, request_token);
 
-	if (tp_asv_get_uint32 (request_properties,
-						   TP_IFACE_CHANNEL ".TargetHandleType", NULL) != TP_HANDLE_TYPE_ROOM)
-		return FALSE;
-
-	handle = tp_asv_get_uint32 (request_properties,
-								TP_IFACE_CHANNEL ".TargetHandle", NULL);
-
-	if (!tp_handle_is_valid (room_repo, handle, &error))
-		goto error;
-
-	channel_type = tp_asv_get_string (request_properties,
-									  TP_IFACE_CHANNEL ".ChannelType");
-
-	if (!tp_strdiff (channel_type, TP_IFACE_CHANNEL_TYPE_TEXT))
-	{
-		if (tp_channel_manager_asv_has_unknown_properties (request_properties,
-														   muc_channel_fixed_properties, muc_channel_allowed_properties,
-														   &error))
-			goto error;
-
-		channel = g_hash_table_lookup (priv->channels,
-										 GINT_TO_POINTER (handle));
-
-		if (channel != NULL)
-		{
-			if (require_new)
-			{
-				g_set_error (&error, TP_ERROR, TP_ERROR_NOT_AVAILABLE,
-							 "That channel has already been created (or requested)");
-				goto error;
-			}
-			else if (idle_muc_channel_is_ready (channel))
-			{
-				tp_channel_manager_emit_request_already_satisfied (self,
-																   request_token,
-																   TP_EXPORTABLE_CHANNEL (channel));
-				return TRUE;
-			}
-		}
-		else
-		{
-			channel = _muc_manager_new_channel (self, handle, base_conn->self_handle, TRUE);
-			idle_muc_channel_join_attempt(channel);
-		}
-
-		associate_request(self, channel, request_token);
-
-		return TRUE;
-	}
-	else
-	{
-		return FALSE;
-	}
+      return TRUE;
+    }
+  else
+    {
+      return FALSE;
+    }
 
 error:
-	tp_channel_manager_emit_request_failed (self, request_token,
-											error->domain, error->code, error->message);
-	g_error_free (error);
-	return TRUE;
+  tp_channel_manager_emit_request_failed (self, request_token,
+      error->domain, error->code, error->message);
+  g_error_free (error);
+  return TRUE;
 }
 
+static gboolean
+_muc_manager_create_channel (
+    TpChannelManager *manager,
+    gpointer request_token,
+    GHashTable *request_properties)
+{
+  IdleMUCManager *self = IDLE_MUC_MANAGER (manager);
 
-static void _muc_manager_iface_init(gpointer g_iface, gpointer iface_data) {
-	TpChannelManagerIface *iface = g_iface;
+  return _muc_manager_request (self, request_token, request_properties, TRUE);
+}
 
-	iface->foreach_channel = _muc_manager_foreach_channel;
-	iface->type_foreach_channel_class = _muc_manager_type_foreach_channel_class;
-	iface->request_channel = _muc_manager_request_channel;
-	iface->create_channel = _muc_manager_create_channel;
-	iface->ensure_channel = _muc_manager_ensure_channel;
+static gboolean
+_muc_manager_request_channel (
+  TpChannelManager *manager,
+  gpointer request_token,
+  GHashTable *request_properties)
+{
+  IdleMUCManager *self = IDLE_MUC_MANAGER (manager);
+
+  return _muc_manager_request (self, request_token, request_properties, FALSE);
+}
+
+static gboolean
+_muc_manager_ensure_channel (
+    TpChannelManager *manager,
+    gpointer request_token,
+    GHashTable *request_properties)
+{
+  IdleMUCManager *self = IDLE_MUC_MANAGER (manager);
+
+  return _muc_manager_request (self, request_token, request_properties, FALSE);
+}
+
+static void
+_muc_manager_iface_init (
+    gpointer g_iface,
+    gpointer iface_data)
+{
+  TpChannelManagerIface *iface = g_iface;
+
+  iface->foreach_channel = _muc_manager_foreach_channel;
+  iface->type_foreach_channel_class = _muc_manager_type_foreach_channel_class;
+  iface->request_channel = _muc_manager_request_channel;
+  iface->create_channel = _muc_manager_create_channel;
+  iface->ensure_channel = _muc_manager_ensure_channel;
 }
 
