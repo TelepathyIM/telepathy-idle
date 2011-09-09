@@ -600,19 +600,10 @@ _muc_manager_type_foreach_channel_class (
     TpChannelManagerTypeChannelClassFunc func,
     gpointer user_data)
 {
-  GHashTable *table = g_hash_table_new_full (g_str_hash, g_str_equal,
-      NULL, (GDestroyNotify) tp_g_value_slice_free);
-  GValue *channel_type_value, *handle_type_value;
-
-  channel_type_value = tp_g_value_slice_new (G_TYPE_STRING);
-  g_value_set_static_string (channel_type_value, TP_IFACE_CHANNEL_TYPE_TEXT);
-  g_hash_table_insert (table, TP_IFACE_CHANNEL ".ChannelType",
-      channel_type_value);
-
-  handle_type_value = tp_g_value_slice_new (G_TYPE_UINT);
-  g_value_set_uint (handle_type_value, TP_HANDLE_TYPE_ROOM);
-  g_hash_table_insert (table, TP_IFACE_CHANNEL ".TargetHandleType",
-      handle_type_value);
+  GHashTable *table = tp_asv_new (
+      TP_PROP_CHANNEL_CHANNEL_TYPE, G_TYPE_STRING, TP_IFACE_CHANNEL_TYPE_TEXT,
+      TP_PROP_CHANNEL_TARGET_HANDLE_TYPE, G_TYPE_UINT, TP_HANDLE_TYPE_ROOM,
+      NULL);
 
   func (type, table, muc_channel_allowed_properties, user_data);
 
