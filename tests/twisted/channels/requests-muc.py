@@ -2,9 +2,11 @@
 Test connecting to a IRC channel via the Requests interface
 """
 
+import functools
 from idletest import exec_test, BaseIRCServer
 from servicetest import (
     EventPattern, call_async, sync_dbus, make_channel_proxy, assertEquals,
+    assertSameSets, assertContains,
 )
 import constants as cs
 import dbus
@@ -14,7 +16,38 @@ class DelayJoinServer(BaseIRCServer):
         # do nothing; wait for the test to call sendJoin().
         return
 
-def test(q, bus, conn, stream):
+def build_request(conn, channel_name, use_room):
+    rccs = conn.Properties.Get(cs.CONN_IFACE_REQUESTS,
+        'RequestableChannelClasses')
+
+    if use_room:
+        # We allow TargetHandleType in Room-flavoured requests, but it has to
+        # be None if specified.
+        assertContains(
+            ({ cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_TEXT },
+             [cs.TARGET_HANDLE_TYPE, cs.ROOM_NAME],
+            ), rccs)
+
+        request = {
+            cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_TEXT,
+            cs.ROOM_NAME: '#idletest'
+        }
+    else:
+        assertContains(
+            ({ cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_TEXT,
+               cs.TARGET_HANDLE_TYPE: cs.HT_ROOM,
+             },
+             [cs.TARGET_HANDLE, cs.TARGET_ID]
+            ), rccs)
+        request = {
+            cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_TEXT,
+            cs.TARGET_HANDLE_TYPE: cs.HT_ROOM,
+            cs.TARGET_ID: '#idletest',
+        }
+
+    return dbus.Dictionary(request, signature='sv')
+
+def test(q, bus, conn, stream, use_room=False):
     conn.Connect()
     q.expect_many(
             EventPattern('dbus-signal', signal='StatusChanged', args=[1, 1]),
@@ -24,14 +57,8 @@ def test(q, bus, conn, stream):
 
     self_handle = conn.GetSelfHandle()
 
-    request = dbus.Dictionary({
-        cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_TEXT,
-        cs.TARGET_HANDLE_TYPE: cs.HT_ROOM,
-        cs.TARGET_ID: '#idletest',
-    }, signature='sv')
-
-    call_async(q, conn, 'CreateChannel', request,
-        dbus_interface=cs.CONN_IFACE_REQUESTS)
+    request = build_request(conn, '#idletest', use_room)
+    call_async(q, conn.Requests, 'CreateChannel', request)
 
     # Idle should try to join the channel.
     q.expect('stream-JOIN')
@@ -55,14 +82,17 @@ def test(q, bus, conn, stream):
     path, props = cc.value
 
     assert props[cs.CHANNEL_TYPE] == cs.CHANNEL_TYPE_TEXT
-    assert sorted(props[cs.INTERFACES]) == \
-        sorted([cs.CHANNEL_IFACE_GROUP,
-                cs.CHANNEL_IFACE_PASSWORD,
-                cs.CHANNEL_IFACE_MESSAGES,
-                cs.CHANNEL_IFACE_SUBJECT,
-               ])
+    assertSameSets(
+        [cs.CHANNEL_IFACE_GROUP,
+         cs.CHANNEL_IFACE_PASSWORD,
+         cs.CHANNEL_IFACE_MESSAGES,
+         cs.CHANNEL_IFACE_ROOM,
+         cs.CHANNEL_IFACE_SUBJECT,
+        ], props[cs.INTERFACES])
     assert props[cs.TARGET_HANDLE_TYPE] == cs.HT_ROOM
     assert props[cs.TARGET_ID] == '#idletest'
+    assertEquals('#idletest', props[cs.ROOM_NAME])
+    assertEquals('', props[cs.ROOM_SERVER])
     assert props[cs.TARGET_HANDLE] == \
         conn.RequestHandles(cs.HT_ROOM, ['#idletest'])[0]
     assert props[cs.REQUESTED]
@@ -117,4 +147,5 @@ def test(q, bus, conn, stream):
 
 if __name__ == '__main__':
     exec_test(test, protocol=DelayJoinServer)
+    exec_test(functools.partial(test, use_room=True), protocol=DelayJoinServer)
 

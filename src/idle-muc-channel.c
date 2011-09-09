@@ -55,6 +55,7 @@ G_DEFINE_TYPE_WITH_CODE(IdleMUCChannel, idle_muc_channel, TP_TYPE_BASE_CHANNEL,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_PASSWORD, _password_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, tp_message_mixin_text_iface_init);
 		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_MESSAGES, tp_message_mixin_messages_iface_init);
+		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_ROOM, NULL);
 		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_SUBJECT, subject_iface_init);
 		)
 
@@ -66,7 +67,9 @@ enum {
   PROP_SUBJECT_ACTOR,
   PROP_SUBJECT_ACTOR_HANDLE,
   PROP_SUBJECT_TIMESTAMP,
-  PROP_CAN_SET_SUBJECT
+  PROP_CAN_SET_SUBJECT,
+
+  PROP_SERVER,
 };
 
 /* signal enum */
@@ -144,6 +147,7 @@ static const gchar *muc_channel_interfaces[] = {
 	TP_IFACE_CHANNEL_INTERFACE_PASSWORD,
 	TP_IFACE_CHANNEL_INTERFACE_GROUP,
 	TP_IFACE_CHANNEL_INTERFACE_MESSAGES,
+	TP_IFACE_CHANNEL_INTERFACE_ROOM,
 	TP_IFACE_CHANNEL_INTERFACE_SUBJECT,
 	NULL
 };
@@ -317,6 +321,9 @@ idle_muc_channel_get_property (
       case PROP_CAN_SET_SUBJECT:
         g_value_set_boolean (value, priv->can_set_topic);
         break;
+      case PROP_SERVER:
+        g_value_set_static_string (value, "");
+        break;
       default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     }
@@ -346,6 +353,8 @@ idle_muc_channel_fill_immutable_properties (
       TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "DeliveryReportingSupport",
       TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "SupportedContentTypes",
       TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessageTypes",
+      TP_IFACE_CHANNEL_INTERFACE_ROOM, "RoomName",
+      TP_IFACE_CHANNEL_INTERFACE_ROOM, "Server",
       NULL);
 }
 
@@ -353,6 +362,11 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
 	GObjectClass *object_class = G_OBJECT_CLASS (idle_muc_channel_class);
 	TpBaseChannelClass *base_channel_class = TP_BASE_CHANNEL_CLASS (idle_muc_channel_class);
 	GParamSpec *param_spec;
+	static TpDBusPropertiesMixinPropImpl room_props[] = {
+		{ "RoomName", "target-id", NULL },
+		{ "Server", "server", NULL },
+		{ NULL },
+	};
 	static TpDBusPropertiesMixinPropImpl subject_props[] = {
 		{ "Subject", "subject", NULL },
 		{ "Actor", "subject-actor", NULL },
@@ -376,6 +390,12 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
 	base_channel_class->close = idle_muc_channel_close;
 	base_channel_class->fill_immutable_properties = idle_muc_channel_fill_immutable_properties;
 	base_channel_class->get_object_path_suffix = idle_muc_channel_get_path_suffix;
+
+	param_spec = g_param_spec_string (
+		"server", "Room.Server", "always empty",
+		"", G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_SERVER,
+		param_spec);
 
 	param_spec = g_param_spec_string (
 		"subject", "Subject.Subject", "(aka topic)",
@@ -418,6 +438,10 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
 	tp_group_mixin_init_dbus_properties (object_class);
 	tp_group_mixin_class_allow_self_removal (object_class);
 
+	tp_dbus_properties_mixin_implement_interface (object_class,
+		TP_IFACE_QUARK_CHANNEL_INTERFACE_ROOM,
+		tp_dbus_properties_mixin_getter_gobject_properties, NULL,
+		room_props);
 	tp_dbus_properties_mixin_implement_interface (object_class,
 		TP_IFACE_QUARK_CHANNEL_INTERFACE_SUBJECT,
 		tp_dbus_properties_mixin_getter_gobject_properties, NULL,

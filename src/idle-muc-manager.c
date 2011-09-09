@@ -101,6 +101,17 @@ static const gchar * const muc_channel_allowed_properties[] = {
     NULL
 };
 
+static const gchar * const muc_channel_allowed_room_properties[] = {
+    TP_PROP_CHANNEL_TARGET_HANDLE_TYPE, /* But it must be None */
+    TP_PROP_CHANNEL_INTERFACE_ROOM_ROOM_NAME,
+    NULL
+};
+
+static const gchar * const muc_channel_all_allowed_properties[] = {
+    TP_PROP_CHANNEL_TARGET_HANDLE,
+    TP_PROP_CHANNEL_TARGET_ID,
+    TP_PROP_CHANNEL_INTERFACE_ROOM_ROOM_NAME,
+};
 
 static GObject*
 _muc_manager_constructor(GType type, guint n_props, GObjectConstructParam *props)
@@ -601,14 +612,21 @@ _muc_manager_type_foreach_channel_class (
     TpChannelManagerTypeChannelClassFunc func,
     gpointer user_data)
 {
-  GHashTable *table = tp_asv_new (
-      TP_PROP_CHANNEL_CHANNEL_TYPE, G_TYPE_STRING, TP_IFACE_CHANNEL_TYPE_TEXT,
-      TP_PROP_CHANNEL_TARGET_HANDLE_TYPE, G_TYPE_UINT, TP_HANDLE_TYPE_ROOM,
-      NULL);
+  static GHashTable *handle_fixed = NULL, *room_name_fixed = NULL;
 
-  func (type, table, muc_channel_allowed_properties, user_data);
+  if (G_UNLIKELY (handle_fixed == NULL))
+    {
+      handle_fixed = tp_asv_new (
+          TP_PROP_CHANNEL_CHANNEL_TYPE, G_TYPE_STRING, TP_IFACE_CHANNEL_TYPE_TEXT,
+          TP_PROP_CHANNEL_TARGET_HANDLE_TYPE, G_TYPE_UINT, TP_HANDLE_TYPE_ROOM,
+          NULL);
+      room_name_fixed = tp_asv_new (
+          TP_PROP_CHANNEL_CHANNEL_TYPE, G_TYPE_STRING, TP_IFACE_CHANNEL_TYPE_TEXT,
+          NULL);
+    }
 
-  g_hash_table_destroy (table);
+  func (type, handle_fixed, muc_channel_allowed_properties, user_data);
+  func (type, room_name_fixed, muc_channel_allowed_room_properties, user_data);
 }
 
 
@@ -729,6 +747,7 @@ _muc_manager_request (
   TpHandleRepoIface *room_repo = tp_base_connection_get_handles (base_conn,
       TP_HANDLE_TYPE_ROOM);
   GError *error = NULL;
+  TpHandleType handle_type;
   TpHandle handle;
   const gchar *channel_type;
   IdleMUCChannel *channel;
@@ -739,18 +758,41 @@ _muc_manager_request (
   if (tp_strdiff (channel_type, TP_IFACE_CHANNEL_TYPE_TEXT))
     return FALSE;
 
-  if (tp_asv_get_uint32 (request_properties,
-        TP_PROP_CHANNEL_TARGET_HANDLE_TYPE, NULL) != TP_HANDLE_TYPE_ROOM)
-    return FALSE;
+  handle_type = tp_asv_get_uint32 (request_properties,
+        TP_PROP_CHANNEL_TARGET_HANDLE_TYPE, NULL);
 
-  handle = tp_asv_get_uint32 (request_properties,
-      TP_PROP_CHANNEL_TARGET_HANDLE, NULL);
+  switch (handle_type)
+    {
+      case TP_HANDLE_TYPE_ROOM:
+        handle = tp_asv_get_uint32 (request_properties,
+            TP_PROP_CHANNEL_TARGET_HANDLE, NULL);
 
-  if (!tp_handle_is_valid (room_repo, handle, &error))
-    goto error;
+        if (!tp_handle_is_valid (room_repo, handle, &error))
+          goto error;
+
+        break;
+
+      case TP_HANDLE_TYPE_NONE:
+      {
+        const gchar *room_name = tp_asv_get_string (request_properties,
+            TP_PROP_CHANNEL_INTERFACE_ROOM_ROOM_NAME);
+
+        if (room_name == NULL)
+          return FALSE;
+
+        handle = tp_handle_ensure (room_repo, room_name, NULL, &error);
+        if (handle == 0)
+          goto error;
+
+        break;
+      }
+
+      default:
+        return FALSE;
+    }
 
   if (tp_channel_manager_asv_has_unknown_properties (request_properties,
-        muc_channel_fixed_properties, muc_channel_allowed_properties,
+        muc_channel_fixed_properties, muc_channel_all_allowed_properties,
         &error))
     goto error;
 
