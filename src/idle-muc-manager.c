@@ -572,26 +572,27 @@ static void _muc_manager_add_handlers(IdleMUCManager *manager)
 	idle_parser_add_handler(priv->conn->parser, IDLE_PARSER_PREFIXCMD_TOPIC, _topic_handler, manager);
 }
 
-struct _ForeachHelperData {
-	TpExportableChannelFunc func;
-	gpointer user_data;
-};
+static void
+_muc_manager_foreach_channel (
+    TpChannelManager *iface,
+    TpExportableChannelFunc func,
+    gpointer user_data)
+{
+  IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE (iface);
 
-static void _foreach_helper(gpointer key, gpointer value, gpointer user_data) {
-	struct _ForeachHelperData *data = user_data;
-	data->func(value, data->user_data);
-}
+  if (priv->channels == NULL)
+    {
+      IDLE_DEBUG ("Channels hash table missing, ignoring...");
+    }
+  else
+    {
+      GHashTableIter iter;
+      gpointer v;
 
-static void _muc_manager_foreach_channel(TpChannelManager *iface, TpExportableChannelFunc func, gpointer user_data) {
-	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(iface);
-	struct _ForeachHelperData data = {func, user_data};
-
-	if (!priv->channels) {
-		IDLE_DEBUG("Channels hash table missing, ignoring...");
-		return;
-	}
-
-	g_hash_table_foreach(priv->channels, _foreach_helper, &data);
+      g_hash_table_iter_init (&iter, priv->channels);
+      while (g_hash_table_iter_next (&iter, NULL, &v))
+        func (TP_EXPORTABLE_CHANNEL (v), user_data);
+    }
 }
 
 static void
