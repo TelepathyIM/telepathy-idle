@@ -90,14 +90,14 @@ static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer use
 
 
 static const gchar * const muc_channel_fixed_properties[] = {
-    TP_IFACE_CHANNEL ".ChannelType",
-    TP_IFACE_CHANNEL ".TargetHandleType",
+    TP_PROP_CHANNEL_CHANNEL_TYPE,
+    TP_PROP_CHANNEL_TARGET_HANDLE_TYPE,
     NULL
 };
 
 static const gchar * const muc_channel_allowed_properties[] = {
-    TP_IFACE_CHANNEL ".TargetHandle",
-    TP_IFACE_CHANNEL ".TargetID",
+    TP_PROP_CHANNEL_TARGET_HANDLE,
+    TP_PROP_CHANNEL_TARGET_ID,
     NULL
 };
 
@@ -734,17 +734,17 @@ _muc_manager_request (
   IdleMUCChannel *channel;
 
   channel_type = tp_asv_get_string (request_properties,
-      TP_IFACE_CHANNEL ".ChannelType");
+      TP_PROP_CHANNEL_CHANNEL_TYPE);
 
   if (tp_strdiff (channel_type, TP_IFACE_CHANNEL_TYPE_TEXT))
     return FALSE;
 
   if (tp_asv_get_uint32 (request_properties,
-        TP_IFACE_CHANNEL ".TargetHandleType", NULL) != TP_HANDLE_TYPE_ROOM)
+        TP_PROP_CHANNEL_TARGET_HANDLE_TYPE, NULL) != TP_HANDLE_TYPE_ROOM)
     return FALSE;
 
   handle = tp_asv_get_uint32 (request_properties,
-      TP_IFACE_CHANNEL ".TargetHandle", NULL);
+      TP_PROP_CHANNEL_TARGET_HANDLE, NULL);
 
   if (!tp_handle_is_valid (room_repo, handle, &error))
     goto error;
