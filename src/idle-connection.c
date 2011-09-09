@@ -884,11 +884,12 @@ static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint pr
 	g_assert(msg != NULL);
 
 	/* Clip the message */
-
 	g_strlcpy(cmd, msg, IRC_MSG_MAXLEN + 1);
 
-	/* Append <CR><LF> */
+	/* Strip out any <CR>/<LF> which have crept in */
+	g_strdelimit (cmd, "\r\n", ' ');
 
+	/* Append <CR><LF> */
 	len = strlen(cmd);
 	cmd[len++] = '\r';
 	cmd[len++] = '\n';

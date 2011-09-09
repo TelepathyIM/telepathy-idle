@@ -92,7 +92,7 @@ def test(q, bus, conn, stream):
     assert chans[0] == (path, props)
 
     chan = make_channel_proxy(conn, path, 'Channel')
-    chan.RemoveMembers([self_handle], "bye bye cruel world",
+    chan.RemoveMembers([self_handle], "bye bye cruel\r\nworld",
         dbus_interface=cs.CHANNEL_IFACE_GROUP)
 
     part_event = q.expect('stream-PART')
@@ -100,7 +100,12 @@ def test(q, bus, conn, stream):
     # This is a regression test for
     # <https://bugs.freedesktop.org/show_bug.cgi?id=34812>, where part messages
     # were not correctly colon-quoted.
-    assertEquals("bye bye cruel world", part_event.data[1])
+    #
+    # It is also a regression test for
+    # <https://bugs.freedesktop.org/show_bug.cgi?id=34840>, where newlines
+    # weren't stripped from part messages. We check that both \r and \n are
+    # replaced by harmless spaces.
+    assertEquals("bye bye cruel  world", part_event.data[1])
 
     stream.sendPart('#idletest', stream.nick)
 
