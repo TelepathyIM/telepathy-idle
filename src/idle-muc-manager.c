@@ -741,6 +741,12 @@ _muc_manager_request (
   const gchar *channel_type;
   IdleMUCChannel *channel;
 
+  channel_type = tp_asv_get_string (request_properties,
+      TP_IFACE_CHANNEL ".ChannelType");
+
+  if (tp_strdiff (channel_type, TP_IFACE_CHANNEL_TYPE_TEXT))
+    return FALSE;
+
   if (tp_asv_get_uint32 (request_properties,
         TP_IFACE_CHANNEL ".TargetHandleType", NULL) != TP_HANDLE_TYPE_ROOM)
     return FALSE;
@@ -751,47 +757,37 @@ _muc_manager_request (
   if (!tp_handle_is_valid (room_repo, handle, &error))
     goto error;
 
-  channel_type = tp_asv_get_string (request_properties,
-      TP_IFACE_CHANNEL ".ChannelType");
+  if (tp_channel_manager_asv_has_unknown_properties (request_properties,
+        muc_channel_fixed_properties, muc_channel_allowed_properties,
+        &error))
+    goto error;
 
-  if (!tp_strdiff (channel_type, TP_IFACE_CHANNEL_TYPE_TEXT))
+  channel = g_hash_table_lookup (priv->channels, GINT_TO_POINTER (handle));
+
+  if (channel != NULL)
     {
-      if (tp_channel_manager_asv_has_unknown_properties (request_properties,
-            muc_channel_fixed_properties, muc_channel_allowed_properties,
-            &error))
-      goto error;
-
-      channel = g_hash_table_lookup (priv->channels, GINT_TO_POINTER (handle));
-
-      if (channel != NULL)
+      if (require_new)
         {
-          if (require_new)
-            {
-              g_set_error (&error, TP_ERROR, TP_ERROR_NOT_AVAILABLE,
-                     "That channel has already been created (or requested)");
-              goto error;
-            }
-          else if (idle_muc_channel_is_ready (channel))
-            {
-              tp_channel_manager_emit_request_already_satisfied (self,
-                  request_token, TP_EXPORTABLE_CHANNEL (channel));
-              return TRUE;
-            }
+          g_set_error (&error, TP_ERROR, TP_ERROR_NOT_AVAILABLE,
+                 "That channel has already been created (or requested)");
+          goto error;
         }
-      else
+      else if (idle_muc_channel_is_ready (channel))
         {
-          channel = _muc_manager_new_channel (self, handle, base_conn->self_handle, TRUE);
-          idle_muc_channel_join_attempt (channel);
+          tp_channel_manager_emit_request_already_satisfied (self,
+              request_token, TP_EXPORTABLE_CHANNEL (channel));
+          return TRUE;
         }
-
-      associate_request (self, channel, request_token);
-
-      return TRUE;
     }
   else
     {
-      return FALSE;
+      channel = _muc_manager_new_channel (self, handle, base_conn->self_handle, TRUE);
+      idle_muc_channel_join_attempt (channel);
     }
+
+  associate_request (self, channel, request_token);
+
+  return TRUE;
 
 error:
   tp_channel_manager_emit_request_failed (self, request_token,
