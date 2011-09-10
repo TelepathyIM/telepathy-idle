@@ -554,7 +554,8 @@ static void _iface_disconnected(TpBaseConnection *self) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 
 	/* we never got around to actually creating the connection
-         * iface object, so don't try to send any traffic down it */
+	 * iface object because we were still trying to connect, so
+	 * don't try to send any traffic down it */
 	if (priv->conn == NULL) {
 		return;
 	}
@@ -576,11 +577,14 @@ static void _iface_shut_down(TpBaseConnection *self) {
 	if (priv->quitting)
 		return;
 
-	if (priv->sconn_status != SERVER_CONNECTION_STATE_NOT_CONNECTED) {
+	/* we never got around to actually creating the connection
+	 * iface object because we were still trying to connect, so
+	 * don't try to send any traffic down it */
+	if (priv->conn == NULL) {
+		g_idle_add(_finish_shutdown_idle_func, self);;
+	} else {
 		if (!idle_server_connection_disconnect(priv->conn, &error))
 			g_error_free(error);
-	} else {
-		g_idle_add(_finish_shutdown_idle_func, self);;
 	}
 }
 
@@ -738,13 +742,13 @@ static void sconn_status_changed_cb(IdleServerConnection *sconn, IdleServerConne
 
 	switch (state) {
 		case SERVER_CONNECTION_STATE_NOT_CONNECTED:
-			if (conn->parent.status == TP_CONNECTION_STATUS_CONNECTING) {
-				connection_connect_cb(conn, FALSE, TP_CONNECTION_STATUS_REASON_NETWORK_ERROR);
+			/* when the Disconnect method is called, the parent's status is
+			 * immediately set to disconnected, and when the underlying network
+			 * connection finally disconnects and triggers this callback
+			 * we need to finish shutting down the connection -- so we can only
+			 * ignore the case where the parent's status is connecting */
+			if (conn->parent.status != TP_CONNECTION_STATUS_CONNECTING)
 				connection_disconnect_cb(conn, tp_reason);
-			}
-			else {
-				connection_disconnect_cb(conn, tp_reason);
-			}
 			break;
 
 		case SERVER_CONNECTION_STATE_CONNECTING:
