@@ -6,7 +6,7 @@ Test that messages that are sent within the same message delivery timeout
 """
 
 from idletest import exec_test
-from servicetest import EventPattern, call_async
+from servicetest import EventPattern, call_async, assertEquals
 from constants import *
 import dbus
 
@@ -32,11 +32,9 @@ def test(q, bus, conn, stream):
 
     for i in range(NUM_MESSAGES):
         message = q.expect('stream-PRIVMSG')
-        assert message.data[0] == CHANNEL_NAME
-        assert message.data[1].rstrip('\r\n') == str(i)
+        assertEquals([CHANNEL_NAME, str(i)], message.data)
 
     call_async(q, conn, 'Disconnect')
-    return True
 
 if __name__ == '__main__':
     exec_test(test)

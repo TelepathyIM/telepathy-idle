@@ -26,7 +26,6 @@
 #include <string.h>
 #include <time.h>
 
-#define DBUS_API_SUBJECT_TO_CHANGE
 #include <dbus/dbus-glib.h>
 
 #include <telepathy-glib/dbus.h>
@@ -63,6 +62,7 @@
 
 #define MSG_QUEUE_UNLOAD_AT_A_TIME 1
 #define MSG_QUEUE_TIMEOUT 2
+static gboolean flush_queue_faster = FALSE;
 
 #define SERVER_CMD_MIN_PRIORITY 0
 #define SERVER_CMD_NORMAL_PRIORITY G_MAXUINT/2
@@ -217,6 +217,9 @@ static void connection_connect_cb(IdleConnection *conn, gboolean success, TpConn
 static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusReason reason);
 static gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **_error);
 static void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **output);
+
+static void idle_connection_add_queue_timeout (IdleConnection *self);
+static void idle_connection_clear_queue_timeout (IdleConnection *self);
 
 static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint priority);
 static void conn_aliasing_fill_contact_attributes (
@@ -491,6 +494,10 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 
 	tp_contacts_mixin_class_init (object_class, G_STRUCT_OFFSET (IdleConnectionClass, contacts));
 	idle_contact_info_class_init(klass);
+
+	/* This is a hack to make the test suite run in finite time. */
+	if (!tp_str_empty (g_getenv ("IDLE_HTFU")))
+		flush_queue_faster = TRUE;
 }
 
 static GPtrArray *_iface_create_channel_managers(TpBaseConnection *self) {
@@ -691,7 +698,6 @@ static void _start_connecting_continue(IdleConnection *conn) {
 }
 
 static gboolean keepalive_timeout_cb(gpointer user_data);
-static gboolean msg_queue_timeout_cb(gpointer user_data);
 
 static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServerConnectionState state, IdleServerConnectionStateReason reason, IdleConnection *conn) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
@@ -743,8 +749,7 @@ static void sconn_status_changed_cb(IdleServerConnectionIface *sconn, IdleServer
 
 			if ((priv->msg_queue_timeout == 0) && (g_queue_get_length(priv->msg_queue) > 0)) {
 				IDLE_DEBUG("we had messages in queue, start unloading them now");
-
-				priv->msg_queue_timeout = g_timeout_add(MSG_QUEUE_TIMEOUT, msg_queue_timeout_cb, conn);
+				idle_connection_add_queue_timeout (conn);
 			}
 			break;
 
@@ -835,6 +840,34 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 	return TRUE;
 }
 
+static void
+idle_connection_add_queue_timeout (IdleConnection *self)
+{
+  IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE (self);
+
+  if (priv->msg_queue_timeout == 0)
+    {
+      if (flush_queue_faster)
+        priv->msg_queue_timeout = g_timeout_add (MSG_QUEUE_TIMEOUT,
+            msg_queue_timeout_cb, self);
+      else
+        priv->msg_queue_timeout = g_timeout_add_seconds (MSG_QUEUE_TIMEOUT,
+            msg_queue_timeout_cb, self);
+    }
+}
+
+static void
+idle_connection_clear_queue_timeout (IdleConnection *self)
+{
+  IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE (self);
+
+  if (priv->msg_queue_timeout != 0)
+    {
+      g_source_remove (priv->msg_queue_timeout);
+      priv->msg_queue_timeout = 0;
+    }
+}
+
 /**
  * Queue a IRC command for sending, clipping it to IRC_MSG_MAXLEN bytes and appending the required <CR><LF> to it
  */
@@ -868,7 +901,10 @@ static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint pr
 		converted = g_strdup(cmd);
 	}
 
-	if ((priority == SERVER_CMD_MAX_PRIORITY) || ((conn->parent.status == TP_CONNECTION_STATUS_CONNECTED)	&& (priv->msg_queue_timeout == 0)	&& (curr_time - priv->last_msg_sent > MSG_QUEUE_TIMEOUT))) {
+	if (priority == SERVER_CMD_MAX_PRIORITY ||
+	    (conn->parent.status == TP_CONNECTION_STATUS_CONNECTED &&
+	     priv->msg_queue_timeout == 0 &&
+	     curr_time - priv->last_msg_sent > MSG_QUEUE_TIMEOUT)) {
 		priv->last_msg_sent = curr_time;
 
 		if (!idle_server_connection_iface_send(priv->conn, converted, &error)) {
@@ -886,8 +922,7 @@ static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint pr
 
 	g_queue_insert_sorted(priv->msg_queue, output_msg, pending_msg_compare, NULL);
 
-	if (!priv->msg_queue_timeout)
-		priv->msg_queue_timeout = g_timeout_add(MSG_QUEUE_TIMEOUT * 1000, msg_queue_timeout_cb, conn);
+	idle_connection_add_queue_timeout (conn);
 }
 
 void idle_connection_send(IdleConnection *conn, const gchar *msg) {
@@ -1107,17 +1142,13 @@ static void connection_connect_cb(IdleConnection *conn, gboolean success, TpConn
 
 static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusReason reason) {
 	TpBaseConnection *base = TP_BASE_CONNECTION(conn);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 
 	if (base->status == TP_CONNECTION_STATUS_DISCONNECTED)
 		g_idle_add(_finish_shutdown_idle_func, base);
 	else
 		tp_base_connection_change_status(base, TP_CONNECTION_STATUS_DISCONNECTED, reason);
 
-	if (priv->msg_queue_timeout) {
-		g_source_remove(priv->msg_queue_timeout);
-		priv->msg_queue_timeout = 0;
-	}
+	idle_connection_clear_queue_timeout (conn);
 }
 
 void _queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *alias) {

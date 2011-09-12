@@ -22,7 +22,6 @@
 
 #include <time.h>
 
-#define DBUS_API_SUBJECT_TO_CHANGE
 #include <dbus/dbus-glib.h>
 
 #include <telepathy-glib/channel-iface.h>

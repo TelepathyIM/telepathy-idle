@@ -10,7 +10,7 @@ from twisted.internet import reactor, ssl
 
 class QuitNoCloseServer(BaseIRCServer):
     def handleQUIT(self, args, prefix):
-        quit_msg = ' '.join(args).rstrip('\r\n')
+        quit_msg = ' '.join(args)
         self.sendMessage('ERROR', ':Closing Link: idle.test.server (Quit: %s)' % quit_msg)
         # don't call self.transport.loseConnection()
 
