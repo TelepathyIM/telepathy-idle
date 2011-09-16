@@ -697,18 +697,18 @@ static void _start_connecting_continue(IdleConnection *conn) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	IdleServerConnection *sconn;
 
-	if (!priv->realname || !priv->realname[0]) {
+	if (tp_str_empty(priv->realname)) {
 		const gchar *g_realname = g_get_real_name();
 
 		g_free(priv->realname);
 
-		if (g_realname && g_realname[0] && strcmp(g_realname, "Unknown"))
+		if (tp_strdiff(g_realname, "Unknown"))
 			priv->realname = g_strdup(g_realname);
 		else
 			priv->realname = g_strdup(priv->nickname);
 	}
 
-	if (!priv->username || !priv->username[0]) {
+	if (tp_str_empty(priv->username)) {
 		g_free(priv->username);
 		priv->username = g_strdup(g_get_user_name());
 	}
