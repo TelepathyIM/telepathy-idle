@@ -66,7 +66,6 @@ struct _IdleServerConnectionPrivate {
 	GCancellable *cancellable;
 
 	IdleServerConnectionState state;
-	gboolean dispose_has_run;
 };
 
 static GObject *idle_server_connection_constructor(GType type, guint n_props, GObjectConstructParam *props);
@@ -82,7 +81,6 @@ static void idle_server_connection_init(IdleServerConnection *conn) {
 	priv->socket_client = g_socket_client_new();
 
 	priv->state = SERVER_CONNECTION_STATE_NOT_CONNECTED;
-	priv->dispose_has_run = FALSE;
 }
 
 static GObject *idle_server_connection_constructor(GType type, guint n_props, GObjectConstructParam *props) {
@@ -96,16 +94,6 @@ static GObject *idle_server_connection_constructor(GType type, guint n_props, GO
 static void idle_server_connection_dispose(GObject *obj) {
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(obj);
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
-
-	if (priv->dispose_has_run) {
-		return;
-	}
-
-	IDLE_DEBUG("dispose called");
-	priv->dispose_has_run = TRUE;
-
-	if (priv->state == SERVER_CONNECTION_STATE_CONNECTED)
-		idle_server_connection_disconnect_async(conn, NULL, NULL, NULL);
 
 	if (priv->socket_client != NULL) {
 		g_object_unref(priv->socket_client);
