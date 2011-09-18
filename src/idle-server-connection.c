@@ -80,7 +80,6 @@ static void idle_server_connection_init(IdleServerConnection *conn) {
 	priv->port = 0;
 
 	priv->socket_client = g_socket_client_new();
-	priv->cancellable = g_cancellable_new();
 
 	priv->state = SERVER_CONNECTION_STATE_NOT_CONNECTED;
 	priv->dispose_has_run = FALSE;
@@ -107,12 +106,6 @@ static void idle_server_connection_dispose(GObject *obj) {
 
 	if (priv->state == SERVER_CONNECTION_STATE_CONNECTED)
 		idle_server_connection_disconnect_async(conn, NULL, NULL, NULL);
-
-	if (priv->cancellable != NULL) {
-		g_cancellable_cancel(priv->cancellable);
-		g_object_unref(priv->cancellable);
-		priv->cancellable = NULL;
-	}
 
 	if (priv->socket_client != NULL) {
 		g_object_unref(priv->socket_client);
@@ -236,7 +229,7 @@ static void _input_stream_read(IdleServerConnection *conn, GInputStream *input_s
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 
 	memset(priv->input_buffer, '\0', sizeof(priv->input_buffer));
-	g_input_stream_read_async (input_stream, &priv->input_buffer, sizeof(priv->input_buffer) - 1, G_PRIORITY_DEFAULT, priv->cancellable, callback, conn);
+	g_input_stream_read_async (input_stream, &priv->input_buffer, sizeof(priv->input_buffer) - 1, G_PRIORITY_DEFAULT, NULL, callback, conn);
 }
 
 static void _input_stream_read_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
@@ -254,9 +247,6 @@ static void _input_stream_read_ready(GObject *source_object, GAsyncResult *res, 
 	}
 
 	g_signal_emit(conn, signals[RECEIVED], 0, priv->input_buffer);
-
-	if (g_cancellable_is_cancelled(priv->cancellable))
-		goto disconnect;
 
 	_input_stream_read(conn, input_stream, _input_stream_read_ready);
 	return;
@@ -300,7 +290,6 @@ static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gp
 
 	priv->io_stream = G_IO_STREAM(socket_connection);
 
-	g_cancellable_reset(priv->cancellable);
 	input_stream = g_io_stream_get_input_stream(priv->io_stream);
 	_input_stream_read(conn, input_stream, _input_stream_read_ready);
 	change_state(conn, SERVER_CONNECTION_STATE_CONNECTED, SERVER_CONNECTION_STATE_REASON_REQUESTED);
@@ -394,8 +383,6 @@ void idle_server_connection_disconnect_full_async(IdleServerConnection *conn, gu
 		return;
 	}
 
-	g_cancellable_cancel(priv->cancellable);
-
 	priv->reason = reason;
 
 	result = g_simple_async_result_new(G_OBJECT(conn), callback, user_data, idle_server_connection_disconnect_full_async);
@@ -434,6 +421,10 @@ static void _write_ready(GObject *source_object, GAsyncResult *res, gpointer use
 	}
 
 cleanup:
+	if (priv->cancellable != NULL) {
+		g_object_unref(priv->cancellable);
+		priv->cancellable = NULL;
+	}
 	g_simple_async_result_complete(result);
 	g_object_unref(result);
 }
@@ -465,9 +456,14 @@ void idle_server_connection_send_async(IdleServerConnection *conn, const gchar *
 
 	priv->nwritten = 0;
 
+	if (cancellable != NULL) {
+		priv->cancellable = cancellable;
+		g_object_ref(priv->cancellable);
+	}
+
 	output_stream = g_io_stream_get_output_stream(priv->io_stream);
 	result = g_simple_async_result_new(G_OBJECT(conn), callback, user_data, idle_server_connection_send_async);
-	g_output_stream_write_async(output_stream, priv->output_buffer, priv->count, G_PRIORITY_DEFAULT, priv->cancellable, _write_ready, result);
+	g_output_stream_write_async(output_stream, priv->output_buffer, priv->count, G_PRIORITY_DEFAULT, cancellable, _write_ready, result);
 
 	IDLE_DEBUG("sending \"%s\" to OutputStream %p", priv->output_buffer, output_stream);
 }
