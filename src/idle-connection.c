@@ -602,6 +602,24 @@ static void _iface_shut_down(TpBaseConnection *self) {
 	}
 }
 
+static void _connection_disconnect_with_gerror(IdleConnection *conn, TpConnectionStatusReason reason, const gchar *key, const GError *error) {
+	GHashTable *details = tp_asv_new(key, G_TYPE_STRING, error->message, NULL);
+
+	g_assert(error->domain == TP_ERRORS);
+	tp_base_connection_disconnect_with_dbus_error(TP_BASE_CONNECTION(conn),
+						      tp_error_get_dbus_name(error->code),
+						      details,
+						      reason);
+	g_hash_table_unref(details);
+}
+
+static void _connection_disconnect_with_error(IdleConnection *conn, TpConnectionStatusReason reason, const gchar *key, GQuark domain, gint code, const gchar *message) {
+	GError *error = g_error_new_literal(domain, code, message);
+
+	_connection_disconnect_with_gerror(conn, reason, key, error);
+	g_error_free(error);
+}
+
 static void _start_connecting_continue(IdleConnection *conn);
 
 static void _password_prompt_cb(GObject *source, GAsyncResult *result, gpointer user_data) {
@@ -616,12 +634,11 @@ static void _password_prompt_cb(GObject *source, GAsyncResult *result, gpointer 
 	if (error != NULL) {
 		IDLE_DEBUG("Simple password manager failed: %s", error->message);
 
-		if (base_conn->status != TP_CONNECTION_STATUS_DISCONNECTED) {
-			tp_base_connection_disconnect_with_dbus_error(base_conn,
-								      tp_error_get_dbus_name(error->code),
-								      NULL,
-								      TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED);
-		}
+		if (base_conn->status != TP_CONNECTION_STATUS_DISCONNECTED)
+			_connection_disconnect_with_gerror(conn,
+							   TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED,
+							   "debug-message",
+							   error);
 
 		g_error_free(error);
 		return;
@@ -664,12 +681,7 @@ static void _connection_connect_ready(GObject *source_object, GAsyncResult *res,
 
 	if (!idle_server_connection_connect_finish(sconn, res, &error)) {
 		IDLE_DEBUG("idle_server_connection_connect failed: %s", error->message);
-
-		tp_base_connection_disconnect_with_dbus_error(TP_BASE_CONNECTION(conn),
-							      tp_error_get_dbus_name(error->code),
-							      NULL,
-							      TP_CONNECTION_STATUS_REASON_NETWORK_ERROR);
-
+		_connection_disconnect_with_gerror(conn, TP_CONNECTION_STATUS_REASON_NETWORK_ERROR, "debug-message", error);
 		g_error_free(error);
 		g_object_unref(sconn);
 		return;
@@ -1020,23 +1032,23 @@ idle_connection_get_max_message_length(IdleConnection *conn)
 
 static IdleParserHandlerResult _error_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	GHashTable *details = NULL;
 	TpConnectionStatus status = conn->parent.status;
 	TpConnectionStatusReason reason;
 	const gchar *msg;
 	const gchar *begin;
 	const gchar *end;
-	const gchar *error_name;
+	gchar *server_msg = NULL;
+	gint error;
 
 	switch (status) {
 		case TP_CONNECTION_STATUS_CONNECTING:
 			reason = TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED;
-			error_name = TP_ERROR_STR_AUTHENTICATION_FAILED;
+			error = TP_ERROR_AUTHENTICATION_FAILED;
 			break;
 
 		case TP_CONNECTION_STATUS_CONNECTED:
 			reason = TP_CONNECTION_STATUS_REASON_NETWORK_ERROR;
-			error_name = TP_ERROR_STR_NETWORK_ERROR;
+			error = TP_ERROR_NETWORK_ERROR;
 			break;
 
 		default:
@@ -1048,21 +1060,16 @@ static IdleParserHandlerResult _error_handler(IdleParser *parser, IdleParserMess
 	end = strrchr(msg, ')');
 
 	if (begin != NULL && end != NULL && begin < end - 1) {
-		gchar *server_msg;
 		guint length;
 
 		begin++;
 		end--;
 		length = end - begin + 1;
 		server_msg = g_strndup(begin, length);
-		details = tp_asv_new ("server-message", G_TYPE_STRING, server_msg, NULL);
-		g_free(server_msg);
 	}
 
-	tp_base_connection_disconnect_with_dbus_error(TP_BASE_CONNECTION(conn), error_name, details, reason);
-
-	if (details != NULL)
-		g_hash_table_unref(details);
+	_connection_disconnect_with_error(conn, reason, "server-message", TP_ERRORS, error, (server_msg == NULL) ? "" : server_msg);
+	g_free(server_msg);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
