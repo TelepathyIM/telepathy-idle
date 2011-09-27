@@ -782,7 +782,7 @@ static void sconn_status_changed_cb(IdleServerConnection *sconn, IdleServerConne
 			if (priv->keepalive_interval != 0 && priv->keepalive_timeout == 0)
 				priv->keepalive_timeout = g_timeout_add_seconds(priv->keepalive_interval, keepalive_timeout_cb, conn);
 
-			if ((priv->msg_queue_timeout == 0) && (g_queue_get_length(priv->msg_queue) > 0)) {
+			if (g_queue_get_length(priv->msg_queue) > 0) {
 				IDLE_DEBUG("we had messages in queue, start unloading them now");
 				idle_connection_add_queue_timeout (conn);
 			}
