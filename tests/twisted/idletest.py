@@ -134,17 +134,16 @@ class BaseIRCServer(irc.IRC):
     def sendWelcome(self):
         self.sendMessage('001', self.nick, ':Welcome to the test IRC Network', prefix='idle.test.server')
 
-    def dataReceived(self, data):
-        (_prefix, _command, _args) = irc.parsemsg(data)
-        self.event_func(make_irc_event('stream-%s' % _command, _args))
+    def handleCommand(self, command, prefix, params):
+        self.event_func(make_irc_event('stream-%s' % command, params))
         try:
-            f = getattr(self, 'handle%s' % _command)
+            f = getattr(self, 'handle%s' % command)
             try:
-                f(_args, _prefix)
+                f(params, prefix)
             except Exception, e:
                 self.log('handler failed: %s' % e)
         except Exception, e:
-            self.log('No handler for command %s: %s' % (_command, e))
+            self.log('No handler for command %s: %s' % (command, e))
 
 class SSLIRCServer(BaseIRCServer):
     def __init__(self, event_func):
