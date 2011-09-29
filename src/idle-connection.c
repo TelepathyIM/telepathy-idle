@@ -93,7 +93,7 @@ struct _IdleOutputPendingMsg {
 
 struct _MsgQueueTimeoutData {
 	IdleConnection *conn;
-	gint limit;
+	GSList *sent_msgs;
 };
 
 struct _SendWithPriorityData {
@@ -177,6 +177,9 @@ struct _IdleConnectionPrivate {
 
 	/* output message queue */
 	GQueue *msg_queue;
+
+	/* has it submitted a message for sending and waiting for acknowledgement */
+	gboolean msg_sending;
 
 	/* UNIX time the last message was sent on */
 	time_t last_msg_sent;
@@ -823,29 +826,34 @@ static gboolean keepalive_timeout_cb(gpointer user_data) {
 	return TRUE;
 }
 
+static void _sent_msgs_foreach_free(gpointer data) {
+	idle_output_pending_msg_free((IdleOutputPendingMsg *) data);
+}
+
+static void _restore_msg_to_queue(gpointer data, gpointer user_data) {
+	GQueue *msg_queue = (GQueue *) user_data;
+	g_queue_push_head(msg_queue, data);
+}
+
 static void _msg_queue_timeout_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
 	IdleServerConnection *sconn = IDLE_SERVER_CONNECTION(source_object);
 	MsgQueueTimeoutData *data = (MsgQueueTimeoutData *) user_data;
 	IdleConnection *conn = data->conn;
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	IdleOutputPendingMsg *output_msg;
-	int i;
-	int limit = data->limit;
+	GSList *sent_msgs = data->sent_msgs;
 	GError *error = NULL;
 
 	g_slice_free(MsgQueueTimeoutData, data);
+	priv->msg_sending = FALSE;
 
 	if (!idle_server_connection_send_finish(sconn, res, &error)) {
 		IDLE_DEBUG("idle_server_connection_send failed: %s", error->message);
 		g_error_free(error);
+		g_slist_foreach(sent_msgs, _restore_msg_to_queue, priv->msg_queue);
 		return;
 	}
 
-	for (i = 0; i < limit; i++) {
-		output_msg = g_queue_pop_head(priv->msg_queue);
-		idle_output_pending_msg_free(output_msg);
-	}
-
+	g_slist_free_full(sent_msgs, _sent_msgs_foreach_free);
 	priv->last_msg_sent = time(NULL);
 }
 
@@ -867,17 +875,25 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 		return FALSE;
 	}
 
-	output_msg = g_queue_peek_head(priv->msg_queue);
+	if (priv->msg_sending)
+		return TRUE;
+
+	output_msg = g_queue_pop_head(priv->msg_queue);
 
 	if (output_msg == NULL) {
 		priv->msg_queue_timeout = 0;
 		return FALSE;
 	}
 
+	data = g_slice_new0(MsgQueueTimeoutData);
+	data->conn = conn;
+	data->sent_msgs = g_slist_prepend(data->sent_msgs, output_msg);
+
 	g_strlcpy(msg, output_msg->message, IRC_MSG_MAXLEN + 3);
 
 	for (i = 1; i < MSG_QUEUE_UNLOAD_AT_A_TIME; i++) {
-		output_msg = g_queue_peek_nth(priv->msg_queue, i);
+		output_msg = (IdleOutputPendingMsg *) g_queue_pop_head(priv->msg_queue);
+		data->sent_msgs = g_slist_prepend(data->sent_msgs, output_msg);
 
 		if ((output_msg != NULL) && ((strlen(msg) + strlen(output_msg->message)) < IRC_MSG_MAXLEN + 2))
 			strcat(msg, output_msg->message);
@@ -885,11 +901,9 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 			break;
 	}
 
-	data = g_slice_new0(MsgQueueTimeoutData);
-	data->conn = conn;
-	data->limit = i;
-
 	idle_server_connection_send_async(priv->conn, msg, NULL, _msg_queue_timeout_ready, data);
+	priv->msg_sending = TRUE;
+
 	return TRUE;
 }
 
