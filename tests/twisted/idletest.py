@@ -12,7 +12,7 @@ from twisted.words.protocols import irc
 from twisted.internet import reactor, ssl
 
 def make_irc_event(type, data):
-    if data is not None:
+    if data:
         data[-1] = data[-1].rstrip('\r\n')
     event = servicetest.Event(type, data=data)
     return event
