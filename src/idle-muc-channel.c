@@ -1024,7 +1024,7 @@ void idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner) {
 
 static void _network_member_left(IdleMUCChannel *chan, TpHandle leaver, TpHandle actor, const gchar *message, TpChannelGroupChangeReason reason) {
 	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
-TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
+	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 	TpIntSet *set = tp_intset_new();
 
 	tp_intset_add(set, leaver);
