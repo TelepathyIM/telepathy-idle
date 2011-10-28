@@ -1,3 +1,22 @@
+telepathy-idle 0.1.11 (2011-10-28)
+==================================
+
+The “Flugufrelsarinn” release.
+
+Enhancements:
+
+• fd.o#21168: Idle now implements the Contacts interface (which has
+  officially been mandatory for a while). (wjt)
+
+• fd.o#37145: Rather than using its own home-grown network code, Idle
+  now uses GIO. This should make it more robust and maintainable.
+  (rishi)
+
+• fd.o#40734: The new Subject interface is now implemented. The old
+  Properties interface is no longer supported, and hence various other
+  aspects of room configuration are no longer exposed. In future, they
+  should be reincarnated on the RoomConfig interface. (wjt)
+
 telepathy-idle 0.1.10 (2011-05-11)
 ==================================
 
