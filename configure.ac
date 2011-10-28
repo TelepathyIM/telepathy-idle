@@ -71,7 +71,7 @@ AC_HEADER_STDC([])
 AC_C_INLINE
 
 dnl Check for Glib 
-PKG_CHECK_MODULES(GLIB, [glib-2.0 >= 2.4, gobject-2.0 >= 2.4])
+PKG_CHECK_MODULES(GLIB, [glib-2.0 >= 2.28.0, gobject-2.0 >= 2.28.0, gio-2.0 >= 2.28.0 ])
 
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
