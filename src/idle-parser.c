@@ -389,23 +389,41 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 				iter += 2;
 			}
 		} else if ((*format == ':') || (*format == '.')) {
-			/* Because of the way things are tokenized, if there is a space
-			 * immediately after the the ':', the current token will only be
-			 * ":", so we check that iter[1][1] is non-NULL rather than checking
-			 * iter[0][1] (since iter[0] is a NULL-terminated token string
-			 * whereas iter[1] is a pointer into the full message string
+			/* Assume the happy case of the trailing parameter starting after the :
+			 * in the trailing string as the RFC intended */
+			const gchar *trailing = iter[1] + 1;
+
+			/* Some IRC proxies *cough* bip *cough* omit the : in the trailing
+			 * parameter if that parameter is just one word, to cope with that check
+			 * if there are no more tokens after the current one and if so, accept a
+			 * trailing string without the : prefix. */
+			if (iter[0][0] != ':') {
+				if (iter[2] == NULL) {
+					trailing = iter[1];
+				} else {
+					success = FALSE;
+					break;
+				}
+			}
+
+			/*
+			 * because of the way things are tokenized, if there is a
+			 * space immediately after the the ':', the current token will only be
+			 * ":", so we check that the trailing string is non-NULL rather than
+			 * checking iter[0][1] (since iter[0] is a NULL-terminated token string
+			 * whereas trailing is a pointer into the full message string
 			 */
-			if ((iter[0][0] != ':') || (iter[1][1] == '\0')) {
+			if (trailing[0] == '\0') {
 				success = FALSE;
 				break;
 			}
 
 			g_value_init(&val, G_TYPE_STRING);
-			g_value_set_string(&val, iter[1] + 1);
+			g_value_set_string(&val, trailing);
 			g_value_array_append(args, &val);
 			g_value_unset(&val);
 
-			IDLE_DEBUG("set string \"%s\"", iter[1] + 1);
+			IDLE_DEBUG("set string \"%s\"", trailing);
 		} else {
 			if (!_parse_atom(parser, args, *format, iter[0], contact_reffed, room_reffed)) {
 				success = FALSE;

@@ -122,6 +122,17 @@ def test(q, bus, conn, stream):
           'Timestamp': 1234,
         })
 
+    # BIP omits the : for the trailing parameter if it's a single word, make
+    # sure we pass that as well
+    stream.sendMessage('TOPIC', room, 'badgers!',
+        prefix='alice')
+    expect_subject_props_changed(q,
+        { 'Subject': 'badgers!',
+          'Actor': 'alice',
+          'ActorHandle': alice_handle,
+          'Timestamp': 1234,
+        })
+
     test_can_set(q, stream, channel)
 
     # Topic is read/write, if we get ops it should stay that way
