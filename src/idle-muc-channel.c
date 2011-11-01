@@ -62,6 +62,7 @@ enum {
 
   PROP_SUBJECT,
   PROP_SUBJECT_ACTOR,
+  PROP_SUBJECT_ACTOR_HANDLE,
   PROP_SUBJECT_TIMESTAMP,
   PROP_CAN_SET_SUBJECT
 };
@@ -303,6 +304,9 @@ idle_muc_channel_get_property (
       case PROP_SUBJECT_ACTOR:
         g_value_set_string (value, priv->mode_state.topic_toucher_id);
         break;
+      case PROP_SUBJECT_ACTOR_HANDLE:
+        g_value_set_uint (value, priv->mode_state.topic_toucher);
+        break;
       case PROP_SUBJECT_TIMESTAMP:
         g_value_set_int64 (value, priv->mode_state.topic_touched);
         break;
@@ -348,6 +352,7 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
 	static TpDBusPropertiesMixinPropImpl subject_props[] = {
 		{ "Subject", "subject", NULL },
 		{ "Actor", "subject-actor", NULL },
+		{ "ActorHandle", "subject-actor-handle", NULL },
 		{ "Timestamp", "subject-timestamp", NULL },
 		{ "CanSet", "can-set-subject", NULL },
 		{ NULL },
@@ -378,6 +383,14 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
 		"subject-actor", "Subject.Actor", "who set the topic",
 		NULL, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_SUBJECT_ACTOR,
+		param_spec);
+
+	param_spec = g_param_spec_uint (
+		"subject-actor-handle", "Subject.ActorHandle",
+		"who set the topic (who hoo hoo, hoo hoo)",
+		0, G_MAXUINT, 0,
+		G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+	g_object_class_install_property (object_class, PROP_SUBJECT_ACTOR_HANDLE,
 		param_spec);
 
 	param_spec = g_param_spec_int64 (
@@ -1333,7 +1346,7 @@ idle_muc_channel_topic_full (
   TpHandleRepoIface *handles = tp_base_connection_get_handles (base_conn,
       TP_HANDLE_TYPE_CONTACT);
   guint i = 0;
-  static const gchar *changed[] = { NULL, NULL, NULL, NULL };
+  static const gchar *changed[] = { NULL, NULL, NULL, NULL, NULL };
 
   /* Don't blow up if we pass the existing topic pointer in. */
   if (priv->mode_state.topic != topic)
@@ -1353,6 +1366,7 @@ idle_muc_channel_topic_full (
     {
       priv->mode_state.topic_toucher = toucher;
       changed[i++] = "Actor";
+      changed[i++] = "ActorHandle";
     }
 
   if (toucher != 0)

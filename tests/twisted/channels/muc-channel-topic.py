@@ -68,6 +68,8 @@ def test(q, bus, conn, stream):
 
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
 
+    alice_handle, bob_handle = conn.RequestHandles(HT_CONTACT, ['alice', 'bob'])
+
     call_async(q, conn.Requests, 'CreateChannel',
             { CHANNEL_TYPE: CHANNEL_TYPE_TEXT,
               TARGET_HANDLE_TYPE: HT_ROOM,
@@ -88,6 +90,7 @@ def test(q, bus, conn, stream):
     assertEquals('', subject_props['Subject'])
     assertEquals(0, subject_props['Timestamp'])
     assertEquals('', subject_props['Actor'])
+    assertEquals(0, subject_props['ActorHandle'])
 
     # Before the topic arrives from the server, check that our API works okay.
     # FIXME: when we make SetSubject return asynchronously, this will need
@@ -106,6 +109,7 @@ def test(q, bus, conn, stream):
     expect_subject_props_changed(q,
         { 'Timestamp': 1307802600,
           'Actor': 'bob',
+          'ActorHandle': bob_handle,
         }, exact_timestamp=True)
 
     # Another user changes the topic.
@@ -114,6 +118,7 @@ def test(q, bus, conn, stream):
     expect_subject_props_changed(q,
         { 'Subject': 'I am as high as a kite',
           'Actor': 'alice',
+          'ActorHandle': alice_handle,
           'Timestamp': 1234,
         })
 
