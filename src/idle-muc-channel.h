@@ -94,8 +94,8 @@ void idle_muc_channel_quit(IdleMUCChannel *chan, TpHandle handle, const gchar *m
 gboolean idle_muc_channel_receive(IdleMUCChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *msg);
 void idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old_handle, TpHandle new_handle);
 void idle_muc_channel_topic(IdleMUCChannel *chan, const gchar *topic);
-void idle_muc_channel_topic_full(IdleMUCChannel *chan, const TpHandle handle, const guint timestamp, const gchar *topic);
-void idle_muc_channel_topic_touch(IdleMUCChannel *chan, const TpHandle handle, const guint timestamp);
+void idle_muc_channel_topic_full(IdleMUCChannel *chan, const TpHandle handle, const gint64 timestamp, const gchar *topic);
+void idle_muc_channel_topic_touch(IdleMUCChannel *chan, const TpHandle handle, const gint64 timestamp);
 void idle_muc_channel_topic_unset(IdleMUCChannel *chan);
 
 gboolean idle_muc_channel_is_ready(IdleMUCChannel *chan);

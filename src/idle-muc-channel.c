@@ -112,7 +112,7 @@ typedef struct {
 	guint limit;
 	gchar *topic;
 	gchar *key;
-	guint topic_touched;
+	gint64 topic_touched;
 	TpHandle topic_toucher;
 	const gchar *topic_toucher_id;
 } IRCChannelModeState;
@@ -230,6 +230,8 @@ static void idle_muc_channel_init (IdleMUCChannel *obj) {
 	muc_channel_tp_properties_init(obj);
 
 	priv->dispose_has_run = FALSE;
+
+	priv->mode_state.topic_touched = G_MAXINT64;
 }
 
 static void idle_muc_channel_dispose (GObject *object);
@@ -1325,7 +1327,7 @@ void
 idle_muc_channel_topic_touch (
     IdleMUCChannel *self,
     const TpHandle toucher,
-    const guint timestamp)
+    const gint64 timestamp)
 {
   IdleMUCChannelPrivate *priv = self->priv;
 
@@ -1337,7 +1339,7 @@ void
 idle_muc_channel_topic_full (
     IdleMUCChannel *self,
     const TpHandle toucher,
-    const guint timestamp,
+    const gint64 timestamp,
     const gchar *topic)
 {
   IdleMUCChannelPrivate *priv = self->priv;
@@ -1382,7 +1384,7 @@ void
 idle_muc_channel_topic_unset (
     IdleMUCChannel *self)
 {
-  idle_muc_channel_topic_full (self, 0, 0, "");
+  idle_muc_channel_topic_full (self, 0, G_MAXINT64, "");
 }
 
 void idle_muc_channel_badchannelkey(IdleMUCChannel *chan) {
