@@ -6,6 +6,7 @@ TWISTED_TESTS = \
 		connect/connect-fail-ssl.py \
 		connect/server-quit-ignore.py \
 		connect/server-quit-noclose.py \
+		connect/socket-closed-during-handshake.py \
 		connect/invalid-nick.py \
 		contacts.py \
 		channels/join-muc-channel.py \

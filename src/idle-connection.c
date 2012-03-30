@@ -597,14 +597,19 @@ static void _iface_shut_down(TpBaseConnection *self) {
 }
 
 static void _connection_disconnect_with_gerror(IdleConnection *conn, TpConnectionStatusReason reason, const gchar *key, const GError *error) {
-	GHashTable *details = tp_asv_new(key, G_TYPE_STRING, error->message, NULL);
+	if (TP_BASE_CONNECTION (conn)->status == TP_CONNECTION_STATUS_DISCONNECTED) {
+		IDLE_DEBUG ("Already disconnected; refusing to report error %s", error->message);
+	} else {
+		GHashTable *details = tp_asv_new(key, G_TYPE_STRING, error->message, NULL);
 
-	g_assert(error->domain == TP_ERRORS);
-	tp_base_connection_disconnect_with_dbus_error(TP_BASE_CONNECTION(conn),
-						      tp_error_get_dbus_name(error->code),
-						      details,
-						      reason);
-	g_hash_table_unref(details);
+		g_assert(error->domain == TP_ERRORS);
+
+		tp_base_connection_disconnect_with_dbus_error(TP_BASE_CONNECTION(conn),
+							      tp_error_get_dbus_name(error->code),
+							      details,
+							      reason);
+		g_hash_table_unref(details);
+	}
 }
 
 static void _connection_disconnect_with_error(IdleConnection *conn, TpConnectionStatusReason reason, const gchar *key, GQuark domain, gint code, const gchar *message) {
@@ -762,13 +767,7 @@ static void sconn_status_changed_cb(IdleServerConnection *sconn, IdleServerConne
 
 	switch (state) {
 		case SERVER_CONNECTION_STATE_NOT_CONNECTED:
-			/* when the Disconnect method is called, the parent's status is
-			 * immediately set to disconnected, and when the underlying network
-			 * connection finally disconnects and triggers this callback
-			 * we need to finish shutting down the connection -- so we can only
-			 * ignore the case where the parent's status is connecting */
-			if (conn->parent.status != TP_CONNECTION_STATUS_CONNECTING)
-				connection_disconnect_cb(conn, tp_reason);
+			connection_disconnect_cb(conn, tp_reason);
 			break;
 
 		case SERVER_CONNECTION_STATE_CONNECTING:
