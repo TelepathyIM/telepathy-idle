@@ -224,13 +224,20 @@ static void _input_stream_read_ready(GObject *source_object, GAsyncResult *res, 
 	GInputStream *input_stream = G_INPUT_STREAM(source_object);
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(user_data);
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
+	gssize ret;
 	GError *error = NULL;
 
 	if (priv->io_stream == NULL) /* ie. we are in the process of disconnecting */
 		goto cleanup;
-	if (g_input_stream_read_finish(input_stream, res, &error) == -1) {
+
+	ret = g_input_stream_read_finish(input_stream, res, &error);
+
+	if (ret == -1) {
 		IDLE_DEBUG("g_input_stream_read failed: %s", error->message);
 		g_error_free(error);
+		goto disconnect;
+	} else if (ret == 0) {
+		IDLE_DEBUG("g_input_stream_read returned end-of-file");
 		goto disconnect;
 	}
 
