@@ -81,18 +81,11 @@ G_DEFINE_TYPE_WITH_CODE(IdleConnection, idle_connection, TP_TYPE_BASE_CONNECTION
 );
 
 typedef struct _IdleOutputPendingMsg IdleOutputPendingMsg;
-typedef struct _SendWithPriorityData SendWithPriorityData;
 
 struct _IdleOutputPendingMsg {
 	gchar *message;
 	guint priority;
 	guint64 id;
-};
-
-struct _SendWithPriorityData {
-	IdleConnection *conn;
-	gchar *msg;
-	guint priority;
 };
 
 static IdleOutputPendingMsg *idle_output_pending_msg_new() {
@@ -880,26 +873,6 @@ static void _add_msg_to_queue(IdleConnection *conn, gchar *msg, guint priority) 
 	idle_connection_add_queue_timeout (conn);
 }
 
-static void _send_with_max_priority_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
-	IdleServerConnection *sconn = IDLE_SERVER_CONNECTION(source_object);
-	SendWithPriorityData *data = (SendWithPriorityData *) user_data;
-	IdleConnection *conn = data->conn;
-	gchar *msg = data->msg;
-	guint priority = data->priority;
-	GError *error = NULL;
-
-	g_slice_free(SendWithPriorityData, data);
-
-	if (!idle_server_connection_send_finish(sconn, res, &error)) {
-		IDLE_DEBUG("idle_server_connection_send failed: %s", error->message);
-		g_error_free(error);
-		_add_msg_to_queue(conn, msg, priority);
-		return;
-	}
-
-	g_free(msg);
-}
-
 static void
 idle_connection_add_queue_timeout (IdleConnection *self)
 {
@@ -907,12 +880,20 @@ idle_connection_add_queue_timeout (IdleConnection *self)
 
   if (priv->msg_queue_timeout == 0)
     {
+      time_t curr_time = time(NULL);
+
       if (flush_queue_faster)
         priv->msg_queue_timeout = g_timeout_add (MSG_QUEUE_TIMEOUT,
             msg_queue_timeout_cb, self);
       else
         priv->msg_queue_timeout = g_timeout_add_seconds (MSG_QUEUE_TIMEOUT,
             msg_queue_timeout_cb, self);
+
+      /* If it's been long enough since the last message went out, flush one
+       * immediately.
+       */
+      if (curr_time - priv->last_msg_sent > MSG_QUEUE_TIMEOUT)
+        msg_queue_timeout_cb (self);
     }
 }
 
@@ -933,12 +914,9 @@ idle_connection_clear_queue_timeout (IdleConnection *self)
  */
 static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint priority) {
 	gchar cmd[IRC_MSG_MAXLEN + 3];
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	SendWithPriorityData *data;
 	int len;
 	gchar *converted;
 	GError *convert_error = NULL;
-	time_t curr_time = time(NULL);
 
 	g_assert(msg != NULL);
 
@@ -959,21 +937,6 @@ static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint pr
 		IDLE_DEBUG("hton: %s", convert_error->message);
 		g_error_free(convert_error);
 		converted = g_strdup(cmd);
-	}
-
-	if (priority == SERVER_CMD_MAX_PRIORITY ||
-	    (conn->parent.status == TP_CONNECTION_STATUS_CONNECTED &&
-	     priv->msg_queue_timeout == 0 &&
-	     curr_time - priv->last_msg_sent > MSG_QUEUE_TIMEOUT)) {
-		priv->last_msg_sent = curr_time;
-
-		data = g_slice_new0(SendWithPriorityData);
-		data->conn = conn;
-		data->msg = converted;
-		data->priority = priority;
-
-		idle_server_connection_send_async(priv->conn, converted, NULL, _send_with_max_priority_ready, data);
-		return;
 	}
 
 	_add_msg_to_queue(conn, converted, priority);
