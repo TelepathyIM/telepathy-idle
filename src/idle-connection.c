@@ -58,7 +58,6 @@
 
 #define DEFAULT_KEEPALIVE_INTERVAL 30 /* sec */
 
-#define MSG_QUEUE_UNLOAD_AT_A_TIME 1
 #define MSG_QUEUE_TIMEOUT 2
 static gboolean flush_queue_faster = FALSE;
 
@@ -840,9 +839,7 @@ static void _msg_queue_timeout_ready(GObject *source_object, GAsyncResult *res, 
 static gboolean msg_queue_timeout_cb(gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	int i;
 	IdleOutputPendingMsg *output_msg;
-	gchar msg[IRC_MSG_MAXLEN + 3];
 
 	IDLE_DEBUG("called");
 
@@ -864,23 +861,8 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 		return FALSE;
 	}
 
-	g_strlcpy(msg, output_msg->message, IRC_MSG_MAXLEN + 3);
+	idle_server_connection_send_async(priv->conn, output_msg->message, NULL, _msg_queue_timeout_ready, conn);
 	idle_output_pending_msg_free (output_msg);
-
-	for (i = 1; i < MSG_QUEUE_UNLOAD_AT_A_TIME; i++) {
-		output_msg = g_queue_peek_head(priv->msg_queue);
-
-		if ((output_msg != NULL) && ((strlen(msg) + strlen(output_msg->message)) < IRC_MSG_MAXLEN + 2)) {
-			g_queue_pop_head(priv->msg_queue);
-			strcat(msg, output_msg->message);
-			idle_output_pending_msg_free (output_msg);
-		}
-		else {
-			break;
-		}
-	}
-
-	idle_server_connection_send_async(priv->conn, msg, NULL, _msg_queue_timeout_ready, conn);
 	priv->msg_sending = TRUE;
 
 	return TRUE;
