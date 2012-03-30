@@ -88,10 +88,17 @@ struct _IdleOutputPendingMsg {
 	guint64 id;
 };
 
-static IdleOutputPendingMsg *idle_output_pending_msg_new() {
+/* Steals @message. */
+static IdleOutputPendingMsg *
+idle_output_pending_msg_new (
+    gchar *message,
+    guint priority)
+{
 	IdleOutputPendingMsg *msg = g_slice_new(IdleOutputPendingMsg);
 	static guint64 last_id = 0;
 
+	msg->message = message;
+	msg->priority = priority;
 	msg->id = last_id++;
 
 	return msg;
@@ -861,18 +868,6 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 	return TRUE;
 }
 
-static void _add_msg_to_queue(IdleConnection *conn, gchar *msg, guint priority) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
-	IdleOutputPendingMsg *output_msg;
-
-	output_msg = idle_output_pending_msg_new();
-	output_msg->message = msg;
-	output_msg->priority = priority;
-
-	g_queue_insert_sorted(priv->msg_queue, output_msg, pending_msg_compare, NULL);
-	idle_connection_add_queue_timeout (conn);
-}
-
 static void
 idle_connection_add_queue_timeout (IdleConnection *self)
 {
@@ -913,6 +908,7 @@ idle_connection_clear_queue_timeout (IdleConnection *self)
  * Queue a IRC command for sending, clipping it to IRC_MSG_MAXLEN bytes and appending the required <CR><LF> to it
  */
 static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint priority) {
+	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 	gchar cmd[IRC_MSG_MAXLEN + 3];
 	int len;
 	gchar *converted;
@@ -939,7 +935,10 @@ static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint pr
 		converted = g_strdup(cmd);
 	}
 
-	_add_msg_to_queue(conn, converted, priority);
+	g_queue_insert_sorted(priv->msg_queue,
+		idle_output_pending_msg_new(converted, priority),
+		pending_msg_compare, NULL);
+	idle_connection_add_queue_timeout (conn);
 }
 
 void idle_connection_send(IdleConnection *conn, const gchar *msg) {
