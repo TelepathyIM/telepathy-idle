@@ -378,6 +378,15 @@ void idle_server_connection_disconnect_full_async(IdleServerConnection *conn, gu
 		return;
 	}
 
+	if (priv->io_stream == NULL) {
+		IDLE_DEBUG("We were exploding anyway");
+		g_simple_async_report_error_in_idle(G_OBJECT(conn),
+			callback, user_data,
+			TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+			"We were exploding anyway");
+		return;
+	}
+
 	priv->reason = reason;
 
 	result = g_simple_async_result_new(G_OBJECT(conn), callback, user_data, idle_server_connection_disconnect_full_async);
