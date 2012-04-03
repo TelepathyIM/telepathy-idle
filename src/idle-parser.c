@@ -539,7 +539,7 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 
 			if (atom == 'C') {
 				g_value_init(&val, G_TYPE_CHAR);
-#if GLIB_CHECK_VERSION(2,32,0)
+#if GLIB_CHECK_VERSION(2, 31, 0)
 				g_value_set_schar(&val, modechar);
 #else
 				g_value_set_char(&val, modechar);
