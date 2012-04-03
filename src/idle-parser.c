@@ -21,8 +21,8 @@
 /* For strnlen(), which is a GNU extension. */
 #define  _GNU_SOURCE
 
-#include "idle-parser.h"
 #include "config.h"
+#include "idle-parser.h"
 
 #include "idle-connection.h"
 #include "idle-muc-channel.h"

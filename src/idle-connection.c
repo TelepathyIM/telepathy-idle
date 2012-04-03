@@ -19,9 +19,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include "idle-connection.h"
+#include "config.h"
 
-#include <config.h>
+#include "idle-connection.h"
 
 #include <string.h>
 #include <time.h>
