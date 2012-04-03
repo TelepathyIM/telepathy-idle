@@ -70,7 +70,10 @@ AC_SUBST(ERROR_CFLAGS)
 AC_HEADER_STDC([])
 AC_C_INLINE
 
-dnl Check for Glib 
+dnl Check for Glib
+AC_DEFINE(GLIB_VERSION_MIN_REQUIRED, GLIB_VERSION_2_28, [Ignore post 2.28 deprecations])
+AC_DEFINE(GLIB_VERSION_MAX_ALLOWED, GLIB_VERSION_2_28, [Prevent post 2.28 APIs])
+
 PKG_CHECK_MODULES(GLIB, [glib-2.0 >= 2.28.0, gobject-2.0 >= 2.28.0, gio-2.0 >= 2.28.0 ])
 
 AC_SUBST(GLIB_CFLAGS)
