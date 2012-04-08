@@ -384,22 +384,15 @@ _roomlist_manager_new_channel (IdleRoomlistManager *self,
 {
   IdleRoomlistManagerPrivate *priv = IDLE_ROOMLIST_MANAGER_GET_PRIVATE (self);
   IdleRoomlistChannel *chan;
-  gchar *object_path = NULL;
   GSList *requests = NULL;
 
   g_assert (priv->channel == NULL);
 
   IDLE_DEBUG ("Requested room list channel");
 
-  object_path = g_strdup_printf ("%s/RoomListChannel%u",
-                                 priv->conn->parent.object_path,
-                                 0);
-
   chan = g_object_new (IDLE_TYPE_ROOMLIST_CHANNEL,
                        "connection", priv->conn,
-                       "object-path", object_path,
                        NULL);
-  g_free (object_path);
 
   if (request != NULL)
     requests = g_slist_prepend (requests, request);

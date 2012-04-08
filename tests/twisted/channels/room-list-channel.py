@@ -4,10 +4,9 @@ Test getting a room-list channel
 """
 
 from idletest import exec_test, BaseIRCServer
-from servicetest import EventPattern, call_async, tp_name_prefix, tp_path_prefix
+from servicetest import EventPattern, call_async, tp_name_prefix, tp_path_prefix, assertEquals
 import dbus
-
-HANDLE_TYPE_NONE=0
+import constants as cs
 
 TEST_CHANNELS = (
         ('#foo', 4, 'discussion about foo'),
@@ -45,23 +44,27 @@ def test(q, bus, conn, stream):
     q.expect('dbus-signal', signal='SelfHandleChanged',
         args=[1L])
 
-    call_async(q, conn, 'RequestChannel',
-            tp_name_prefix + '.Channel.Type.RoomList', HANDLE_TYPE_NONE,
-            0, True)
-    ret = q.expect('dbus-return', method='RequestChannel')
-    assert 'RoomListChannel' in ret.value[0]
+    call_async(q, conn, 'CreateChannel',
+        { cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_ROOM_LIST },
+        dbus_interface=cs.CONN_IFACE_REQUESTS)
+    ret = q.expect('dbus-return', method='CreateChannel')
+    path, properties = ret.value
+    assertEquals(cs.CHANNEL_TYPE_ROOM_LIST, properties[cs.CHANNEL_TYPE])
 
-    q.expect('dbus-signal', signal='NewChannels',
-            args=[[(tp_path_prefix + '/Connection/idle/irc/test_40localhost/RoomListChannel0',
-                { tp_name_prefix + u'.Channel.ChannelType':
-                    tp_name_prefix + u'.Channel.Type.RoomList',
-                    tp_name_prefix + u'.Channel.TargetHandle': 0,
-                    tp_name_prefix + u'.Channel.TargetHandleType': 0})]])
-    q.expect('dbus-signal', signal='NewChannel',
-            args=[tp_path_prefix + '/Connection/idle/irc/test_40localhost/RoomListChannel0',
-                tp_name_prefix + u'.Channel.Type.RoomList', 0, 0, 1])
-    chan = bus.get_object(conn.bus_name,
-            tp_path_prefix + '/Connection/idle/irc/test_40localhost/RoomListChannel0')
+    def looks_like_a_room_list(event):
+        channels, = event.args
+        if len(channels) != 1:
+            return False
+        path, props = channels[0]
+
+        return props[cs.CHANNEL_TYPE] == cs.CHANNEL_TYPE_ROOM_LIST and \
+            props[cs.TARGET_HANDLE_TYPE] == cs.HT_NONE and \
+            props[cs.TARGET_ID] == ''
+
+    e = q.expect('dbus-signal', signal='NewChannels',
+        predicate=looks_like_a_room_list)
+
+    chan = bus.get_object(conn.bus_name, path)
     list_chan = dbus.Interface(chan, tp_name_prefix + u'.Channel.Type.RoomList')
     list_chan.ListRooms();
     q.expect('dbus-signal', signal='GotRooms', predicate=lambda x:check_rooms(x.args[0]))

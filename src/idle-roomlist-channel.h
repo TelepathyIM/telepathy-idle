@@ -1,7 +1,7 @@
 /*
  * This file is part of telepathy-idle
  *
- * Copyright (C) 2009 Collabora Limited
+ * Copyright © 2009–2012 Collabora Limited
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -18,13 +18,14 @@
  *
  * Authors:
  *  Jonathon Jongsma <jonathon.jongsma@collabora.co.uk>
+ *  Will Thompson <will.thompson@collabora.co.uk>
  */
 
 #ifndef __IDLE_ROOMLIST_CHANNEL_H__
 #define __IDLE_ROOMLIST_CHANNEL_H__
 
 #include <glib-object.h>
-#include <telepathy-glib/dbus-properties-mixin.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 G_BEGIN_DECLS
 
@@ -32,12 +33,11 @@ typedef struct _IdleRoomlistChannel IdleRoomlistChannel;
 typedef struct _IdleRoomlistChannelClass IdleRoomlistChannelClass;
 
 struct _IdleRoomlistChannelClass {
-        GObjectClass parent_class;
-        TpDBusPropertiesMixinClass dbus_props_class;
+        TpBaseChannelClass parent_class;
 };
 
 struct _IdleRoomlistChannel {
-        GObject parent;
+        TpBaseChannel parent;
 };
 
 GType idle_roomlist_channel_get_type(void);
