@@ -322,7 +322,6 @@ _rpl_list_handler (IdleParser *parser,
   IdleRoomlistChannel* self = IDLE_ROOMLIST_CHANNEL (user_data);
   IdleRoomlistChannelPrivate *priv = IDLE_ROOMLIST_CHANNEL_GET_PRIVATE (self);
   GValue room = {0,};
-  GValue *tmp;
   GHashTable *keys;
 
   TpHandle room_handle = g_value_get_uint (g_value_array_get_nth (args, 0));
@@ -338,22 +337,11 @@ _rpl_list_handler (IdleParser *parser,
       topic = g_value_get_string (g_value_array_get_nth (args, 2));
     }
 
-  keys = g_hash_table_new_full (g_str_hash, g_str_equal, NULL,
-      (GDestroyNotify) tp_g_value_slice_free);
-  tmp = g_slice_new0 (GValue);
-  g_value_init (tmp, G_TYPE_STRING);
-  g_value_set_string (tmp, room_name);
-  g_hash_table_insert (keys, "name", tmp);
-
-  tmp = g_slice_new0 (GValue);
-  g_value_init (tmp, G_TYPE_UINT);
-  g_value_set_uint (tmp, num_users);
-  g_hash_table_insert (keys, "members", tmp);
-
-  tmp = g_slice_new0 (GValue);
-  g_value_init (tmp, G_TYPE_STRING);
-  g_value_set_string (tmp, topic);
-  g_hash_table_insert (keys, "subject", tmp);
+  keys = tp_asv_new (
+      "name", G_TYPE_STRING, room_name,
+      "members", G_TYPE_UINT, num_users,
+      "subject", G_TYPE_STRING, topic,
+      NULL);
 
   g_value_init (&room, TP_STRUCT_TYPE_ROOM_INFO);
   g_value_take_boxed (&room,
