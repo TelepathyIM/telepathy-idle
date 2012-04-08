@@ -349,7 +349,7 @@ _rpl_list_handler (IdleParser *parser,
 
   dbus_g_type_struct_set (&room,
       0, room_handle,
-      1, "org.freedesktop.Telepathy.Channel.Type.Text",
+      1, TP_IFACE_CHANNEL_TYPE_TEXT,
       2, keys,
       G_MAXUINT);
 
