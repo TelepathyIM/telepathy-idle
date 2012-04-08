@@ -57,7 +57,6 @@ static const gchar * const roomlist_channel_allowed_properties[] = {
     NULL
 };
 
-typedef struct _IdleRoomlistManagerPrivate IdleRoomlistManagerPrivate;
 struct _IdleRoomlistManagerPrivate
 {
   IdleConnection *conn;
@@ -65,8 +64,6 @@ struct _IdleRoomlistManagerPrivate
   int status_changed_id;
   gboolean dispose_has_run;
 };
-
-#define IDLE_ROOMLIST_MANAGER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), IDLE_TYPE_ROOMLIST_MANAGER, IdleRoomlistManagerPrivate))
 
 static void _roomlist_manager_close_all (IdleRoomlistManager *self);
 static void connection_status_changed_cb (IdleConnection* conn, guint status, guint reason, IdleRoomlistManager *self);
@@ -83,9 +80,12 @@ static IdleRoomlistChannel *_roomlist_manager_new_channel (IdleRoomlistManager *
 static void _roomlist_channel_closed_cb (IdleRoomlistChannel *chan, gpointer user_data);
 
 static void
-idle_roomlist_manager_init (IdleRoomlistManager *obj)
+idle_roomlist_manager_init (IdleRoomlistManager *self)
 {
-    IdleRoomlistManagerPrivate *priv = IDLE_ROOMLIST_MANAGER_GET_PRIVATE (obj);
+    IdleRoomlistManagerPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE(self,
+        IDLE_TYPE_ROOMLIST_MANAGER, IdleRoomlistManagerPrivate);
+
+    self->priv = priv;
     priv->channel = NULL;
     priv->status_changed_id = 0;
     priv->dispose_has_run = FALSE;
@@ -99,7 +99,7 @@ idle_roomlist_manager_get_property (GObject *object,
                                     GParamSpec *pspec)
 {
     IdleRoomlistManager *self = IDLE_ROOMLIST_MANAGER (object);
-    IdleRoomlistManagerPrivate *priv = IDLE_ROOMLIST_MANAGER_GET_PRIVATE (self);
+    IdleRoomlistManagerPrivate *priv = self->priv;
 
     switch (property_id) {
       case PROP_CONNECTION:
@@ -120,7 +120,7 @@ idle_roomlist_manager_set_property (GObject *object,
                                     GParamSpec *pspec)
 {
     IdleRoomlistManager *self = IDLE_ROOMLIST_MANAGER (object);
-    IdleRoomlistManagerPrivate *priv = IDLE_ROOMLIST_MANAGER_GET_PRIVATE (self);
+    IdleRoomlistManagerPrivate *priv = self->priv;
 
     switch (property_id) {
       case PROP_CONNECTION:
@@ -168,7 +168,7 @@ _roomlist_manager_constructor (GType type,
     (type, n_props, props);
 
   self = IDLE_ROOMLIST_MANAGER (obj);
-  priv = IDLE_ROOMLIST_MANAGER_GET_PRIVATE (self);
+  priv = self->priv;
 
   g_return_val_if_fail (priv->conn, obj);
 
@@ -184,7 +184,7 @@ _roomlist_manager_constructor (GType type,
 static void
 _roomlist_manager_close_all (IdleRoomlistManager *self)
 {
-    IdleRoomlistManagerPrivate *priv = IDLE_ROOMLIST_MANAGER_GET_PRIVATE (self);
+    IdleRoomlistManagerPrivate *priv = self->priv;
     IdleRoomlistChannel *tmp;
 
     if (priv->channel != NULL)
@@ -219,11 +219,12 @@ connection_status_changed_cb (IdleConnection* conn,
 
 
 static void
-_roomlist_manager_foreach (TpChannelManager *self,
+_roomlist_manager_foreach (TpChannelManager *manager,
                            TpExportableChannelFunc func,
                            gpointer user_data)
 {
-    IdleRoomlistManagerPrivate *priv = IDLE_ROOMLIST_MANAGER_GET_PRIVATE (self);
+    IdleRoomlistManager *self = IDLE_ROOMLIST_MANAGER (manager);
+    IdleRoomlistManagerPrivate *priv = self->priv;
 
     if (!priv->channel)
       {
@@ -303,7 +304,7 @@ _roomlist_manager_requestotron (IdleRoomlistManager *self,
                                 gboolean require_new)
 {
   IDLE_DEBUG("requesting new room list channel");
-  IdleRoomlistManagerPrivate *priv = IDLE_ROOMLIST_MANAGER_GET_PRIVATE (self);
+  IdleRoomlistManagerPrivate *priv = self->priv;
   GError *error = NULL;
   TpHandle handle;
 
@@ -364,7 +365,7 @@ _roomlist_channel_closed_cb (IdleRoomlistChannel *chan,
                              gpointer user_data)
 {
   IdleRoomlistManager *self = IDLE_ROOMLIST_MANAGER (user_data);
-  IdleRoomlistManagerPrivate *priv = IDLE_ROOMLIST_MANAGER_GET_PRIVATE (self);
+  IdleRoomlistManagerPrivate *priv = self->priv;
 
   tp_channel_manager_emit_channel_closed_for_object (self,
       TP_EXPORTABLE_CHANNEL (chan));
@@ -382,7 +383,7 @@ static IdleRoomlistChannel *
 _roomlist_manager_new_channel (IdleRoomlistManager *self,
                                gpointer request)
 {
-  IdleRoomlistManagerPrivate *priv = IDLE_ROOMLIST_MANAGER_GET_PRIVATE (self);
+  IdleRoomlistManagerPrivate *priv = self->priv;
   IdleRoomlistChannel *chan;
   GSList *requests = NULL;
 
@@ -427,7 +428,7 @@ static void
 _roomlist_manager_dispose (GObject *object)
 {
   IdleRoomlistManager *self = IDLE_ROOMLIST_MANAGER (object);
-  IdleRoomlistManagerPrivate *priv = IDLE_ROOMLIST_MANAGER_GET_PRIVATE (self);
+  IdleRoomlistManagerPrivate *priv = self->priv;
 
   if (priv->dispose_has_run)
     return;

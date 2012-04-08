@@ -31,6 +31,7 @@ G_BEGIN_DECLS
 
 typedef struct _IdleRoomlistChannel IdleRoomlistChannel;
 typedef struct _IdleRoomlistChannelClass IdleRoomlistChannelClass;
+typedef struct _IdleRoomlistChannelPrivate IdleRoomlistChannelPrivate;
 
 struct _IdleRoomlistChannelClass {
         TpBaseChannelClass parent_class;
@@ -38,6 +39,7 @@ struct _IdleRoomlistChannelClass {
 
 struct _IdleRoomlistChannel {
         TpBaseChannel parent;
+        IdleRoomlistChannelPrivate *priv;
 };
 
 GType idle_roomlist_channel_get_type(void);

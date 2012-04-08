@@ -29,6 +29,7 @@ G_BEGIN_DECLS
 
 typedef struct _IdleRoomlistManager IdleRoomlistManager;
 typedef struct _IdleRoomlistManagerClass IdleRoomlistManagerClass;
+typedef struct _IdleRoomlistManagerPrivate IdleRoomlistManagerPrivate;
 
 struct _IdleRoomlistManagerClass {
         GObjectClass parent_class;
@@ -36,6 +37,7 @@ struct _IdleRoomlistManagerClass {
 
 struct _IdleRoomlistManager {
         GObject parent;
+        IdleRoomlistManagerPrivate *priv;
 };
 
 GType idle_roomlist_manager_get_type();

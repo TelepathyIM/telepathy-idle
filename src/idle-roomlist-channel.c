@@ -44,8 +44,6 @@ G_DEFINE_TYPE_WITH_CODE (IdleRoomlistChannel, idle_roomlist_channel,
     )
 
 /* private structure */
-typedef struct _IdleRoomlistChannelPrivate IdleRoomlistChannelPrivate;
-
 struct _IdleRoomlistChannelPrivate
 {
   IdleConnection *connection;
@@ -60,11 +58,11 @@ struct _IdleRoomlistChannelPrivate
   gboolean dispose_has_run;
 };
 
-#define IDLE_ROOMLIST_CHANNEL_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), IDLE_TYPE_ROOMLIST_CHANNEL, IdleRoomlistChannelPrivate))
-
 static void
-idle_roomlist_channel_init (IdleRoomlistChannel *obj)
+idle_roomlist_channel_init (IdleRoomlistChannel *self)
 {
+  self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self, IDLE_TYPE_ROOMLIST_CHANNEL,
+      IdleRoomlistChannelPrivate);
 }
 
 static void idle_roomlist_channel_dispose (GObject *object);
@@ -73,10 +71,9 @@ static void idle_roomlist_channel_finalize (GObject *object);
 static void
 idle_roomlist_channel_constructed (GObject *obj)
 {
+  IdleRoomlistChannel *self = IDLE_ROOMLIST_CHANNEL (obj);
+  IdleRoomlistChannelPrivate *priv = self->priv;
   TpBaseChannel *base = TP_BASE_CHANNEL (obj);
-  IdleRoomlistChannelPrivate *priv;
-
-  priv = IDLE_ROOMLIST_CHANNEL_GET_PRIVATE (IDLE_ROOMLIST_CHANNEL (obj));
 
   G_OBJECT_CLASS (idle_roomlist_channel_parent_class)->constructed (obj);
 
@@ -169,7 +166,7 @@ void
 idle_roomlist_channel_dispose (GObject *object)
 {
   IdleRoomlistChannel *self = IDLE_ROOMLIST_CHANNEL (object);
-  IdleRoomlistChannelPrivate *priv = IDLE_ROOMLIST_CHANNEL_GET_PRIVATE (self);
+  IdleRoomlistChannelPrivate *priv = self->priv;
 
   g_assert (object != NULL);
 
@@ -199,7 +196,7 @@ void
 idle_roomlist_channel_finalize (GObject *object)
 {
   IdleRoomlistChannel *self = IDLE_ROOMLIST_CHANNEL (object);
-  IdleRoomlistChannelPrivate *priv = IDLE_ROOMLIST_CHANNEL_GET_PRIVATE (self);
+  IdleRoomlistChannelPrivate *priv = self->priv;
 
   if (priv->handles)
     {
@@ -214,7 +211,7 @@ static void
 idle_roomlist_channel_close (TpBaseChannel *channel)
 {
   IdleRoomlistChannel *self = IDLE_ROOMLIST_CHANNEL (channel);
-  IdleRoomlistChannelPrivate *priv = IDLE_ROOMLIST_CHANNEL_GET_PRIVATE (self);
+  IdleRoomlistChannelPrivate *priv = self->priv;
 
   idle_parser_remove_handlers_by_data (priv->connection->parser, channel);
   tp_base_channel_destroyed (channel);
@@ -232,11 +229,7 @@ idle_roomlist_channel_get_listing_rooms (TpSvcChannelTypeRoomList *iface,
                                          DBusGMethodInvocation *context)
 {
   IdleRoomlistChannel *self = IDLE_ROOMLIST_CHANNEL (iface);
-  IdleRoomlistChannelPrivate *priv;
-
-  g_assert (IDLE_IS_ROOMLIST_CHANNEL (self));
-
-  priv = IDLE_ROOMLIST_CHANNEL_GET_PRIVATE (self);
+  IdleRoomlistChannelPrivate *priv = self->priv;;
 
   tp_svc_channel_type_room_list_return_from_get_listing_rooms (
       context, priv->listing);
@@ -254,11 +247,7 @@ idle_roomlist_channel_list_rooms (TpSvcChannelTypeRoomList *iface,
                                   DBusGMethodInvocation *context)
 {
   IdleRoomlistChannel *self = IDLE_ROOMLIST_CHANNEL (iface);
-  IdleRoomlistChannelPrivate *priv;
-
-  g_assert (IDLE_IS_ROOMLIST_CHANNEL (self));
-
-  priv = IDLE_ROOMLIST_CHANNEL_GET_PRIVATE (self);
+  IdleRoomlistChannelPrivate *priv = self->priv;
 
   priv->listing = TRUE;
   tp_svc_channel_type_room_list_emit_listing_rooms (iface, TRUE);
@@ -320,7 +309,7 @@ _rpl_list_handler (IdleParser *parser,
                    gpointer user_data)
 {
   IdleRoomlistChannel* self = IDLE_ROOMLIST_CHANNEL (user_data);
-  IdleRoomlistChannelPrivate *priv = IDLE_ROOMLIST_CHANNEL_GET_PRIVATE (self);
+  IdleRoomlistChannelPrivate *priv = self->priv;
   GValue room = {0,};
   GHashTable *keys;
 
@@ -366,7 +355,7 @@ _rpl_list_handler (IdleParser *parser,
 static gboolean
 emit_room_signal (IdleRoomlistChannel *self)
 {
-  IdleRoomlistChannelPrivate *priv = IDLE_ROOMLIST_CHANNEL_GET_PRIVATE (self);
+  IdleRoomlistChannelPrivate *priv = self->priv;
 
   if (!priv->listing)
       return FALSE;
@@ -394,7 +383,7 @@ _rpl_listend_handler (IdleParser *parser,
                       gpointer user_data)
 {
   IdleRoomlistChannel* self = IDLE_ROOMLIST_CHANNEL (user_data);
-  IdleRoomlistChannelPrivate *priv = IDLE_ROOMLIST_CHANNEL_GET_PRIVATE (self);
+  IdleRoomlistChannelPrivate *priv = self->priv;
   emit_room_signal (self);
 
   priv->listing = FALSE;
@@ -416,7 +405,7 @@ connection_status_changed_cb (IdleConnection* conn,
                               guint reason,
                               IdleRoomlistChannel *self)
 {
-  IdleRoomlistChannelPrivate *priv = IDLE_ROOMLIST_CHANNEL_GET_PRIVATE (self);
+  IdleRoomlistChannelPrivate *priv = self->priv;
 
   if (status == TP_CONNECTION_STATUS_DISCONNECTED)
     {
