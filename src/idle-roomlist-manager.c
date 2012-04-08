@@ -241,19 +241,12 @@ _roomlist_manager_foreach_class (TpChannelManager *self,
                                  TpChannelManagerChannelClassFunc func,
                                  gpointer user_data)
 {
-  GHashTable *table;
-  GValue *value;
-
-  table = g_hash_table_new_full (g_str_hash, g_str_equal,
-      NULL, (GDestroyNotify) tp_g_value_slice_free);
-
-  value = tp_g_value_slice_new (G_TYPE_STRING);
-  g_value_set_static_string (value, TP_IFACE_CHANNEL_TYPE_ROOM_LIST);
-  g_hash_table_insert (table, (gpointer) roomlist_channel_fixed_properties[0], value);
-
-  value = tp_g_value_slice_new (G_TYPE_UINT);
-  g_value_set_uint (value, TP_HANDLE_TYPE_NONE);
-  g_hash_table_insert (table, (gpointer) roomlist_channel_fixed_properties[1], value);
+  GHashTable *table = tp_asv_new (
+      roomlist_channel_fixed_properties[0], G_TYPE_STRING,
+          TP_IFACE_CHANNEL_TYPE_ROOM_LIST,
+      roomlist_channel_fixed_properties[1], G_TYPE_UINT,
+          TP_HANDLE_TYPE_NONE,
+      NULL);
 
   func (self, table, roomlist_channel_allowed_properties, user_data);
 
