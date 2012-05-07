@@ -12,21 +12,22 @@ version 2.1 of the License, or (at your option) any later version.</p>
 <p>This library is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Library General Public License for more details.</p>
+Lesser General Public License for more details.</p>
 
 <p>You should have received a copy of the GNU Lesser General Public
 License along with this library; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.</p>
   </tp:license>
-  <interface name="org.freedesktop.Telepathy.Connection.Interface.Renaming">
+  <interface name="org.freedesktop.Telepathy.Connection.Interface.Renaming"
+    tp:causes-havoc='not well-tested'>
     <tp:requires interface="org.freedesktop.Telepathy.Connection"/>
-    <signal name="Renamed">
-      <arg name="original" type="u" tp:type="Contact_Handle">
+    <signal name="Renamed" tp:name-for-bindings="Renamed">
+      <arg name="Original" type="u" tp:type="Contact_Handle">
         <tp:docstring>
           The handle of the original identifier
         </tp:docstring>
       </arg>
-      <arg name="new" type="u" tp:type="Contact_Handle">
+      <arg name="New" type="u" tp:type="Contact_Handle">
         <tp:docstring>
           The handle of the new identifier
         </tp:docstring>
@@ -49,8 +50,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.</
         <p>If the contact's old handle is in any of the member lists of
           a channel which has the groups interface, it will be removed from
           the channel and the new handle will be added. The resulting
-          MembersChanged signal must be emitted <em>after</em> the Renamed
-          signal; the reason should be RENAMED.
+          <tp:dbus-ref
+            namespace="org.freedesktop.Telepathy.Channel.Interface.Group">MembersChanged</tp:dbus-ref>
+          signal must be emitted <em>after</em> the
+          <tp:member-ref>Renamed</tp:member-ref> signal; the reason should be
+          RENAMED.
         </p>
 
         <p>The handles may be either general-purpose or channel-specific.
@@ -60,16 +64,17 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.</
         </p>
       </tp:docstring>
     </signal>
-    <method name="RequestRename">
-      <arg direction="in" name="name" type="s">
+    <method name="RequestRename" tp:name-for-bindings="Request_Rename">
+      <arg direction="in" name="Identifier" type="s">
         <tp:docstring>
           The desired identifier
         </tp:docstring>
       </arg>
       <tp:docstring xmlns="http://www.w3.org/1999/xhtml">
         <p>Request that the user's own identifier is changed on the server.
-          If successful, a Renamed signal will be emitted for the current
-          "self handle" as returned by GetSelfHandle.</p>
+          If successful, a <tp:member-ref>Renamed</tp:member-ref> signal will
+          be emitted for the current "self handle" as returned by <tp:dbus-ref
+            namespace="org.freedesktop.Telepathy.Connection">GetSelfHandle</tp:dbus-ref>.</p>
         <p>It is protocol-dependent how the identifier that's actually
           used will be derived from the supplied identifier; some sort of
           normalization might take place.</p>
