@@ -10,9 +10,6 @@ libidle_extensions_la_SOURCES = \
     extensions.h
 
 nodist_libidle_extensions_la_SOURCES = \
-    _gen/signals-marshal.c \
-    _gen/signals-marshal.h \
-    _gen/signals-marshal.list \
     _gen/enums.h \
     _gen/interfaces.h \
     _gen/svc.h \
@@ -49,19 +46,9 @@ _gen/svc.c _gen/svc.h: _gen/all.xml \
 	$(AM_V_GEN)$(PYTHON) $(tools_dir)/glib-ginterface-gen.py \
 		--filename=_gen/svc --signal-marshal-prefix=_idle_ext \
 		--include='<telepathy-glib/dbus.h>' \
-		--include='"_gen/signals-marshal.h"' \
 		--not-implemented-func='tp_dbus_g_method_return_not_implemented' \
 		--allow-unstable \
 		$< Idle_Svc_
-
-_gen/signals-marshal.list: _gen/all.xml $(tools_dir)/glib-signals-marshal-gen.py
-	$(AM_V_GEN)$(PYTHON) $(tools_dir)/glib-signals-marshal-gen.py $< > $@
-
-_gen/signals-marshal.h: _gen/signals-marshal.list
-	$(AM_V_GEN)$(GLIB_GENMARSHAL) --header --prefix=_idle_ext_marshal $< > $@
-
-_gen/signals-marshal.c: _gen/signals-marshal.list
-	$(AM_V_GEN)$(GLIB_GENMARSHAL) --body --prefix=_idle_ext_marshal $< > $@
 
 _gen/enums.h: _gen/all.xml $(tools_dir)/c-constants-generator.xsl
 	$(AM_V_GEN)$(XSLTPROC) $(XSLTPROCFLAGS) \

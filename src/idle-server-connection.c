@@ -31,7 +31,6 @@
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_NETWORK
 #include "idle-connection.h"
 #include "idle-debug.h"
-#include "idle-server-connection-signals-marshal.h"
 
 typedef struct _IdleServerConnectionPrivate IdleServerConnectionPrivate;
 
@@ -188,7 +187,7 @@ static void idle_server_connection_class_init(IdleServerConnectionClass *klass) 
 						G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
 						0,
 						NULL, NULL,
-						idle_server_connection_marshal_VOID__UINT_UINT,
+						g_cclosure_marshal_generic,
 						G_TYPE_NONE, 2, G_TYPE_UINT, G_TYPE_UINT);
 
 	signals[RECEIVED] = g_signal_new("received",

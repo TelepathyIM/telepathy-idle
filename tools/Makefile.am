@@ -3,16 +3,12 @@ EXTRA_DIST = \
     c-interfaces-generator.xsl \
     doc-generator.xsl \
     glib-ginterface-gen.py \
-    glib-signals-marshal-gen.py \
     identity.xsl \
     libglibcodegen.py \
     libtpcodegen.py \
     make-release-mail.py
 
 CLEANFILES = libglibcodegen.pyc libglibcodegen.pyo
-
-glib-ginterface-gen.py: libglibcodegen.py
-	touch $@
 
 glib-ginterface-gen.py: libglibcodegen.py libtpcodegen.py
 	touch $@

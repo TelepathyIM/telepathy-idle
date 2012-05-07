@@ -1,7 +1,3 @@
-BUILT_SOURCES = \
-		idle-server-connection-signals-marshal.h \
-		idle-server-connection-signals-marshal.c
-
 # correctly clean the generated source files
 CLEANFILES = $(BUILT_SOURCES) $(man_MANS)
 
@@ -36,7 +32,7 @@ libidle_convenience_la_SOURCES = \
 	idle-server-connection.h \
 	idle-text.h \
 	idle-text.c \
-	idle-server-connection-signals-marshal.list
+	$(NULL)
 
 nodist_libidle_convenience_la_SOURCES = \
 	$(BUILT_SOURCES)
@@ -68,18 +64,6 @@ ALL_LIBS = \
 	@GLIB_LIBS@ \
 	@OPENSSL_LIBS@ \
 	@TELEPATHY_LIBS@
-
-%-signals-marshal.h: %-signals-marshal.list Makefile
-	$(AM_V_GEN)glib-genmarshal --header --prefix=$(subst -,_,$*)_marshal $< > $*-signals-marshal.h
-
-%-signals-marshal.c: %-signals-marshal.list Makefile
-	$(AM_V_GEN)glib-genmarshal --body --prefix=$(subst -,_,$*)_marshal $< > $*-signals-marshal.c
-
-%-marshal.h: %-marshal.list Makefile
-	$(AM_V_GEN)glib-genmarshal --header --prefix=$(subst -,_,$*)_marshal $< > $*-marshal.h
-
-%-marshal.c: %-marshal.list Makefile
-	$(AM_V_GEN)glib-genmarshal --body --prefix=$(subst -,_,$*)_marshal $< > $*-marshal.c
 
 man_MANS = telepathy-idle.8
 
