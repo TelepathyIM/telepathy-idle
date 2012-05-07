@@ -276,7 +276,7 @@ idle_muc_channel_constructed (GObject *obj)
 
 	if (tp_base_channel_is_requested (base)) {
 		/* Add ourself to 'remote-pending' while we are joining the channel */
-		TpIntSet *remote;
+		TpIntset *remote;
 		TpHandle initiator = tp_base_channel_get_initiator (base);
 
 		g_assert (initiator == conn->self_handle);
@@ -1009,7 +1009,7 @@ void idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner) {
 	IdleMUCChannelPrivate *priv = chan->priv;
 	TpBaseConnection *base_conn = tp_base_channel_get_connection (
 		TP_BASE_CHANNEL (chan));
-	TpIntSet *set;
+	TpIntset *set;
 
 	set = tp_intset_new();
 	tp_intset_add(set, joiner);
@@ -1040,7 +1040,7 @@ void idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner) {
 static void _network_member_left(IdleMUCChannel *chan, TpHandle leaver, TpHandle actor, const gchar *message, TpChannelGroupChangeReason reason) {
 	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
 	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
-	TpIntSet *set = tp_intset_new();
+	TpIntset *set = tp_intset_new();
 
 	tp_intset_add(set, leaver);
 	tp_group_mixin_change_members((GObject *) chan, message, NULL, set, NULL, NULL, actor, reason);
@@ -1071,8 +1071,8 @@ void idle_muc_channel_quit(IdleMUCChannel *chan, TpHandle quitter, const gchar *
 void idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter) {
 	TpBaseConnection *base_conn =
 		tp_base_channel_get_connection (TP_BASE_CHANNEL (chan));
-	TpIntSet *add = tp_intset_new();
-	TpIntSet *local = tp_intset_new();
+	TpIntset *add = tp_intset_new();
+	TpIntset *local = tp_intset_new();
 
 	tp_intset_add(add, inviter);
 	tp_intset_add(local, base_conn->self_handle);
@@ -1413,10 +1413,10 @@ void idle_muc_channel_join_error(IdleMUCChannel *chan, IdleMUCChannelJoinError e
 }
 
 void idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old_handle, TpHandle new_handle) {
-	TpIntSet *add = tp_intset_new();
-	TpIntSet *remove = tp_intset_new();
-	TpIntSet *local = tp_intset_new();
-	TpIntSet *remote = tp_intset_new();
+	TpIntset *add = tp_intset_new();
+	TpIntset *remove = tp_intset_new();
+	TpIntset *local = tp_intset_new();
+	TpIntset *remote = tp_intset_new();
 
 	if (old_handle == chan->group.self_handle)
 		tp_group_mixin_change_self_handle((GObject *) chan, new_handle);
@@ -1537,7 +1537,7 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 			g_propagate_error (error, e);
 			return FALSE;
 		} else {
-			TpIntSet *add_set = tp_intset_new();
+			TpIntset *add_set = tp_intset_new();
 
 			send_join_request(obj, NULL);
 
@@ -1559,7 +1559,7 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 			return FALSE;
 		} else {
 			GError *invite_error;
-			TpIntSet *add_set = tp_intset_new();
+			TpIntset *add_set = tp_intset_new();
 
 			if (!send_invite_request(obj, handle, &invite_error)) {
 				*error = invite_error;
