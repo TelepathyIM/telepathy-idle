@@ -602,7 +602,7 @@ static void _connection_disconnect_with_gerror(IdleConnection *conn, TpConnectio
 	} else {
 		GHashTable *details = tp_asv_new(key, G_TYPE_STRING, error->message, NULL);
 
-		g_assert(error->domain == TP_ERRORS);
+		g_assert(error->domain == TP_ERROR);
 
 		tp_base_connection_disconnect_with_dbus_error(TP_BASE_CONNECTION(conn),
 							      tp_error_get_dbus_name(error->code),
@@ -659,7 +659,7 @@ static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error) 
 
 	if (priv->conn != NULL) {
 		IDLE_DEBUG("conn already open!");
-		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "connection already open!");
+		g_set_error(error, TP_ERROR, TP_ERROR_NOT_AVAILABLE, "connection already open!");
 		return FALSE;
 	}
 
@@ -1002,7 +1002,7 @@ static IdleParserHandlerResult _error_handler(IdleParser *parser, IdleParserMess
 		server_msg = g_strndup(begin, length);
 	}
 
-	_connection_disconnect_with_error(conn, reason, "server-message", TP_ERRORS, error, (server_msg == NULL) ? "" : server_msg);
+	_connection_disconnect_with_error(conn, reason, "server-message", TP_ERROR, error, (server_msg == NULL) ? "" : server_msg);
 	g_free(server_msg);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
@@ -1322,7 +1322,7 @@ static gboolean _send_rename_request(IdleConnection *obj, const gchar *nick, DBu
 	if (handle == 0) {
 		IDLE_DEBUG("failed to get handle for \"%s\"", nick);
 
-		GError error = {TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "Invalid nickname requested"};
+		GError error = {TP_ERROR, TP_ERROR_NOT_AVAILABLE, "Invalid nickname requested"};
 		dbus_g_method_return_error(context, &error);
 
 		return FALSE;
@@ -1349,7 +1349,7 @@ static void idle_connection_set_aliases(TpSvcConnectionInterfaceAliasing *iface,
 	const gchar *requested_alias = g_hash_table_lookup(aliases, GUINT_TO_POINTER(conn->parent.self_handle));
 
 	if ((g_hash_table_size(aliases) != 1) || !requested_alias) {
-		GError error = {TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "You can only set your own alias in IRC"};
+		GError error = {TP_ERROR, TP_ERROR_NOT_AVAILABLE, "You can only set your own alias in IRC"};
 		dbus_g_method_return_error(context, &error);
 
 		return;
@@ -1374,7 +1374,7 @@ static gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gc
 
 	if (ret == NULL) {
 		IDLE_DEBUG("g_convert failed: %s", error->message);
-		g_set_error(_error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "character set conversion failed: %s", error->message);
+		g_set_error(_error, TP_ERROR, TP_ERROR_NOT_AVAILABLE, "character set conversion failed: %s", error->message);
 		g_error_free(error);
 		*output = NULL;
 		return FALSE;

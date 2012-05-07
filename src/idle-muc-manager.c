@@ -669,7 +669,7 @@ static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data) {
 	 * didn't finish before we killed the channel.
 	 */
 	for (GSList *l = reqs; l != NULL; l = l->next) {
-		tp_channel_manager_emit_request_failed(manager, l->data, TP_ERRORS,
+		tp_channel_manager_emit_request_failed(manager, l->data, TP_ERROR,
 			TP_ERROR_DISCONNECTED,
 			"Unable to complete this channel request, we're disconnecting!");
 	}
@@ -721,7 +721,7 @@ static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer use
 	}
 
 	for (GSList *l = reqs; reqs != NULL; reqs = reqs->next) {
-		tp_channel_manager_emit_request_failed(manager, l->data, TP_ERRORS, err_code, err_msg);
+		tp_channel_manager_emit_request_failed(manager, l->data, TP_ERROR, err_code, err_msg);
 	}
 
 	if (priv->channels)
@@ -809,7 +809,7 @@ _muc_manager_request (IdleMUCManager *self,
 		{
 			if (require_new)
 			{
-				g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+				g_set_error (&error, TP_ERROR, TP_ERROR_NOT_AVAILABLE,
 							 "That channel has already been created (or requested)");
 				goto error;
 			}

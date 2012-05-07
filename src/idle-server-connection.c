@@ -268,7 +268,7 @@ static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gp
 	socket_connection = g_socket_client_connect_to_host_finish(socket_client, res, &error);
 	if (socket_connection == NULL) {
 		IDLE_DEBUG("g_socket_client_connect_to_host failed: %s", error->message);
-		g_simple_async_result_set_error(result, TP_ERRORS, TP_ERROR_NETWORK_ERROR, "%s", error->message);
+		g_simple_async_result_set_error(result, TP_ERROR, TP_ERROR_NETWORK_ERROR, "%s", error->message);
 		g_error_free(error);
 		change_state(conn, SERVER_CONNECTION_STATE_NOT_CONNECTED, SERVER_CONNECTION_STATE_REASON_ERROR);
 		g_object_unref(conn);
@@ -302,7 +302,7 @@ void idle_server_connection_connect_async(IdleServerConnection *conn, GCancellab
 		IDLE_DEBUG("already connecting or connected!");
 		g_simple_async_report_error_in_idle(G_OBJECT(conn),
 			callback, user_data,
-			TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+			TP_ERROR, TP_ERROR_NOT_AVAILABLE,
 			"already connecting or connected!");
 		return;
 	}
@@ -311,7 +311,7 @@ void idle_server_connection_connect_async(IdleServerConnection *conn, GCancellab
 		IDLE_DEBUG("host not set!");
 		g_simple_async_report_error_in_idle(G_OBJECT(conn),
 			callback, user_data,
-			TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+			TP_ERROR, TP_ERROR_NOT_AVAILABLE,
 			"host not set!");
 		return;
 	}
@@ -320,7 +320,7 @@ void idle_server_connection_connect_async(IdleServerConnection *conn, GCancellab
 		IDLE_DEBUG("port not set!");
 		g_simple_async_report_error_in_idle(G_OBJECT(conn),
 			callback, user_data,
-			TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+			TP_ERROR, TP_ERROR_NOT_AVAILABLE,
 			"port not set!");
 		return;
 	}
@@ -347,7 +347,7 @@ static void _close_ready(GObject *source_object, GAsyncResult *res, gpointer use
 
 	if (!g_io_stream_close_finish(io_stream, res, &error)) {
 		IDLE_DEBUG("g_io_stream_close failed: %s", error->message);
-		g_simple_async_result_set_error(result, TP_ERRORS, TP_ERROR_NETWORK_ERROR, "%s", error->message);
+		g_simple_async_result_set_error(result, TP_ERROR, TP_ERROR_NETWORK_ERROR, "%s", error->message);
 		g_error_free(error);
 	}
 
@@ -373,7 +373,7 @@ void idle_server_connection_disconnect_full_async(IdleServerConnection *conn, gu
 		IDLE_DEBUG("the connection was not open");
 		g_simple_async_report_error_in_idle(G_OBJECT(conn),
 			callback, user_data,
-			TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+			TP_ERROR, TP_ERROR_NOT_AVAILABLE,
 			"the connection was not open");
 		return;
 	}
@@ -382,7 +382,7 @@ void idle_server_connection_disconnect_full_async(IdleServerConnection *conn, gu
 		IDLE_DEBUG("We were exploding anyway");
 		g_simple_async_report_error_in_idle(G_OBJECT(conn),
 			callback, user_data,
-			TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+			TP_ERROR, TP_ERROR_NOT_AVAILABLE,
 			"We were exploding anyway");
 		return;
 	}
@@ -413,7 +413,7 @@ static void _write_ready(GObject *source_object, GAsyncResult *res, gpointer use
 	nwrite = g_output_stream_write_finish(output_stream, res, &error);
 	if (nwrite == -1) {
 		IDLE_DEBUG("g_output_stream_write failed : %s", error->message);
-		g_simple_async_result_set_error(result, TP_ERRORS, TP_ERROR_NETWORK_ERROR, "%s", error->message);
+		g_simple_async_result_set_error(result, TP_ERROR, TP_ERROR_NETWORK_ERROR, "%s", error->message);
 		g_error_free(error);
 		goto cleanup;
 	}
@@ -443,7 +443,7 @@ void idle_server_connection_send_async(IdleServerConnection *conn, const gchar *
 		IDLE_DEBUG("connection was not open!");
 		g_simple_async_report_error_in_idle(G_OBJECT(conn),
 			callback, user_data,
-			TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+			TP_ERROR, TP_ERROR_NOT_AVAILABLE,
 			"connection was not open!");
 		return;
 	}

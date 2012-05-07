@@ -359,7 +359,7 @@ _im_manager_requestotron (IdleIMManager *self,
 	/* Don't support opening a channel to our self handle */
 	if (handle == base_conn->self_handle)
 	{
-		g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
+		g_set_error (&error, TP_ERROR, TP_ERROR_NOT_IMPLEMENTED,
 					 "Can't open a text channel to yourself");
 		goto error;
 	}
@@ -374,7 +374,7 @@ _im_manager_requestotron (IdleIMManager *self,
 
 	if (require_new)
 	{
-		g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+		g_set_error (&error, TP_ERROR, TP_ERROR_NOT_AVAILABLE,
 					 "Already chatting with contact #%u in another channel", handle);
 		goto error;
 	}

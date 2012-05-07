@@ -235,7 +235,7 @@ static IdleParserHandlerResult _no_such_server_handler(IdleParser *parser, IdleP
 	if (request == NULL)
 		goto cleanup;
 
-	error = g_error_new(TP_ERRORS, TP_ERROR_DOES_NOT_EXIST, "User '%s' unknown; they may have disconnected", server);
+	error = g_error_new(TP_ERROR, TP_ERROR_DOES_NOT_EXIST, "User '%s' unknown; they may have disconnected", server);
 	dbus_g_method_return_error(request->context, error);
 	g_error_free(error);
 
@@ -269,7 +269,7 @@ static IdleParserHandlerResult _try_again_handler(IdleParser *parser, IdleParser
 
 	msg = g_value_get_string(g_value_array_get_nth(args, 1));
 
-	error = g_error_new_literal(TP_ERRORS, TP_ERROR_SERVICE_BUSY, msg);
+	error = g_error_new_literal(TP_ERROR, TP_ERROR_SERVICE_BUSY, msg);
 	dbus_g_method_return_error(request->context, error);
 	g_error_free(error);
 

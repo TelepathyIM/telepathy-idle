@@ -95,7 +95,7 @@ idle_text_encode_and_split(TpChannelTextMessageType type,
 			break;
 		default:
 			IDLE_DEBUG("unsupported message type %u", type);
-			g_set_error(error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED, "unsupported message type %u", type);
+			g_set_error(error, TP_ERROR, TP_ERROR_NOT_IMPLEMENTED, "unsupported message type %u", type);
 			return NULL;
 	}
 
@@ -163,7 +163,7 @@ void idle_text_send(GObject *obj, TpMessage *message, TpMessageSendingFlags flag
 	#define INVALID_ARGUMENT(msg, ...) \
 	G_STMT_START { \
 		IDLE_DEBUG (msg , ## __VA_ARGS__); \
-		g_set_error (&error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, \
+		g_set_error (&error, TP_ERROR, TP_ERROR_INVALID_ARGUMENT, \
 				msg , ## __VA_ARGS__); \
 		goto failed; \
 	} G_STMT_END

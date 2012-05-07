@@ -1479,7 +1479,7 @@ static gboolean send_invite_request(IdleMUCChannel *obj, TpHandle handle, GError
 	if ((nick == NULL) || (nick[0] == '\0')) {
 		IDLE_DEBUG("invalid handle %u passed", handle);
 
-		g_set_error(error, TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid handle %u passed", handle);
+		g_set_error(error, TP_ERROR, TP_ERROR_INVALID_HANDLE, "invalid handle %u passed", handle);
 
 		return FALSE;
 	}
@@ -1507,7 +1507,7 @@ static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gc
 	if ((nick == NULL) || (nick[0] == '\0')) {
 		IDLE_DEBUG("invalid handle %u passed", handle);
 
-		g_set_error(error, TP_ERRORS, TP_ERROR_INVALID_HANDLE, "invalid handle %u passed", handle);
+		g_set_error(error, TP_ERROR, TP_ERROR_INVALID_HANDLE, "invalid handle %u passed", handle);
 
 		return FALSE;
 	}
@@ -1531,7 +1531,7 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 
 	if (handle == base_conn->self_handle) {
 		if (tp_handle_set_is_member(obj->group.members, handle) || tp_handle_set_is_member(obj->group.remote_pending, handle)) {
-			GError *e = g_error_new (TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+			GError *e = g_error_new (TP_ERROR, TP_ERROR_NOT_AVAILABLE,
 				"we are already a member of or trying to join %s", priv->channel_name);
 			IDLE_DEBUG ("%s", e->message);
 			g_propagate_error (error, e);
@@ -1549,7 +1549,7 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 		}
 	} else {
 		if (tp_handle_set_is_member(obj->group.members, handle) || tp_handle_set_is_member(obj->group.remote_pending, handle)) {
-			GError *e = g_error_new (TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+			GError *e = g_error_new (TP_ERROR, TP_ERROR_NOT_AVAILABLE,
 				"the requested contact (handle %u) to be added "
 				"to the room (%s) is already a member of, or "
 				"has already been invited to join, the room",
@@ -1607,7 +1607,7 @@ static gboolean remove_member(GObject *gobj, TpHandle handle, const gchar *messa
 	if (!tp_handle_set_is_member(obj->group.members, handle)) {
 		IDLE_DEBUG("handle %u not a current member!", handle);
 
-		g_set_error(error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "handle %u is not a current member of the channel", handle);
+		g_set_error(error, TP_ERROR, TP_ERROR_NOT_AVAILABLE, "handle %u is not a current member of the channel", handle);
 
 		return FALSE;
 	}
@@ -1691,7 +1691,7 @@ static void idle_muc_channel_get_properties (TpSvcPropertiesInterface *iface, co
 		if (prop >= LAST_TP_PROPERTY_ENUM) {
 			IDLE_DEBUG("invalid property id %u", prop);
 
-			error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid property id %u", prop);
+			error = g_error_new(TP_ERROR, TP_ERROR_INVALID_ARGUMENT, "invalid property id %u", prop);
 			dbus_g_method_return_error(context, error);
 			g_error_free(error);
 
@@ -1701,7 +1701,7 @@ static void idle_muc_channel_get_properties (TpSvcPropertiesInterface *iface, co
 		if (!(priv->properties[prop].flags & TP_PROPERTY_FLAG_READ)) {
 			IDLE_DEBUG("not allowed to read property %u", prop);
 
-			error = g_error_new(TP_ERRORS, TP_ERROR_PERMISSION_DENIED, "not allowed to read property %u", prop);
+			error = g_error_new(TP_ERROR, TP_ERROR_PERMISSION_DENIED, "not allowed to read property %u", prop);
 			dbus_g_method_return_error(context, error);
 			g_error_free(error);
 
@@ -1777,7 +1777,7 @@ static void idle_muc_channel_list_properties (TpSvcPropertiesInterface *iface, D
 
 			default:
 				IDLE_DEBUG("encountered unknown type %s", g_type_name(property_signatures[i].type));
-				error = g_error_new(TP_ERRORS, TP_ERROR_NOT_AVAILABLE, "internal error in %s", G_STRFUNC);
+				error = g_error_new(TP_ERROR, TP_ERROR_NOT_AVAILABLE, "internal error in %s", G_STRFUNC);
 				dbus_g_method_return_error(context, error);
 				g_error_free(error);
 				g_ptr_array_free(ret, TRUE);
@@ -1828,7 +1828,7 @@ static void idle_muc_channel_provide_password (TpSvcChannelInterfacePassword *if
 	priv = obj->priv;
 
 	if (!(priv->password_flags & TP_CHANNEL_PASSWORD_FLAG_PROVIDE) || (priv->passwd_ctx != NULL)) {
-		GError *error = g_error_new (TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+		GError *error = g_error_new (TP_ERROR, TP_ERROR_NOT_AVAILABLE,
 			"don't need a password now or authentication already "
 			"in progress (%s)", priv->channel_name);
 		IDLE_DEBUG ("%s", error->message);
@@ -1858,7 +1858,7 @@ idle_muc_channel_send (GObject *obj, TpMessage *message, TpMessageSendingFlags f
 	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 
 	if ((priv->mode_state.flags & MODE_FLAG_MODERATED) && !(priv->mode_state.flags & (MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE | MODE_FLAG_VOICE_PRIVILEGE))) {
-		GError error = { TP_ERRORS, TP_ERROR_PERMISSION_DENIED, "Channel is moderated" };
+		GError error = { TP_ERROR, TP_ERROR_PERMISSION_DENIED, "Channel is moderated" };
 
 		IDLE_DEBUG("Channel is moderated");
 		tp_message_mixin_sent (obj, message, 0, NULL, &error);
@@ -2080,7 +2080,7 @@ static void idle_muc_channel_set_properties (TpSvcPropertiesInterface *iface, co
 		if (prop_id >= LAST_TP_PROPERTY_ENUM) {
 			IDLE_DEBUG("invalid property id %u", prop_id);
 
-			error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "invalid property id %u", prop_id);
+			error = g_error_new(TP_ERROR, TP_ERROR_INVALID_ARGUMENT, "invalid property id %u", prop_id);
 			dbus_g_method_return_error(context, error);
 			g_error_free(error);
 			g_ptr_array_free(to_change, TRUE);
@@ -2091,7 +2091,7 @@ static void idle_muc_channel_set_properties (TpSvcPropertiesInterface *iface, co
 		if ((priv->properties[prop_id].flags & TP_PROPERTY_FLAG_WRITE) == 0) {
 			IDLE_DEBUG("not allowed to set property with id %u", prop_id);
 
-			error = g_error_new(TP_ERRORS, TP_ERROR_PERMISSION_DENIED, "not allowed to set property with id %u", prop_id);
+			error = g_error_new(TP_ERROR, TP_ERROR_PERMISSION_DENIED, "not allowed to set property with id %u", prop_id);
 			dbus_g_method_return_error(context, error);
 			g_error_free(error);
 			g_ptr_array_free(to_change, TRUE);
@@ -2102,7 +2102,7 @@ static void idle_muc_channel_set_properties (TpSvcPropertiesInterface *iface, co
 		if (!g_value_type_compatible(G_VALUE_TYPE(prop_val), property_signatures[prop_id].type)) {
 			IDLE_DEBUG("incompatible value type %s for prop_id %u", g_type_name(G_VALUE_TYPE(prop_val)), prop_id);
 
-			error = g_error_new(TP_ERRORS, TP_ERROR_INVALID_ARGUMENT, "incompatible value type %s for prop_id %u", g_type_name(G_VALUE_TYPE(prop_val)), prop_id);
+			error = g_error_new(TP_ERROR, TP_ERROR_INVALID_ARGUMENT, "incompatible value type %s for prop_id %u", g_type_name(G_VALUE_TYPE(prop_val)), prop_id);
 			dbus_g_method_return_error(context, error);
 			g_error_free(error);
 			g_ptr_array_free(to_change, TRUE);
@@ -2133,7 +2133,7 @@ idle_muc_channel_set_subject (
 
   if (priv->state != MUC_STATE_JOINED)
     {
-      GError *error = g_error_new (TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+      GError *error = g_error_new (TP_ERROR, TP_ERROR_NOT_AVAILABLE,
           "Can't set subject: not in the room (state=%s)",
           ascii_muc_states[priv->state]);
       dbus_g_method_return_error (context, error);
@@ -2141,7 +2141,7 @@ idle_muc_channel_set_subject (
     }
   else if (!priv->can_set_topic)
     {
-      GError error = { TP_ERRORS, TP_ERROR_PERMISSION_DENIED,
+      GError error = { TP_ERROR, TP_ERROR_PERMISSION_DENIED,
           "The channel's +t and you're not an op" };
       dbus_g_method_return_error (context, &error);
     }

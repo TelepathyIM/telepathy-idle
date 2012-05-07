@@ -52,7 +52,7 @@ filter_nick (const TpCMParamSpec *paramspec,
 
   if (!idle_nickname_is_valid (nick, TRUE))
     {
-      g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_HANDLE,
+      g_set_error (error, TP_ERROR, TP_ERROR_INVALID_HANDLE,
           "Invalid account name '%s'", nick);
       return FALSE;
     }
@@ -79,7 +79,7 @@ filter_username (const TpCMParamSpec *paramspec,
 
       if (ch == '\0' || ch == '\n' || ch == '\r' || ch == ' ' || ch == '@')
         {
-          g_set_error (error, TP_ERRORS, TP_ERROR_INVALID_ARGUMENT,
+          g_set_error (error, TP_ERROR, TP_ERROR_INVALID_ARGUMENT,
               "Invalid user name '%s'", username);
           return FALSE;
         }
