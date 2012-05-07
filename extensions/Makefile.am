@@ -51,6 +51,7 @@ _gen/svc.c _gen/svc.h: _gen/all.xml \
 		--include='<telepathy-glib/dbus.h>' \
 		--include='"_gen/signals-marshal.h"' \
 		--not-implemented-func='tp_dbus_g_method_return_not_implemented' \
+		--allow-unstable \
 		$< Idle_Svc_
 
 _gen/signals-marshal.list: _gen/all.xml $(tools_dir)/glib-signals-marshal-gen.py
