@@ -3,6 +3,8 @@
 cd "@abs_top_builddir@/tests/twisted/tools"
 
 export IDLE_DEBUG=all IDLE_HTFU=seriously
+G_MESSAGES_DEBUG=all
+export G_MESSAGES_DEBUG
 ulimit -c unlimited
 exec >> idle-testing.log 2>&1
 
