@@ -907,12 +907,13 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 						1, val,
 						G_MAXUINT);
 
+				/* ownership of prop's contents is given to
+				 * the GPtrArray */
 				g_ptr_array_add(tp_props_to_change, g_value_get_boxed(&prop));
 
 				if (add & i) {
-					GValue prop = {0, };
-					GValue val_auto_is_fine = {0, };
-					GValue *val = &val_auto_is_fine;
+					/* this re-uses prop and val by
+					 * re-initializing them */
 
 					g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_VALUE);
 					g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_STRUCT_TYPE_PROPERTY_VALUE));
@@ -934,6 +935,8 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 											1, val,
 											G_MAXUINT);
 
+					/* ownership of prop's contents is
+					 * given to the GPtrArray */
 					g_ptr_array_add(tp_props_to_change, g_value_get_boxed(&prop));
 				}
 			}
