@@ -92,11 +92,13 @@ gboolean idle_nickname_is_valid(const gchar *nickname, gboolean strict_mode) {
 
 static gboolean _channelname_is_valid(const gchar *channel) {
 	static const gchar not_allowed_chars[] = {' ', '\007', ',', '\r', '\n', ':', '\0'};
+	gsize len;
+	const gchar *tmp;
 
 	if (!idle_muc_channel_is_typechar(channel[0]))
 		return FALSE;
 
-	gsize len = strlen(channel);
+	len = strlen(channel);
 	if ((len < 2) || (len > 50))
 		return FALSE;
 
@@ -107,7 +109,7 @@ static gboolean _channelname_is_valid(const gchar *channel) {
 		}
 	}
 
-	const gchar *tmp = strchr(channel + 1, ':');
+	tmp = strchr(channel + 1, ':');
 	if (tmp != NULL) {
 		for (const gchar *tmp2 = channel + 1; tmp2 != tmp; tmp2++) {
 			if (strchr(not_allowed_chars, *tmp2))
@@ -129,12 +131,14 @@ static gboolean _channelname_is_valid(const gchar *channel) {
 }
 
 gchar *idle_normalize_nickname (const gchar *id, GError **error) {
+	gchar *normalized;
+
 	if (!idle_nickname_is_valid(id, FALSE)) {
 		g_set_error(error, TP_ERROR, TP_ERROR_INVALID_HANDLE, "invalid nickname");
 		return NULL;
 	}
 
-	gchar *normalized = g_utf8_strdown(id, -1);
+	normalized = g_utf8_strdown(id, -1);
 
 	return normalized;
 }
@@ -144,12 +148,14 @@ static gchar *_nick_normalize_func(TpHandleRepoIface *repo, const gchar *id, gpo
 }
 
 static gchar *_channel_normalize_func(TpHandleRepoIface *repo, const gchar *id, gpointer ctx, GError **error) {
+	gchar *normalized;
+
 	if (!_channelname_is_valid(id)) {
 		g_set_error(error, TP_ERROR, TP_ERROR_INVALID_HANDLE, "invalid channel ID");
 		return NULL;
 	}
 
-	gchar *normalized = g_utf8_strdown(id, -1);
+	normalized = g_utf8_strdown(id, -1);
 
 	return normalized;
 }

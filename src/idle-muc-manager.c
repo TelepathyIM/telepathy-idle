@@ -181,13 +181,14 @@ static void idle_muc_manager_class_init(IdleMUCManagerClass *klass) {
 static IdleParserHandlerResult _numeric_error_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+	IdleMUCChannel *chan;
 
 	if (!priv->channels) {
 		IDLE_DEBUG("Channels hash table missing, ignoring...");
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 	}
 
-	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+	chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (!chan)
 		return IDLE_PARSER_HANDLER_RESULT_HANDLED;
@@ -221,13 +222,14 @@ static IdleParserHandlerResult _numeric_topic_handler(IdleParser *parser, IdlePa
 	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	const gchar *topic = g_value_get_string(g_value_array_get_nth(args, 1));
+	IdleMUCChannel *chan;
 
 	if (!priv->channels) {
 		IDLE_DEBUG("Channels hash table missing, ignoring...");
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 	}
 
-	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+	chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
 		idle_muc_channel_topic(chan, topic);
@@ -240,13 +242,14 @@ static IdleParserHandlerResult _numeric_topic_stamp_handler(IdleParser *parser, 
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle toucher_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	time_t touched = g_value_get_uint(g_value_array_get_nth(args, 2));
+	IdleMUCChannel *chan;
 
 	if (!priv->channels) {
 		IDLE_DEBUG("Channels hash table missing, ignoring...");
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 	}
 
-	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+	chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	idle_connection_emit_queued_aliases_changed(priv->conn);
 
@@ -262,6 +265,7 @@ static IdleParserHandlerResult _invite_handler(IdleParser *parser, IdleParserMes
 	TpHandle inviter_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle invited_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 2));
+	IdleMUCChannel *chan;
 
 	if (invited_handle != priv->conn->parent.self_handle)
 		return IDLE_PARSER_HANDLER_RESULT_HANDLED;
@@ -271,7 +275,7 @@ static IdleParserHandlerResult _invite_handler(IdleParser *parser, IdleParserMes
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 	}
 
-	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+	chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	idle_connection_emit_queued_aliases_changed(priv->conn);
 
@@ -289,6 +293,7 @@ static IdleParserHandlerResult _join_handler(IdleParser *parser, IdleParserMessa
 	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(manager);
 	TpHandle joiner_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
+	IdleMUCChannel *chan;
 
 	idle_connection_emit_queued_aliases_changed(priv->conn);
 
@@ -297,7 +302,7 @@ static IdleParserHandlerResult _join_handler(IdleParser *parser, IdleParserMessa
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 	}
 
-	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+	chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (!chan) {
 		/* TODO: If we're in "bouncer mode", maybe these should be Requested:
@@ -316,13 +321,14 @@ static IdleParserHandlerResult _kick_handler(IdleParser *parser, IdleParserMessa
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	TpHandle kicked_handle = g_value_get_uint(g_value_array_get_nth(args, 2));
 	const gchar *message = (args->n_values == 4) ? g_value_get_string(g_value_array_get_nth(args, 3)) : NULL;
+	IdleMUCChannel *chan;
 
 	if (!priv->channels) {
 		IDLE_DEBUG("Channels hash table missing, ignoring...");
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 	}
 
-	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+	chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
 		idle_muc_channel_kick(chan, kicked_handle, kicker_handle, message);
@@ -333,13 +339,14 @@ static IdleParserHandlerResult _kick_handler(IdleParser *parser, IdleParserMessa
 static IdleParserHandlerResult _numeric_namereply_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+	IdleMUCChannel *chan;
 
 	if (!priv->channels) {
 		IDLE_DEBUG("Channels hash table missing, ignoring...");
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 	}
 
-	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+	chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
 		idle_muc_channel_namereply(chan, args);
@@ -350,13 +357,14 @@ static IdleParserHandlerResult _numeric_namereply_handler(IdleParser *parser, Id
 static IdleParserHandlerResult _numeric_namereply_end_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+	IdleMUCChannel *chan;
 
 	if (!priv->channels) {
 		IDLE_DEBUG("Channels hash table missing, ignoring...");
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 	}
 
-	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+	chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
 		idle_muc_channel_namereply_end(chan);
@@ -367,13 +375,14 @@ static IdleParserHandlerResult _numeric_namereply_end_handler(IdleParser *parser
 static IdleParserHandlerResult _mode_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+	IdleMUCChannel *chan;
 
 	if (!priv->channels) {
 		IDLE_DEBUG("Channels hash table missing, ignoring...");
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 	}
 
-	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+	chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
 		idle_muc_channel_mode(chan, args);
@@ -412,21 +421,21 @@ static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleP
 	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(manager);
 	TpHandle sender_handle = (TpHandle) g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle room_handle = (TpHandle) g_value_get_uint(g_value_array_get_nth(args, 1));
+	IdleMUCChannel *chan;
+	TpChannelTextMessageType type;
+	gchar *body;
 
 	if (!priv->channels) {
 		IDLE_DEBUG("Channels hash table missing, ignoring...");
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 	}
 
-	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+	chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 	/* XXX: just check for chan == NULL here and bail with NOT_HANDLED if room
 	 * was not found ?  Currently we go through all of the decoding of the
 	 * message, but don't actually deliver the message to a channel if chan is
 	 * NULL, and then we return 'HANDLED', which seems wrong
 	 */
-
-	TpChannelTextMessageType type;
-	gchar *body;
 
 	if (code == IDLE_PARSER_PREFIXCMD_NOTICE_CHANNEL) {
 		type = TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE;
@@ -451,13 +460,14 @@ static IdleParserHandlerResult _part_handler(IdleParser *parser, IdleParserMessa
 	TpHandle leaver_handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	const gchar *message = (args->n_values == 3) ? g_value_get_string(g_value_array_get_nth(args, 2)) : NULL;
+	IdleMUCChannel *chan;
 
 	if (!priv->channels) {
 		IDLE_DEBUG("Channels hash table missing, ignoring...");
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 	}
 
-	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+	chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan)
 		idle_muc_channel_part(chan, leaver_handle, message);
@@ -495,13 +505,14 @@ static IdleParserHandlerResult _topic_handler(IdleParser *parser, IdleParserMess
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 1));
 	const gchar *topic = (args->n_values == 3) ? g_value_get_string(g_value_array_get_nth(args, 2)) : NULL;
 	time_t stamp = time(NULL);
+	IdleMUCChannel *chan;
 
 	if (!priv->channels) {
 		IDLE_DEBUG("Channels hash table missing, ignoring...");
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 	}
 
-	IdleMUCChannel *chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
+	chan = g_hash_table_lookup(priv->channels, GUINT_TO_POINTER(room_handle));
 
 	if (chan) {
 		if (topic)
@@ -527,9 +538,7 @@ static void _muc_manager_close_all(IdleMUCManager *manager)
 		return;
 	}
 
-	GHashTable *tmp = priv->channels;
-	priv->channels = NULL;
-	g_hash_table_destroy(tmp);
+	tp_clear_pointer (&priv->channels, g_hash_table_destroy);
 }
 
 static void
@@ -687,15 +696,15 @@ static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer use
 	TpChannelManager *manager = TP_CHANNEL_MANAGER(user_data);
 	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(user_data);
 	GSList *reqs = take_request_tokens(user_data, chan);
+	gint err_code = 0;
+	const gchar* err_msg = NULL;
+	TpHandle handle;
+	GSList *l;
 
 	if (err == MUC_CHANNEL_JOIN_ERROR_NONE) {
 		tp_channel_manager_emit_new_channel(manager, (TpExportableChannel *) chan, reqs);
 		goto out;
 	}
-
-	gint err_code = 0;
-	const gchar* err_msg = NULL;
-	TpHandle handle;
 
 	g_object_get(chan, "handle", &handle, NULL);
 
@@ -720,7 +729,7 @@ static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer use
 			break;
 	}
 
-	for (GSList *l = reqs; reqs != NULL; reqs = reqs->next) {
+	for (l = reqs; reqs != NULL; reqs = reqs->next) {
 		tp_channel_manager_emit_request_failed(manager, l->data, TP_ERROR, err_code, err_msg);
 	}
 

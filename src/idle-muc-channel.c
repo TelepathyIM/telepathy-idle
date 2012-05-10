@@ -1934,11 +1934,12 @@ static void send_properties_request(IdleMUCChannel *obj, const GPtrArray *proper
 		irc_mode = to_irc_mode(prop_id);
 
 		if (irc_mode != '\0') {
+			gboolean state;
+			size_t seq = 0;
+
 			g_assert(G_VALUE_TYPE(prop_val) == G_TYPE_BOOLEAN);
 
-			gboolean state = g_value_get_boolean(prop_val);
-
-			size_t seq = 0;
+			state = g_value_get_boolean(prop_val);
 
 			body[seq++] = state ? '+' : '-';
 

@@ -159,6 +159,8 @@ void idle_text_send(GObject *obj, TpMessage *message, TpMessageSendingFlags flag
 	guint n_parts;
 	GStrv messages;
 	GStrv bodies;
+	gsize msg_len;
+	guint i;
 
 	#define INVALID_ARGUMENT(msg, ...) \
 	G_STMT_START { \
@@ -198,12 +200,12 @@ void idle_text_send(GObject *obj, TpMessage *message, TpMessageSendingFlags flag
 
 	/* Okay, it's valid. Let's send it. */
 
-	gsize msg_len = idle_connection_get_max_message_length(conn);
+	msg_len = idle_connection_get_max_message_length(conn);
 	messages = idle_text_encode_and_split(type, recipient, text, msg_len, &bodies, &error);
 	if (messages == NULL)
 		goto failed;
 
-	for(guint i = 0; messages[i] != NULL; i++) {
+	for(i = 0; messages[i] != NULL; i++) {
 		g_assert(bodies[i] != NULL);
 		idle_connection_send(conn, messages[i]);
 	}

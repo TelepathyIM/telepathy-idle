@@ -263,6 +263,25 @@ static void idle_im_channel_set_property(GObject *object, guint property_id, con
 }
 
 static void idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_class) {
+	static TpDBusPropertiesMixinPropImpl channel_props[] = {
+		{ "Interfaces", "interfaces", NULL },
+		{ "ChannelType", "channel-type", NULL },
+		{ "TargetHandleType", "handle-type", NULL },
+		{ "TargetHandle", "handle", NULL },
+		{ "TargetID", "target-id", NULL },
+		{ "InitiatorHandle", "initiator-handle", NULL },
+		{ "InitiatorID", "initiator-id", NULL },
+		{ "Requested", "requested", NULL },
+		{ NULL }
+	};
+	static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
+		{ TP_IFACE_CHANNEL,
+			tp_dbus_properties_mixin_getter_gobject_properties,
+			NULL,
+			channel_props,
+		},
+		{ NULL }
+	};
 	GObjectClass *object_class = G_OBJECT_CLASS(idle_im_channel_class);
 	GParamSpec *param_spec;
 
@@ -319,26 +338,6 @@ static void idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_clas
 		"The string obtained by inspecting the initiator-handle",
 		NULL, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_INITIATOR_ID, param_spec);
-
-	static TpDBusPropertiesMixinPropImpl channel_props[] = {
-		{ "Interfaces", "interfaces", NULL },
-		{ "ChannelType", "channel-type", NULL },
-		{ "TargetHandleType", "handle-type", NULL },
-		{ "TargetHandle", "handle", NULL },
-		{ "TargetID", "target-id", NULL },
-		{ "InitiatorHandle", "initiator-handle", NULL },
-		{ "InitiatorID", "initiator-id", NULL },
-		{ "Requested", "requested", NULL },
-		{ NULL }
-	};
-	static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
-		{ TP_IFACE_CHANNEL,
-			tp_dbus_properties_mixin_getter_gobject_properties,
-			NULL,
-			channel_props,
-		},
-		{ NULL }
-	};
 
 	idle_im_channel_class->dbus_props_class.interfaces = prop_interfaces;
 	tp_dbus_properties_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleIMChannelClass, dbus_props_class));
