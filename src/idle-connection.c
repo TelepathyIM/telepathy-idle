@@ -1328,8 +1328,6 @@ static gboolean _send_rename_request(IdleConnection *obj, const gchar *nick, DBu
 		return FALSE;
 	}
 
-	tp_handle_unref(handles, handle);
-
 	gchar msg[IRC_MSG_MAXLEN + 1];
 	g_snprintf(msg, IRC_MSG_MAXLEN + 1, "NICK %s", nick);
 	idle_connection_send(obj, msg);

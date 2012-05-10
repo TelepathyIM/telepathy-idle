@@ -101,7 +101,6 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 	GObject *obj;
 	IdleIMChannelPrivate *priv;
 	TpDBusDaemon *bus;
-	TpHandleRepoIface *handles;
 	TpBaseConnection *conn;
 	TpChannelTextMessageType types[] = {
 			TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
@@ -118,9 +117,6 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 
 	conn = TP_BASE_CONNECTION(priv->connection);
 
-	handles = tp_base_connection_get_handles(conn, TP_HANDLE_TYPE_CONTACT);
-	tp_handle_ref(handles, priv->handle);
-	tp_handle_ref(handles, priv->initiator);
 	g_assert(tp_handle_is_valid(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), priv->handle, NULL));
 
 	bus = tp_base_connection_get_dbus_daemon (conn);
@@ -370,11 +366,6 @@ void idle_im_channel_dispose (GObject *object) {
 void idle_im_channel_finalize (GObject *object) {
 	IdleIMChannel *self = IDLE_IM_CHANNEL(object);
 	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE(self);
-	TpHandleRepoIface *handles;
-
-	handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
-	tp_handle_unref(handles, priv->handle);
-	tp_handle_unref(handles, priv->initiator);
 
 	if (priv->object_path)
 		g_free(priv->object_path);
@@ -421,17 +412,10 @@ static void idle_im_channel_close (TpSvcChannel *iface, DBusGMethodInvocation *c
 		IDLE_DEBUG("Not really closing, I still have pending messages");
 
 		if (priv->initiator != priv->handle) {
-			TpHandleRepoIface *contact_repo =
-				tp_base_connection_get_handles(
-					(TpBaseConnection *) priv->connection,
-					TP_HANDLE_TYPE_CONTACT);
-
 			g_assert(priv->initiator != 0);
 			g_assert(priv->handle != 0);
 
-			tp_handle_unref(contact_repo, priv->initiator);
 			priv->initiator = priv->handle;
-			tp_handle_ref(contact_repo, priv->initiator);
 		}
 
 		tp_message_mixin_set_rescued ((GObject *) obj);

@@ -1203,9 +1203,6 @@ void idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args) {
 							IDLE_DEBUG("got MODE '%c' concerning us", *modes);
 							mode_accum |= _modechar_to_modeflag(*modes);
 						}
-
-						if (handle)
-							tp_handle_unref(handles, handle);
 					}
 					break;
 
