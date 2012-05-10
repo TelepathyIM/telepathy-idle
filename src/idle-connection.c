@@ -1168,7 +1168,8 @@ static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusRea
 	idle_connection_clear_queue_timeout (conn);
 }
 
-void _queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *alias) {
+static void
+_queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *alias) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 
 	if (!priv->queued_aliases_owners) {
