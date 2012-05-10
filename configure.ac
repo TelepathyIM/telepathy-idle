@@ -42,30 +42,45 @@ AC_PROG_CC
 AC_PROG_CC_STDC
 AM_PROG_AS
 
-dnl decide error flags
-AS_COMPILER_FLAG(-Wall, ERROR_CFLAGS="-Wall", ERROR_CFLAGS="")
-AS_COMPILER_FLAG(-Werror, werror=yes, werror=no)
-AS_COMPILER_FLAG(-Wextra, wextra=yes, wextra=no)
-AS_COMPILER_FLAG(-Wno-missing-field-initializers,
-        wno_missing_field_initializers=yes,
-        wno_missing_field_initializers=no)
-AS_COMPILER_FLAG(-Wno-unused-parameter,
-        wno_unused_parameter=yes,
-        wno_unused_parameter=no)
+AS_IF([test idle_nano_version = 0],
+[ # version x.y.z - "official release",
+  # disable extra checks by default
+  AC_ARG_ENABLE([fatal-warnings],
+    [AC_HELP_STRING([--enable-fatal-warnings],
+                    [make various warnings fatal])],
+    [],
+    [enable_fatal_warnings=no])
+],
+[ # version x.y.z.1 - development snapshot,
+  # enable extra checks by default
+  AC_ARG_ENABLE([fatal-warnings],
+    [AC_HELP_STRING([--disable-fatal-warnings],
+                    [make various warnings non-fatal])],
+    [],
+    [enable_fatal_warnings=yes])
+])
 
-ifelse(idle_nano_version, 0, [],
-    [
-        if test x$werror = xyes; then
-            ERROR_CFLAGS="$ERROR_CFLAGS -Werror"
-        fi
-        if test x$wextra = xyes -a \
-            x$wno_missing_field_initializers = xyes -a \
-            x$wno_unused_parameter = xyes; then
-            ERROR_CFLAGS="$ERROR_CFLAGS -Wextra -Wno-missing-field-initializers -Wno-unused-parameter"
-        fi
-    ])
+TP_COMPILER_WARNINGS([ERROR_CFLAGS], [test "x$enable_fatal_warnings" = xyes],
+  [all \
+   extra \
+   declaration-after-statement \
+   shadow \
+   missing-prototypes \
+   nested-externs \
+   pointer-arith \
+   sign-compare \
+   strict-prototypes \
+   format-security \
+   init-self],
+  [missing-field-initializers \
+   unused-parameter])
+AC_SUBST([ERROR_CFLAGS])
 
-AC_SUBST(ERROR_CFLAGS)
+# these aren't really error flags but they serve a similar purpose for us -
+# making the toolchain stricter
+if test "x$enable_fatal_warnings" = xyes; then
+  TP_ADD_LINKER_FLAG([ERROR_LDFLAGS], [-Wl,--no-copy-dt-needed-entries])
+fi
 
 AC_HEADER_STDC([])
 AC_C_INLINE
