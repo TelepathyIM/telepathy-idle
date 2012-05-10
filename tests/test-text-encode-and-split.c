@@ -19,7 +19,7 @@
   G_STMT_END
 
 
-gboolean
+static gboolean
 test (TpChannelTextMessageType type,
       gchar *msg)
 {
