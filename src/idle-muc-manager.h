@@ -36,7 +36,7 @@ struct _IdleMUCManager {
 	GObject parent;
 };
 
-GType idle_muc_manager_get_type();
+GType idle_muc_manager_get_type (void);
 
 #define IDLE_TYPE_MUC_MANAGER (idle_muc_manager_get_type())
 #define IDLE_MUC_MANAGER(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), IDLE_TYPE_MUC_MANAGER, IdleMUCManager))

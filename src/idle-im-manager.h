@@ -36,7 +36,7 @@ struct _IdleIMManager {
 	GObject parent;
 };
 
-GType idle_im_manager_get_type();
+GType idle_im_manager_get_type (void);
 
 #define IDLE_TYPE_IM_MANAGER (idle_im_manager_get_type())
 #define IDLE_IM_MANAGER(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), IDLE_TYPE_IM_MANAGER, IdleIMManager))

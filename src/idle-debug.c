@@ -36,7 +36,8 @@ static GDebugKey _keys[] = {
 	{NULL, 0}
 };
 
-void idle_debug_init() {
+void
+idle_debug_init (void) {
 	const gchar *flags_string = g_getenv("IDLE_DEBUG");
 	guint nkeys;
 

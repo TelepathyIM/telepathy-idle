@@ -27,7 +27,7 @@
 #include "idle-connection-manager.h"
 #include "idle-debug.h"
 
-static TpBaseConnectionManager *_construct_cm() {
+static TpBaseConnectionManager *_construct_cm (void) {
 	TpBaseConnectionManager *base_cm = TP_BASE_CONNECTION_MANAGER(g_object_new(IDLE_TYPE_CONNECTION_MANAGER, NULL));
 
 	return base_cm;

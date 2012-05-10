@@ -1188,7 +1188,8 @@ void _queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *al
 			G_TYPE_INVALID));
 }
 
-static GQuark _canon_nick_quark() {
+static GQuark
+_canon_nick_quark (void) {
 	static GQuark quark = 0;
 
 	if (!quark)
