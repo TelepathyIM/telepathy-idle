@@ -41,7 +41,9 @@ idle_debug_init (void) {
 	const gchar *flags_string = g_getenv("IDLE_DEBUG");
 	guint nkeys;
 
-	for (nkeys = 0; _keys[nkeys].value; nkeys++);
+	for (nkeys = 0; _keys[nkeys].value; nkeys++) {
+		/* do nothing, just count nkeys */
+	}
 
 	if (flags_string) {
 		tp_debug_set_flags(flags_string);
