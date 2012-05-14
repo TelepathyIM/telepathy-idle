@@ -438,7 +438,8 @@ void idle_server_connection_send_async(IdleServerConnection *conn, const gchar *
 	GSimpleAsyncResult *result;
 	gsize output_buffer_size = sizeof(priv->output_buffer);
 
-	if (priv->state != SERVER_CONNECTION_STATE_CONNECTED) {
+	if (priv->state != SERVER_CONNECTION_STATE_CONNECTED
+            || priv->io_stream == NULL) {
 		IDLE_DEBUG("connection was not open!");
 		g_simple_async_report_error_in_idle(G_OBJECT(conn),
 			callback, user_data,
@@ -472,7 +473,9 @@ void idle_server_connection_send_async(IdleServerConnection *conn, const gchar *
 }
 
 gboolean idle_server_connection_send_finish(IdleServerConnection *conn, GAsyncResult *result, GError **error) {
-	g_return_val_if_fail(g_simple_async_result_is_valid(result, G_OBJECT(conn), idle_server_connection_send_async), FALSE);
+	/* we can't check the source tag here because we use
+	 * report_error_in_idle which never sets a source tag */
+	g_return_val_if_fail(g_simple_async_result_is_valid(result, G_OBJECT(conn), NULL), FALSE);
 	return !g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT(result), error);
 }
 
