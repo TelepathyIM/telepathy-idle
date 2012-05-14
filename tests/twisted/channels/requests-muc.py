@@ -88,6 +88,7 @@ def test(q, bus, conn, stream, use_room=False):
          cs.CHANNEL_IFACE_MESSAGES,
          cs.CHANNEL_IFACE_ROOM,
          cs.CHANNEL_IFACE_SUBJECT,
+         cs.CHANNEL_IFACE_ROOM_CONFIG,
         ], props[cs.INTERFACES])
     assert props[cs.TARGET_HANDLE_TYPE] == cs.HT_ROOM
     assert props[cs.TARGET_ID] == '#idletest'

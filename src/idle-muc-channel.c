@@ -43,6 +43,7 @@
 #include "idle-connection.h"
 #include "idle-debug.h"
 #include "idle-text.h"
+#include "room-config.h"
 
 static void _password_iface_init(gpointer, gpointer);
 static void subject_iface_init(gpointer, gpointer);
@@ -57,6 +58,8 @@ G_DEFINE_TYPE_WITH_CODE(IdleMUCChannel, idle_muc_channel, TP_TYPE_BASE_CHANNEL,
 		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_MESSAGES, tp_message_mixin_messages_iface_init);
 		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_ROOM, NULL);
 		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_SUBJECT, subject_iface_init);
+		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_ROOM_CONFIG,
+                                       tp_base_room_config_iface_init);
 		)
 
 /* property enum */
@@ -149,6 +152,7 @@ static const gchar *muc_channel_interfaces[] = {
 	TP_IFACE_CHANNEL_INTERFACE_MESSAGES,
 	TP_IFACE_CHANNEL_INTERFACE_ROOM,
 	TP_IFACE_CHANNEL_INTERFACE_SUBJECT,
+	TP_IFACE_CHANNEL_INTERFACE_ROOM_CONFIG,
 	NULL
 };
 
@@ -200,6 +204,8 @@ static guint signals[LAST_SIGNAL] = {0};
 /* private structure */
 struct _IdleMUCChannelPrivate {
 	const gchar *channel_name;
+
+	TpBaseRoomConfig *room_config;
 
 	IdleMUCState state;
 
@@ -292,6 +298,30 @@ idle_muc_channel_constructed (GObject *obj)
 			initiator, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 		tp_intset_destroy (remote);
 	}
+
+        {
+          TpBaseRoomConfigProperty mutable_properties[] = {
+            TP_BASE_ROOM_CONFIG_INVITE_ONLY,
+            TP_BASE_ROOM_CONFIG_MODERATED,
+            TP_BASE_ROOM_CONFIG_LIMIT,
+            TP_BASE_ROOM_CONFIG_PRIVATE,
+            TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED,
+            TP_BASE_ROOM_CONFIG_PASSWORD,
+          };
+          guint i;
+
+          priv->room_config =
+            (TpBaseRoomConfig *) idle_room_config_new ((TpBaseChannel *) self);
+          for (i = 0; i < G_N_ELEMENTS (mutable_properties); i++)
+            tp_base_room_config_set_property_mutable (priv->room_config,
+                mutable_properties[i], TRUE);
+
+          tp_base_room_config_set_can_update_configuration (
+              priv->room_config, TRUE);
+
+          /* Just to get those mutable properties out there. */
+          tp_base_room_config_emit_properties_changed (priv->room_config);
+        }
 }
 
 static void
@@ -438,6 +468,8 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
 	tp_group_mixin_init_dbus_properties (object_class);
 	tp_group_mixin_class_allow_self_removal (object_class);
 
+        tp_base_room_config_register_class (base_channel_class);
+
 	tp_dbus_properties_mixin_implement_interface (object_class,
 		TP_IFACE_QUARK_CHANNEL_INTERFACE_ROOM,
 		tp_dbus_properties_mixin_getter_gobject_properties, NULL,
@@ -456,6 +488,8 @@ void idle_muc_channel_dispose (GObject *object) {
 		return;
 
 	priv->dispose_has_run = TRUE;
+
+        tp_clear_object (&priv->room_config);
 
 	if (G_OBJECT_CLASS (idle_muc_channel_parent_class)->dispose)
 		G_OBJECT_CLASS (idle_muc_channel_parent_class)->dispose (object);
@@ -2115,4 +2149,136 @@ subject_iface_init (
 
   /* TODO: remove this, it's just to squash unusedness warnings. */
   _properties_iface_init (NULL, NULL);
+}
+
+void
+idle_muc_channel_update_configuration_async (
+    IdleMUCChannel *self,
+    GHashTable *validated_properties,
+    GAsyncReadyCallback callback,
+    gpointer user_data)
+{
+  IdleMUCChannelPrivate *priv = self->priv;
+  GSimpleAsyncResult *result = g_simple_async_result_new ((GObject *) self,
+      callback, user_data, idle_muc_channel_update_configuration_async);
+  const gchar *password;
+
+  /* do the quick ones */
+
+#define DO_QUICK_BOOLEAN(prop, name, irc_mode) \
+  if (g_hash_table_lookup (validated_properties, GUINT_TO_POINTER (prop)) != NULL) \
+    { \
+      gboolean value = tp_asv_get_boolean (validated_properties, \
+          GUINT_TO_POINTER (prop), NULL); \
+      gboolean current; \
+      g_object_get (priv->room_config, \
+          name, &current, \
+          NULL); \
+      if (current != value) \
+        { \
+          gchar *cmd = g_strdup_printf ("MODE %s %s%s", priv->channel_name, \
+              value ? "+" : "-", irc_mode); \
+          send_command (self, cmd); \
+          g_free (cmd); \
+        } \
+    }
+
+  DO_QUICK_BOOLEAN (TP_BASE_ROOM_CONFIG_INVITE_ONLY, "invite-only", "i");
+  DO_QUICK_BOOLEAN (TP_BASE_ROOM_CONFIG_MODERATED, "moderated", "m");
+  DO_QUICK_BOOLEAN (TP_BASE_ROOM_CONFIG_PRIVATE, "private", "s");
+#undef DO_QUICK_BOOLEAN
+
+  /* now the rest */
+
+  if (g_hash_table_lookup (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_LIMIT)) != NULL)
+    {
+      guint limit = tp_asv_get_uint32 (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_LIMIT), NULL);
+      gchar *cmd = NULL;
+      guint current;
+
+      g_object_get (priv->room_config,
+          "limit", &current,
+          NULL);
+
+      if (limit != current)
+        {
+          /* a non-zero limit means we want a limit enabled, so let's
+           * set it. if the limit is zero let's disable the limit. */
+          if (limit > 0)
+            cmd = g_strdup_printf ("MODE %s +l %u", priv->channel_name, limit);
+          else
+            cmd = g_strdup_printf ("MODE %s -l", priv->channel_name);
+        }
+
+      if (cmd != NULL)
+        send_command (self, cmd);
+      g_free (cmd);
+    }
+
+  /* if we got a new password, save it away for a rainy day */
+  password = tp_asv_get_string (validated_properties,
+      GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD));
+
+  if (g_hash_table_lookup (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED)) != NULL)
+    {
+      /* okay we want to require or not require a password ... */
+      gboolean required = tp_asv_get_boolean (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED), NULL);
+      gchar *cmd = NULL;
+
+      /* only set the password if we want to and if we have one
+       * (ie. not the default value */
+      if (required && password != NULL)
+        cmd = g_strdup_printf ("MODE %s +k %s", priv->channel_name, password);
+      else if (!required)
+        cmd = g_strdup_printf ("MODE %s -k", priv->channel_name);
+      /* deliberately unhandled case here is:
+       *              required && (password == NULL) */
+
+      if (cmd != NULL)
+        send_command (self, cmd);
+
+      g_free (cmd);
+    }
+  else if (password != NULL)
+    {
+      /* we didn't set PasswordProtected but we did get the password,
+       * and the flags say we can set the password. let's do so */
+      gchar *cmd;
+
+      cmd = g_strdup_printf ("MODE %s +k %s", priv->channel_name, password);
+      send_command (self, cmd);
+      g_free (cmd);
+
+      /* so set PasswordProtected now */
+      g_object_set (priv->room_config,
+          "password-protected", TRUE,
+          NULL);
+    }
+
+  g_simple_async_result_complete_in_idle (result);
+  g_object_unref (result);
+}
+
+gboolean
+idle_muc_channel_update_configuration_finish (
+    IdleMUCChannel *self,
+    GAsyncResult *result,
+    GError **error)
+{
+  GSimpleAsyncResult *simple;
+
+  simple = (GSimpleAsyncResult *) result;
+
+  if (g_simple_async_result_propagate_error (simple, error))
+    return FALSE;
+
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+          G_OBJECT (self), idle_muc_channel_update_configuration_async),
+      FALSE);
+
+  return TRUE;
 }

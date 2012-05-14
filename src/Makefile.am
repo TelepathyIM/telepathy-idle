@@ -24,6 +24,8 @@ libidle_convenience_la_SOURCES = \
 	idle-muc-channel.h \
 	idle-muc-manager.c \
 	idle-muc-manager.h \
+	room-config.c \
+	room-config.h \
 	idle-parser.c \
 	idle-parser.h \
 	protocol.c \

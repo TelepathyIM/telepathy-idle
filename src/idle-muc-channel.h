@@ -22,6 +22,7 @@
 #define __IDLE_MUC_CHANNEL_H__
 
 #include <glib-object.h>
+#include <gio/gio.h>
 
 #include <telepathy-glib/base-channel.h>
 #include <telepathy-glib/enums.h>
@@ -99,6 +100,16 @@ void idle_muc_channel_topic_touch(IdleMUCChannel *chan, const TpHandle handle, c
 void idle_muc_channel_topic_unset(IdleMUCChannel *chan);
 
 gboolean idle_muc_channel_is_ready(IdleMUCChannel *chan);
+
+void idle_muc_channel_update_configuration_async (
+    IdleMUCChannel *self,
+    GHashTable *validated_properties,
+    GAsyncReadyCallback callback,
+    gpointer user_data);
+gboolean idle_muc_channel_update_configuration_finish (
+    IdleMUCChannel *self,
+    GAsyncResult *result,
+    GError **error);
 
 G_END_DECLS
 
