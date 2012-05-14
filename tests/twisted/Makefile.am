@@ -22,6 +22,7 @@ TWISTED_TESTS = \
 		messages/leading-space.py \
 		messages/long-message-split.py \
 		messages/room-contact-mixup.py \
+		messages/room-config.py \
 		$(NULL)
 
 TESTS =
