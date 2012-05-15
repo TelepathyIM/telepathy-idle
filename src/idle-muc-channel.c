@@ -37,7 +37,6 @@
 #include <telepathy-glib/interfaces.h>
 #include <telepathy-glib/handle.h>
 #include <telepathy-glib/svc-channel.h>
-#include <telepathy-glib/svc-properties-interface.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_MUC
 #include "idle-connection.h"
@@ -125,27 +124,6 @@ typedef struct {
 	const gchar *topic_toucher_id;
 } IRCChannelModeState;
 
-typedef enum {
-	TP_PROPERTY_INVITE_ONLY = 0,
-	TP_PROPERTY_LIMIT,
-	TP_PROPERTY_LIMITED,
-	TP_PROPERTY_MODERATED,
-	TP_PROPERTY_PASSWORD,
-	TP_PROPERTY_PASSWORD_REQUIRED,
-	TP_PROPERTY_PRIVATE,
-	LAST_TP_PROPERTY_ENUM
-} IdleMUCChannelTPProperty;
-
-typedef struct {
-	const gchar *name;
-	GType type;
-} TPPropertySignature;
-
-typedef struct {
-	GValue *value;
-	guint flags;
-} TPProperty;
-
 static const gchar *muc_channel_interfaces[] = {
 	TP_IFACE_CHANNEL_INTERFACE_PASSWORD,
 	TP_IFACE_CHANNEL_INTERFACE_GROUP,
@@ -154,17 +132,6 @@ static const gchar *muc_channel_interfaces[] = {
 	TP_IFACE_CHANNEL_INTERFACE_SUBJECT,
 	TP_IFACE_CHANNEL_INTERFACE_ROOM_CONFIG,
 	NULL
-};
-
-static const TPPropertySignature property_signatures[] = {
-	{"invite-only", G_TYPE_BOOLEAN},
-	{"limit", G_TYPE_UINT},
-	{"limited", G_TYPE_BOOLEAN},
-	{"moderated", G_TYPE_BOOLEAN},
-	{"password", G_TYPE_STRING},
-	{"password-required", G_TYPE_BOOLEAN},
-	{"private", G_TYPE_BOOLEAN},
-	{NULL, G_TYPE_NONE}
 };
 
 static const gchar *ascii_muc_states[] = {
@@ -177,9 +144,6 @@ static const gchar *ascii_muc_states[] = {
 
 static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message, GError **error);
 static gboolean remove_member(GObject *gobj, TpHandle handle, const gchar *message, GError **error);
-
-static void muc_channel_tp_properties_init(IdleMUCChannel *chan);
-static void muc_channel_tp_properties_destroy(IdleMUCChannel *chan);
 
 static guint signals[LAST_SIGNAL] = {0};
 
@@ -195,7 +159,6 @@ struct _IdleMUCChannelPrivate {
 	gboolean can_set_topic;
 
 	guint password_flags;
-	TPProperty *properties;
 
 	DBusGMethodInvocation *passwd_ctx;
 
@@ -219,9 +182,6 @@ static void idle_muc_channel_init (IdleMUCChannel *obj) {
 	priv->state = MUC_STATE_CREATED;
 
 	priv->can_set_topic = TRUE;
-
-	priv->properties = g_new0(TPProperty, LAST_TP_PROPERTY_ENUM);
-	muc_channel_tp_properties_init(obj);
 
 	priv->dispose_has_run = FALSE;
 
@@ -487,9 +447,6 @@ void idle_muc_channel_finalize (GObject *object) {
 	if (priv->mode_state.key)
 		g_free(priv->mode_state.key);
 
-	muc_channel_tp_properties_destroy(self);
-	g_free(priv->properties);
-
 	if (priv->namereply_set)
 		tp_handle_set_destroy(priv->namereply_set);
 
@@ -511,43 +468,6 @@ idle_muc_channel_new (
 		"initiator-handle", initiator,
 		"requested", requested,
 		NULL);
-}
-
-static void muc_channel_tp_properties_init(IdleMUCChannel *chan) {
-	IdleMUCChannelPrivate *priv;
-	TPProperty *props;
-	int i;
-
-	g_assert(chan != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(chan));
-
-	priv = chan->priv;
-	props = priv->properties;
-
-	for (i = 0; i < LAST_TP_PROPERTY_ENUM; i++) {
-		GValue *value;
-		props[i].value = value = g_new0(GValue, 1);
-
-		g_value_init(value, property_signatures[i].type);
-
-		props[i].flags = 0;
-	}
-}
-
-static void muc_channel_tp_properties_destroy(IdleMUCChannel *chan) {
-	IdleMUCChannelPrivate *priv;
-	TPProperty *props;
-
-	g_assert(chan != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(chan));
-
-	priv = chan->priv;
-	props = priv->properties;
-
-	for (int i = 0; i < LAST_TP_PROPERTY_ENUM; i++) {
-		g_value_unset(props[i].value);
-		g_free(props[i].value);
-	}
 }
 
 static void provide_password_reply(IdleMUCChannel *chan, gboolean success) {
