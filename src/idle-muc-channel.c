@@ -175,17 +175,11 @@ static const gchar *ascii_muc_states[] = {
 	"MUC_STATE_PARTED"
 };
 
-static void _free_flags_struct(gpointer data, gpointer user_data)
-{
-	g_boxed_free(TP_STRUCT_TYPE_PROPERTY_FLAGS_CHANGE, data);
-}
-
 static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message, GError **error);
 static gboolean remove_member(GObject *gobj, TpHandle handle, const gchar *message, GError **error);
 
 static void muc_channel_tp_properties_init(IdleMUCChannel *chan);
 static void muc_channel_tp_properties_destroy(IdleMUCChannel *chan);
-static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *prop_ids, TpPropertyFlags add, TpPropertyFlags remove);
 
 static guint signals[LAST_SIGNAL] = {0};
 
@@ -554,73 +548,6 @@ static void muc_channel_tp_properties_destroy(IdleMUCChannel *chan) {
 		g_value_unset(props[i].value);
 		g_free(props[i].value);
 	}
-}
-
-static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpPropertyFlags add, TpPropertyFlags remove) {
-	IdleMUCChannelPrivate *priv;
-	GPtrArray *changed_props;
-
-	g_assert(chan != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(chan));
-
-	priv = chan->priv;
-
-	changed_props = g_ptr_array_new();
-
-	if (props == NULL) {
-		IDLE_DEBUG("setting all flags with %u, %u", add, remove);
-
-		for (int i = 0; i < LAST_TP_PROPERTY_ENUM; i++) {
-			guint curr_flags = priv->properties[i].flags;
-			guint flags = (curr_flags | add) & (~remove);
-
-			if (curr_flags != flags) {
-				GValue prop = {0, };
-
-				g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_FLAGS_CHANGE);
-				g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_STRUCT_TYPE_PROPERTY_FLAGS_CHANGE));
-
-				dbus_g_type_struct_set(&prop,
-										0, i,
-										1, flags,
-										G_MAXUINT);
-
-				priv->properties[i].flags = flags;
-
-				g_ptr_array_add(changed_props, g_value_get_boxed(&prop));
-			}
-		}
-	} else {
-		for (guint i = 0; i < props->len; i++) {
-			guint prop_id = g_array_index(props, guint, i);
-			guint curr_flags = priv->properties[prop_id].flags;
-			guint flags = (curr_flags | add) & (~remove);
-
-			if (curr_flags != flags) {
-				GValue prop = {0, };
-
-				g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_FLAGS_CHANGE);
-				g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_STRUCT_TYPE_PROPERTY_FLAGS_CHANGE));
-
-				dbus_g_type_struct_set(&prop,
-										0, prop_id,
-										1, flags,
-										G_MAXUINT);
-
-				priv->properties[prop_id].flags = flags;
-
-				g_ptr_array_add(changed_props, g_value_get_boxed(&prop));
-			}
-		}
-	}
-
-	if (changed_props->len > 0) {
-		IDLE_DEBUG("emitting PROPERTY_FLAGS_CHANGED with %u properties", changed_props->len);
-		// tp_svc_properties_interface_emit_property_flags_changed((TpSvcPropertiesInterface *)(chan), changed_props);
-	}
-
-	g_ptr_array_foreach(changed_props, _free_flags_struct, NULL);
-	g_ptr_array_free(changed_props, TRUE);
 }
 
 static void provide_password_reply(IdleMUCChannel *chan, gboolean success) {
@@ -1046,22 +973,6 @@ void idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args) {
 	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
 	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 	TpHandleRepoIface *handles = tp_base_connection_get_handles(base_conn, TP_HANDLE_TYPE_CONTACT);
-	GArray *flags_to_change = g_array_new(FALSE, FALSE, sizeof(guint));
-	static const guint flags_helper[] = {
-		TP_PROPERTY_INVITE_ONLY,
-		TP_PROPERTY_LIMITED,
-		TP_PROPERTY_MODERATED,
-		TP_PROPERTY_PASSWORD_REQUIRED,
-		TP_PROPERTY_PRIVATE,
-		LAST_TP_PROPERTY_ENUM
-	};
-
-	for (const guint *prop_id = flags_helper; *prop_id != LAST_TP_PROPERTY_ENUM; prop_id++)
-		g_array_append_val(flags_to_change, *prop_id);
-
-	set_tp_property_flags(chan, flags_to_change, TP_PROPERTY_FLAG_READ, 0);
-
-	g_array_free(flags_to_change, TRUE);
 
 	for (guint i = 1; i < args->n_values; i++) {
 		const gchar *modes = g_value_get_string(g_value_array_get_nth(args, i));
