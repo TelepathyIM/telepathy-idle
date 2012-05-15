@@ -175,11 +175,6 @@ static const gchar *ascii_muc_states[] = {
 	"MUC_STATE_PARTED"
 };
 
-static void _free_prop_value_struct(gpointer data, gpointer user_data)
-{
-	g_boxed_free(TP_STRUCT_TYPE_PROPERTY_VALUE, data);
-}
-
 static void _free_flags_struct(gpointer data, gpointer user_data)
 {
 	g_boxed_free(TP_STRUCT_TYPE_PROPERTY_FLAGS_CHANGE, data);
@@ -190,7 +185,6 @@ static gboolean remove_member(GObject *gobj, TpHandle handle, const gchar *messa
 
 static void muc_channel_tp_properties_init(IdleMUCChannel *chan);
 static void muc_channel_tp_properties_destroy(IdleMUCChannel *chan);
-static void change_tp_properties(IdleMUCChannel *chan, const GPtrArray *props);
 static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *prop_ids, TpPropertyFlags add, TpPropertyFlags remove);
 
 static guint signals[LAST_SIGNAL] = {0};
@@ -562,114 +556,6 @@ static void muc_channel_tp_properties_destroy(IdleMUCChannel *chan) {
 	}
 }
 
-static gboolean g_value_compare(const GValue *v1, const GValue *v2) {
-	GType t1, t2;
-
-	g_assert(v1 != NULL);
-	g_assert(v2 != NULL);
-
-	g_assert(G_IS_VALUE(v1));
-	g_assert(G_IS_VALUE(v2));
-
-	t1 = G_VALUE_TYPE(v1);
-	t2 = G_VALUE_TYPE(v2);
-
-	if (t1 != t2) {
-		IDLE_DEBUG("different types %s and %s compared!", g_type_name(t1), g_type_name(t2));
-		return FALSE;
-	}
-
-	switch (t1) {
-		case G_TYPE_BOOLEAN:
-			return g_value_get_boolean(v1) == g_value_get_boolean(v2);
-
-		case G_TYPE_UINT:
-			return g_value_get_uint(v1) == g_value_get_uint(v2);
-
-		case G_TYPE_STRING: {
-			const gchar *s1, *s2;
-
-			s1 = g_value_get_string(v1);
-			s2 = g_value_get_string(v2);
-
-			if ((s1 == NULL) && (s2 == NULL))
-				return TRUE;
-			else if ((s1 == NULL) || (s2 == NULL))
-				return FALSE;
-			else
-				return (strcmp(s1, s2) == 0);
-		}
-
-		default:
-			IDLE_DEBUG("unknown type %s in comparison", g_type_name(t1));
-			return FALSE;
-	}
-}
-
-static void change_tp_properties(IdleMUCChannel *chan, const GPtrArray *props) {
-	IdleMUCChannelPrivate *priv;
-	guint i;
-	GPtrArray *changed_props;
-	GArray *flags;
-
-	g_assert(chan != NULL);
-	g_assert(IDLE_IS_MUC_CHANNEL(chan));
-	g_assert(props != NULL);
-
-	priv = chan->priv;
-
-	changed_props = g_ptr_array_new();
-	flags = g_array_new(FALSE, FALSE, sizeof(guint));
-
-	for (i = 0; i < props->len; i++) {
-		GValue *curr_val;
-		GValue prop = {0, };
-		GValue *new_val;
-		guint prop_id;
-
-		g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_VALUE);
-		g_value_set_static_boxed(&prop, g_ptr_array_index(props, i));
-
-		dbus_g_type_struct_get(&prop,
-								0, &prop_id,
-								1, &new_val,
-								G_MAXUINT);
-
-		if (prop_id >= LAST_TP_PROPERTY_ENUM) {
-			IDLE_DEBUG("prop_id >= LAST_TP_PROPERTY_ENUM, corruption!11");
-			continue;
-		}
-
-		curr_val = priv->properties[prop_id].value;
-
-		if (!g_value_compare(new_val, curr_val)) {
-			g_value_copy(new_val, curr_val);
-
-			g_ptr_array_add(changed_props, g_value_get_boxed(&prop));
-			g_array_append_val(flags, prop_id);
-
-			IDLE_DEBUG("tp_property %u changed", prop_id);
-		}
-		g_value_unset(new_val);
-		g_free(new_val);
-
-		g_value_unset(&prop);
-	}
-
-	if (changed_props->len > 0) {
-		IDLE_DEBUG("emitting PROPERTIES_CHANGED with %u properties", changed_props->len);
-		// tp_svc_properties_interface_emit_properties_changed((TpSvcPropertiesInterface *)(chan), changed_props);
-	}
-
-	if (flags->len > 0) {
-		IDLE_DEBUG("flagging properties as readable with %u props", flags->len);
-		set_tp_property_flags(chan, flags, TP_PROPERTY_FLAG_READ, 0);
-	}
-
-	g_ptr_array_free(changed_props, TRUE);
-	g_array_free(flags, TRUE);
-}
-
 static void set_tp_property_flags(IdleMUCChannel *chan, const GArray *props, TpPropertyFlags add, TpPropertyFlags remove) {
 	IdleMUCChannelPrivate *priv;
 	GPtrArray *changed_props;
@@ -801,29 +687,6 @@ gboolean idle_muc_channel_is_ready(IdleMUCChannel *obj) {
 	return priv->join_ready;
 }
 
-static IdleMUCChannelTPProperty to_prop_id(IRCChannelModeFlags flag) {
-	switch (flag) {
-		case MODE_FLAG_INVITE_ONLY:
-			return TP_PROPERTY_INVITE_ONLY;
-
-		case MODE_FLAG_MODERATED:
-			return TP_PROPERTY_MODERATED;
-
-		case MODE_FLAG_PRIVATE:
-		case MODE_FLAG_SECRET:
-			return TP_PROPERTY_PRIVATE;
-
-		case MODE_FLAG_KEY:
-			return TP_PROPERTY_PASSWORD_REQUIRED;
-
-		case MODE_FLAG_USER_LIMIT:
-			return TP_PROPERTY_LIMITED;
-
-		default:
-			return LAST_TP_PROPERTY_ENUM;
-	}
-}
-
 static void
 idle_muc_channel_update_can_set_topic (
     IdleMUCChannel *self,
@@ -848,8 +711,6 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 	IdleMUCChannelPrivate *priv;
 	IRCChannelModeFlags flags;
 	guint group_add = 0, group_remove = 0;
-	GPtrArray *tp_props_to_change;
-	guint prop_flags = 0;
 	guint combined;
 
 	g_assert(obj != NULL);
@@ -859,8 +720,6 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 
 	priv = obj->priv;
 	flags = priv->mode_state.flags;
-
-	tp_props_to_change = g_ptr_array_new();
 
 	IDLE_DEBUG("got %x, %x", add, remove);
 
@@ -882,32 +741,8 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 	}
 
 	if (combined & (MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE)) {
-		GArray *flags_to_change;
-
-		static const guint flags_helper[] = {
-			TP_PROPERTY_INVITE_ONLY,
-			TP_PROPERTY_LIMIT,
-			TP_PROPERTY_LIMITED,
-			TP_PROPERTY_MODERATED,
-			TP_PROPERTY_PASSWORD,
-			TP_PROPERTY_PASSWORD_REQUIRED,
-			TP_PROPERTY_PRIVATE,
-			LAST_TP_PROPERTY_ENUM
-		};
-
-		flags_to_change = g_array_new(FALSE, FALSE, sizeof(guint));
-
-		for (int i = 0; flags_helper[i] != LAST_TP_PROPERTY_ENUM; i++) {
-			guint prop_id = flags_helper[i];
-			g_array_append_val(flags_to_change, prop_id);
-		}
-
-		prop_flags = TP_PROPERTY_FLAG_WRITE;
-
 		if (add & (MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE)) {
 			group_add |= TP_CHANNEL_GROUP_FLAG_CAN_ADD | TP_CHANNEL_GROUP_FLAG_CAN_REMOVE | TP_CHANNEL_GROUP_FLAG_MESSAGE_REMOVE;
-
-			set_tp_property_flags(obj, flags_to_change, prop_flags, 0);
 
 			if (flags & MODE_FLAG_TOPIC_ONLY_SETTABLE_BY_OPS)
 				idle_muc_channel_update_can_set_topic (obj, TRUE);
@@ -916,8 +751,6 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 
 			if (flags & MODE_FLAG_INVITE_ONLY)
 				group_remove |= TP_CHANNEL_GROUP_FLAG_CAN_ADD;
-
-			set_tp_property_flags(obj, flags_to_change, 0, prop_flags);
 
 			if (flags & MODE_FLAG_TOPIC_ONLY_SETTABLE_BY_OPS)
 				idle_muc_channel_update_can_set_topic (obj, FALSE);
@@ -934,73 +767,68 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 
 	for (int i = 1; i < LAST_MODE_FLAG_ENUM; i <<= 1) {
 		if (combined & i) {
-			IdleMUCChannelTPProperty tp_prop_id;
+                  gboolean value = (add & i) ? TRUE : FALSE;
 
-			tp_prop_id = to_prop_id(i);
+                  switch (i)
+                    {
+                    case MODE_FLAG_INVITE_ONLY:
+                      /* invite-only */
+                      g_object_set (priv->room_config,
+                          "invite-only", value,
+                          NULL);
+                      break;
 
-			if (tp_prop_id < LAST_TP_PROPERTY_ENUM) {
-				GValue prop = {0, };
-				GValue val_auto_is_fine = {0, };
-				GValue *val = &val_auto_is_fine;
-				GType type = property_signatures[tp_prop_id].type;
+                    case MODE_FLAG_MODERATED:
+                      /* moderated */
+                      g_object_set (priv->room_config,
+                          "moderated", value,
+                          NULL);
+                      break;
 
-				g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_VALUE);
-				g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_STRUCT_TYPE_PROPERTY_VALUE));
+                    case MODE_FLAG_USER_LIMIT:
+                      /* limit */
+                      g_object_set (priv->room_config,
+                          "limit", value ? priv->mode_state.limit : 0,
+                          NULL);
+                      break;
 
-				g_value_init(val, type);
+                    case MODE_FLAG_KEY:
+                      /* password-protected */
+                      {
+                        g_object_set (priv->room_config,
+                            "password-protected", value,
+                            NULL);
 
-				if (type != G_TYPE_BOOLEAN) {
-					IDLE_DEBUG("type != G_TYPE_BOOLEAN for %u (modeflag %u), ignoring", tp_prop_id, i);
-					continue;
-				}
+                        /* if value==TRUE we have a password! */
+                        if (value)
+                          {
+                            g_object_set (priv->room_config,
+                                "password", priv->mode_state.key,
+                                NULL);
+                          }
+                      }
+                      break;
 
-				g_value_set_boolean(val, (add & i) ? TRUE : FALSE);
+                    case MODE_FLAG_PRIVATE:
+                    case MODE_FLAG_SECRET:
+                      /* private */
+                      g_object_set (priv->room_config,
+                          "private", value,
+                          NULL);
+                      break;
 
-				dbus_g_type_struct_set(&prop,
-						0, tp_prop_id,
-						1, val,
-						G_MAXUINT);
+                    default:
+                      break;
+                    }
 
-				g_ptr_array_add(tp_props_to_change, g_value_get_boxed(&prop));
-
-				if (add & i) {
-					GValue prop = {0, };
-					GValue val_auto_is_fine = {0, };
-					GValue *val = &val_auto_is_fine;
-
-					g_value_init(&prop, TP_STRUCT_TYPE_PROPERTY_VALUE);
-					g_value_take_boxed(&prop, dbus_g_type_specialized_construct(TP_STRUCT_TYPE_PROPERTY_VALUE));
-
-					if (i == MODE_FLAG_USER_LIMIT) {
-						g_value_init(val, G_TYPE_UINT);
-						g_value_set_uint(val, priv->mode_state.limit);
-						tp_prop_id = TP_PROPERTY_LIMIT;
-					} else if (i == MODE_FLAG_KEY) {
-						g_value_init(val, G_TYPE_STRING);
-						g_value_set_string(val, priv->mode_state.key);
-						tp_prop_id = TP_PROPERTY_PASSWORD;
-					} else {
-						continue;
-					}
-
-					dbus_g_type_struct_set(&prop,
-											0, tp_prop_id,
-											1, val,
-											G_MAXUINT);
-
-					g_ptr_array_add(tp_props_to_change, g_value_get_boxed(&prop));
-				}
-			}
 		}
 	}
 
 	tp_group_mixin_change_flags((GObject *)obj, group_add, group_remove);
-	change_tp_properties(obj, tp_props_to_change);
+
+        tp_base_room_config_emit_properties_changed (priv->room_config);
 
 	priv->mode_state.flags = flags;
-
-	g_ptr_array_foreach(tp_props_to_change, _free_prop_value_struct, NULL);
-	g_ptr_array_free(tp_props_to_change, TRUE);
 
 	IDLE_DEBUG("changed to %x", flags);
 }

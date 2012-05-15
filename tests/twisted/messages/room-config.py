@@ -216,8 +216,72 @@ def test_password(q, bus, conn, stream):
                                      []])
                   )
 
+def change_channel_mode(stream, mode_change):
+    stream.sendMessage('324', stream.nick, '#test', mode_change,
+                       prefix='idle.test.server')
+
+def test_modechanges(q, bus, conn, stream):
+    chan = setup(q, bus, conn, stream)
+
+    # password
+    change_channel_mode(stream, '+k bettercallsaul')
+    q.expect('dbus-signal', signal='PropertiesChanged',
+             args=[cs.CHANNEL_IFACE_ROOM_CONFIG,
+                   {'PasswordProtected': True,
+                    'Password': 'bettercallsaul'},
+                   []])
+
+    change_channel_mode(stream, '-k')
+    q.expect('dbus-signal', signal='PropertiesChanged',
+             args=[cs.CHANNEL_IFACE_ROOM_CONFIG,
+                   {'PasswordProtected': False,
+                    'Password': ''},
+                   []])
+
+    # limit
+    change_channel_mode(stream, '+l 42')
+    q.expect('dbus-signal', signal='PropertiesChanged',
+             args=[cs.CHANNEL_IFACE_ROOM_CONFIG,
+                   {'Limit': 42},
+                   []])
+
+    change_channel_mode(stream, '-l')
+    q.expect('dbus-signal', signal='PropertiesChanged',
+             args=[cs.CHANNEL_IFACE_ROOM_CONFIG,
+                   {'Limit': 0},
+                   []])
+
+    # the other three
+    for mode, prop in [('i', 'InviteOnly'),
+                       ('m', 'Moderated'),
+                       ('s', 'Private')]:
+
+        change_channel_mode(stream, '+%s' % mode)
+        q.expect('dbus-signal', signal='PropertiesChanged',
+                 args=[cs.CHANNEL_IFACE_ROOM_CONFIG,
+                       {prop: True},
+                       []])
+
+        change_channel_mode(stream, '-%s' % mode)
+        q.expect('dbus-signal', signal='PropertiesChanged',
+                 args=[cs.CHANNEL_IFACE_ROOM_CONFIG,
+                       {prop: False},
+                       []])
+
+    # a lot in one go
+    change_channel_mode(stream, '+imsk holly')
+    q.expect('dbus-signal', signal='PropertiesChanged',
+             args=[cs.CHANNEL_IFACE_ROOM_CONFIG,
+                   {'InviteOnly': True,
+                    'Moderated': True,
+                    'Private': True,
+                    'PasswordProtected': True,
+                    'Password': 'holly'},
+                   []])
+
 if __name__ == '__main__':
     exec_test(test_props_present)
     exec_test(test_simple_bools)
     exec_test(test_limit)
     exec_test(test_password)
+    exec_test(test_modechanges)
