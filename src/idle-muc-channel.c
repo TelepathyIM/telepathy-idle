@@ -894,6 +894,8 @@ void idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args) {
 	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 	TpHandleRepoIface *handles = tp_base_connection_get_handles(base_conn, TP_HANDLE_TYPE_CONTACT);
 
+        tp_base_room_config_set_retrieved (priv->room_config);
+
 	for (guint i = 1; i < args->n_values; i++) {
 		const gchar *modes = g_value_get_string(g_value_array_get_nth(args, i));
 		gchar operation = modes[0];

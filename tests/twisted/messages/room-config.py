@@ -8,6 +8,10 @@ from servicetest import EventPattern, call_async, assertContains, assertEquals, 
 import constants as cs
 import dbus
 
+def change_channel_mode(stream, mode_change):
+    stream.sendMessage('324', stream.nick, '#test', mode_change,
+                       prefix='idle.test.server')
+
 def setup(q, bus, conn, stream):
     conn.Connect()
     q.expect('dbus-signal', signal='StatusChanged',
@@ -19,11 +23,18 @@ def setup(q, bus, conn, stream):
         cs.TARGET_HANDLE_TYPE: cs.HT_ROOM,
         cs.TARGET_ID: '#test'})
 
-    ret = q.expect('dbus-return', method='CreateChannel')
+    ret, _, _ = q.expect_many(EventPattern('dbus-return', method='CreateChannel'),
+                              EventPattern('dbus-signal', signal='MembersChanged'),
+                              EventPattern('stream-MODE', data=['#test']))
 
-    q.expect('dbus-signal', signal='MembersChanged')
     chan = wrap_channel(bus.get_object(conn.bus_name, ret.value[0]),
                         'Text', extra=['RoomConfig1'])
+
+    change_channel_mode(stream, '+n')
+
+    q.expect('dbus-signal', signal='PropertiesChanged',
+             args=[cs.CHANNEL_IFACE_ROOM_CONFIG,
+                   {'ConfigurationRetrieved': True}, []])
 
     sync_stream(q, stream)
 
@@ -215,10 +226,6 @@ def test_password(q, bus, conn, stream):
                                      {'Password': 'penguin3'},
                                      []])
                   )
-
-def change_channel_mode(stream, mode_change):
-    stream.sendMessage('324', stream.nick, '#test', mode_change,
-                       prefix='idle.test.server')
 
 def test_modechanges(q, bus, conn, stream):
     chan = setup(q, bus, conn, stream)
