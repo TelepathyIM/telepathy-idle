@@ -1545,6 +1545,35 @@ subject_iface_init (
 #undef IMPLEMENT
 }
 
+static void
+do_quick_boolean (IdleMUCChannel *self,
+    GHashTable *properties,
+    TpBaseRoomConfigProperty prop_id,
+    const gchar *gobject_property_name,
+    const gchar irc_mode)
+{
+  IdleMUCChannelPrivate *priv = self->priv;
+
+  if (g_hash_table_lookup (properties, GUINT_TO_POINTER (prop_id)) != NULL)
+    {
+      gboolean new_value = tp_asv_get_boolean (properties,
+          GUINT_TO_POINTER (prop_id), NULL);
+      gboolean current_value;
+
+      g_object_get (priv->room_config,
+          gobject_property_name, &current_value,
+          NULL);
+
+      if (current_value != new_value)
+        {
+          gchar *cmd = g_strdup_printf ("MODE %s %c%c",
+              priv->channel_name, new_value ? '+' : '-', irc_mode);
+          send_command (self, cmd);
+          g_free (cmd);
+        }
+    }
+}
+
 void
 idle_muc_channel_update_configuration_async (
     IdleMUCChannel *self,
@@ -1558,29 +1587,12 @@ idle_muc_channel_update_configuration_async (
   const gchar *password;
 
   /* do the quick ones */
-
-#define DO_QUICK_BOOLEAN(prop, name, irc_mode) \
-  if (g_hash_table_lookup (validated_properties, GUINT_TO_POINTER (prop)) != NULL) \
-    { \
-      gboolean value = tp_asv_get_boolean (validated_properties, \
-          GUINT_TO_POINTER (prop), NULL); \
-      gboolean current; \
-      g_object_get (priv->room_config, \
-          name, &current, \
-          NULL); \
-      if (current != value) \
-        { \
-          gchar *cmd = g_strdup_printf ("MODE %s %s%s", priv->channel_name, \
-              value ? "+" : "-", irc_mode); \
-          send_command (self, cmd); \
-          g_free (cmd); \
-        } \
-    }
-
-  DO_QUICK_BOOLEAN (TP_BASE_ROOM_CONFIG_INVITE_ONLY, "invite-only", "i");
-  DO_QUICK_BOOLEAN (TP_BASE_ROOM_CONFIG_MODERATED, "moderated", "m");
-  DO_QUICK_BOOLEAN (TP_BASE_ROOM_CONFIG_PRIVATE, "private", "s");
-#undef DO_QUICK_BOOLEAN
+  do_quick_boolean (self, validated_properties,
+      TP_BASE_ROOM_CONFIG_INVITE_ONLY, "invite-only", 'i');
+  do_quick_boolean (self, validated_properties,
+      TP_BASE_ROOM_CONFIG_MODERATED, "moderated", 'm');
+  do_quick_boolean (self, validated_properties,
+      TP_BASE_ROOM_CONFIG_PRIVATE, "private", 's');
 
   /* now the rest */
 
