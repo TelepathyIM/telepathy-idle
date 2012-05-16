@@ -1584,9 +1584,37 @@ idle_muc_channel_update_configuration_async (
   IdleMUCChannelPrivate *priv = self->priv;
   GSimpleAsyncResult *result = g_simple_async_result_new ((GObject *) self,
       callback, user_data, idle_muc_channel_update_configuration_async);
-  const gchar *password;
+  gboolean present = FALSE;
 
-  /* do the quick ones */
+  /* first, do sanity checking for Password & PasswordProtected */
+  if (tp_asv_get_boolean (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED), NULL)
+      && tp_str_empty (tp_asv_get_string (validated_properties,
+              GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD))))
+    {
+      g_simple_async_result_set_error (result, TP_ERROR,
+          TP_ERROR_INVALID_ARGUMENT,
+          "PasswordProtected=True but no password given");
+      g_simple_async_result_complete_in_idle (result);
+      g_object_unref (result);
+      return;
+    }
+
+  if (!tp_asv_get_boolean (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED), &present)
+      && present
+      && tp_asv_get_string (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD)) != NULL)
+    {
+      g_simple_async_result_set_error (result, TP_ERROR,
+          TP_ERROR_INVALID_ARGUMENT,
+          "PasswordProtected=False but then a password given, madness!");
+      g_simple_async_result_complete_in_idle (result);
+      g_object_unref (result);
+      return;
+    }
+
+  /* okay go and do the quick ones */
   do_quick_boolean (self, validated_properties,
       TP_BASE_ROOM_CONFIG_INVITE_ONLY, "invite-only", 'i');
   do_quick_boolean (self, validated_properties,
@@ -1596,6 +1624,7 @@ idle_muc_channel_update_configuration_async (
 
   /* now the rest */
 
+  /* limit */
   if (g_hash_table_lookup (validated_properties,
           GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_LIMIT)) != NULL)
     {
@@ -1623,46 +1652,39 @@ idle_muc_channel_update_configuration_async (
       g_free (cmd);
     }
 
-  /* if we got a new password, save it away for a rainy day */
-  password = tp_asv_get_string (validated_properties,
-      GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD));
-
+  /* set a new password */
   if (g_hash_table_lookup (validated_properties,
-          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED)) != NULL)
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD)) != NULL)
     {
-      /* okay we want to require or not require a password ... */
-      gboolean required = tp_asv_get_boolean (validated_properties,
-          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED), NULL);
-      gchar *cmd = NULL;
-
-      /* only set the password if we want to and if we have one
-       * (ie. not the default value */
-      if (required && password != NULL)
-        cmd = g_strdup_printf ("MODE %s +k %s", priv->channel_name, password);
-      else if (!required)
-        cmd = g_strdup_printf ("MODE %s -k", priv->channel_name);
-      /* deliberately unhandled case here is:
-       *              required && (password == NULL) */
-
-      if (cmd != NULL)
-        send_command (self, cmd);
-
-      g_free (cmd);
-    }
-  else if (password != NULL)
-    {
-      /* we didn't set PasswordProtected but we did get the password,
-       * and the flags say we can set the password. let's do so */
+      const gchar *password = tp_asv_get_string (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD));
       gchar *cmd;
+
+      /* we've already validated this; either PasswordProtected was
+       * not included, or it's TRUE */
 
       cmd = g_strdup_printf ("MODE %s +k %s", priv->channel_name, password);
       send_command (self, cmd);
       g_free (cmd);
 
-      /* so set PasswordProtected now */
       g_object_set (priv->room_config,
           "password-protected", TRUE,
           NULL);
+    }
+
+  /* unset a password */
+  if (!tp_asv_get_boolean (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED), &present)
+      && present)
+    {
+      gchar *cmd;
+
+      /* we've already validated this; PasswordProtected=FALSE so no
+       * Password is given */
+
+      cmd = g_strdup_printf ("MODE %s -k", priv->channel_name);
+      send_command (self, cmd);
+      g_free (cmd);
     }
 
   g_simple_async_result_complete_in_idle (result);

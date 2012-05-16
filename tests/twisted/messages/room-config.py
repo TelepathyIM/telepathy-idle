@@ -240,6 +240,29 @@ def test_password(q, bus, conn, stream):
                                      []])
                   )
 
+    # get rid of it
+    call_async(q, chan.RoomConfig1, 'UpdateConfiguration',
+               {'PasswordProtected': False})
+    q.expect('stream-MODE', data=['#test', '-k']),
+
+    # try some wacky values
+    call_async(q, chan.RoomConfig1, 'UpdateConfiguration',
+               {'PasswordProtected': True})
+    q.expect('dbus-error', method='UpdateConfiguration',
+             name=cs.INVALID_ARGUMENT)
+
+    call_async(q, chan.RoomConfig1, 'UpdateConfiguration',
+               {'PasswordProtected': True,
+                'Password': ''})
+    q.expect('dbus-error', method='UpdateConfiguration',
+             name=cs.INVALID_ARGUMENT)
+
+    call_async(q, chan.RoomConfig1, 'UpdateConfiguration',
+               {'PasswordProtected': False,
+                'Password': 'scumbagsteve'})
+    q.expect('dbus-error', method='UpdateConfiguration',
+             name=cs.INVALID_ARGUMENT)
+
 def test_modechanges(q, bus, conn, stream):
     chan = setup(q, bus, conn, stream)
 
