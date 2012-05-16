@@ -181,12 +181,16 @@ idle_room_config_update_configuration_async (
   GSimpleAsyncResult *result = g_simple_async_result_new ((GObject *) self,
       callback, user_data, idle_room_config_update_configuration_async);
   gboolean present = FALSE;
+  gboolean password_protected = FALSE;
+  const gchar *password = NULL;
+
+  password_protected = tp_asv_get_boolean (validated_properties,
+      GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED), &present);
+  password = tp_asv_get_string (validated_properties,
+      GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD));
 
   /* first, do sanity checking for Password & PasswordProtected */
-  if (tp_asv_get_boolean (validated_properties,
-          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED), NULL)
-      && tp_str_empty (tp_asv_get_string (validated_properties,
-              GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD))))
+  if (password_protected && tp_str_empty (password))
     {
       g_simple_async_result_set_error (result, TP_ERROR,
           TP_ERROR_INVALID_ARGUMENT,
@@ -204,11 +208,7 @@ idle_room_config_update_configuration_async (
    * http://i.imgur.com/FIOwY.jpg
    */
 
-  if (!tp_asv_get_boolean (validated_properties,
-          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED), &present)
-      && present
-      && tp_asv_get_string (validated_properties,
-          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD)) != NULL)
+  if (!password_protected && present && password != NULL)
     {
       g_simple_async_result_set_error (result, TP_ERROR,
           TP_ERROR_INVALID_ARGUMENT,
@@ -257,11 +257,8 @@ idle_room_config_update_configuration_async (
     }
 
   /* set a new password */
-  if (g_hash_table_lookup (validated_properties,
-          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD)) != NULL)
+  if (password != NULL)
     {
-      const gchar *password = tp_asv_get_string (validated_properties,
-          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD));
       gchar *cmd;
 
       /* we've already validated this; either PasswordProtected was
@@ -279,9 +276,7 @@ idle_room_config_update_configuration_async (
     }
 
   /* unset a password */
-  if (!tp_asv_get_boolean (validated_properties,
-          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED), &present)
-      && present)
+  if (!password_protected && present)
     {
       gchar *cmd;
 
