@@ -74,7 +74,6 @@ idle_room_config_constructed (GObject *object)
     TP_BASE_ROOM_CONFIG_PASSWORD,
     TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED,
     TP_BASE_ROOM_CONFIG_PRIVATE,
-    TP_NUM_BASE_ROOM_CONFIG_PROPERTIES
   };
   guint i;
   void (*chain_up)(GObject *) =
@@ -83,7 +82,7 @@ idle_room_config_constructed (GObject *object)
   if (chain_up != NULL)
     chain_up (object);
 
-  for (i = 0; prop_helper[i] != TP_NUM_BASE_ROOM_CONFIG_PROPERTIES; ++i)
+  for (i = 0; i < G_N_ELEMENTS (prop_helper); ++i)
     {
       tp_base_room_config_set_property_mutable (self, prop_helper[i], TRUE);
     }
