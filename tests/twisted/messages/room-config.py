@@ -12,7 +12,7 @@ def change_channel_mode(stream, mode_change):
     stream.sendMessage('324', stream.nick, '#test', mode_change,
                        prefix='idle.test.server')
 
-def setup(q, bus, conn, stream):
+def setup(q, bus, conn, stream, op_user=True):
     conn.Connect()
     q.expect('dbus-signal', signal='StatusChanged',
         args=[cs.CONN_STATUS_CONNECTED, cs.CSR_REQUESTED])
@@ -36,7 +36,20 @@ def setup(q, bus, conn, stream):
              args=[cs.CHANNEL_IFACE_ROOM_CONFIG,
                    {'ConfigurationRetrieved': True}, []])
 
-    sync_stream(q, stream)
+    if op_user:
+        change_channel_mode(stream, '+o test')
+
+        q.expect_many(EventPattern('dbus-signal', signal='GroupFlagsChanged',
+                                   args=[cs.GF_MESSAGE_REMOVE | cs.GF_CAN_REMOVE, 0]),
+                      EventPattern('dbus-signal', signal='PropertiesChanged',
+                                   args=[cs.CHANNEL_IFACE_ROOM_CONFIG,
+                                         {'MutableProperties': ['InviteOnly',
+                                                                'Limit',
+                                                                'Moderated',
+                                                                'Private',
+                                                                'PasswordProtected',
+                                                                'Password']},
+                                         []]))
 
     return chan
 
@@ -286,9 +299,26 @@ def test_modechanges(q, bus, conn, stream):
                     'Password': 'holly'},
                    []])
 
+def test_mode_no_op(q, bus, conn, stream):
+    chan = setup(q, bus, conn, stream, op_user=False)
+
+    # we haven't been opped, so we can't be allowed to change these
+    # values
+    for key, val in [('InviteOnly', True),
+                     ('Moderated', True),
+                     ('Private', True),
+                     ('Password', True),
+                     ('Limit', 99)]:
+        call_async(q, chan.RoomConfig1, 'UpdateConfiguration',
+                   {key: val})
+
+        q.expect('dbus-error', method='UpdateConfiguration',
+                 name=cs.NOT_IMPLEMENTED)
+
 if __name__ == '__main__':
     exec_test(test_props_present)
     exec_test(test_simple_bools)
     exec_test(test_limit)
     exec_test(test_password)
     exec_test(test_modechanges)
+    exec_test(test_mode_no_op)
