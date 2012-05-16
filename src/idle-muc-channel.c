@@ -243,11 +243,6 @@ idle_muc_channel_constructed (GObject *obj)
 
         priv->room_config =
           (TpBaseRoomConfig *) idle_room_config_new ((TpBaseChannel *) self);
-
-        tp_base_room_config_set_can_update_configuration (
-            priv->room_config, TRUE);
-        /* Just to get CanUpdateConfiguration out there. */
-        tp_base_room_config_emit_properties_changed (priv->room_config);
 }
 
 static void
@@ -572,31 +567,18 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 	}
 
 	if (combined & (MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE)) {
-		static const TpBaseRoomConfigProperty prop_helper[] = {
-			TP_BASE_ROOM_CONFIG_INVITE_ONLY,
-			TP_BASE_ROOM_CONFIG_LIMIT,
-			TP_BASE_ROOM_CONFIG_MODERATED,
-			TP_BASE_ROOM_CONFIG_PASSWORD,
-			TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED,
-			TP_BASE_ROOM_CONFIG_PRIVATE,
-			TP_NUM_BASE_ROOM_CONFIG_PROPERTIES
-		};
 
 		if (add & (MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE)) {
 			group_add |= TP_CHANNEL_GROUP_FLAG_CAN_ADD | TP_CHANNEL_GROUP_FLAG_CAN_REMOVE | TP_CHANNEL_GROUP_FLAG_MESSAGE_REMOVE;
 
-			for (int i = 0; prop_helper[i] != TP_NUM_BASE_ROOM_CONFIG_PROPERTIES; ++i) {
-				tp_base_room_config_set_property_mutable (priv->room_config, prop_helper[i], TRUE);
-			}
+			tp_base_room_config_set_can_update_configuration (priv->room_config, TRUE);
 
 			if (flags & MODE_FLAG_TOPIC_ONLY_SETTABLE_BY_OPS)
 				idle_muc_channel_update_can_set_topic (obj, TRUE);
 		} else if (remove & (MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE)) {
 			group_remove |= TP_CHANNEL_GROUP_FLAG_CAN_REMOVE | TP_CHANNEL_GROUP_FLAG_MESSAGE_REMOVE;
 
-			for (int i = 0; prop_helper[i] != TP_NUM_BASE_ROOM_CONFIG_PROPERTIES; ++i) {
-				tp_base_room_config_set_property_mutable (priv->room_config, prop_helper[i], FALSE);
-			}
+			tp_base_room_config_set_can_update_configuration (priv->room_config, FALSE);
 
 			if (flags & MODE_FLAG_INVITE_ONLY)
 				group_remove |= TP_CHANNEL_GROUP_FLAG_CAN_ADD;

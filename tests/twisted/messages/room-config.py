@@ -43,12 +43,7 @@ def setup(q, bus, conn, stream, op_user=True):
                                    args=[cs.GF_MESSAGE_REMOVE | cs.GF_CAN_REMOVE, 0]),
                       EventPattern('dbus-signal', signal='PropertiesChanged',
                                    args=[cs.CHANNEL_IFACE_ROOM_CONFIG,
-                                         {'MutableProperties': ['InviteOnly',
-                                                                'Limit',
-                                                                'Moderated',
-                                                                'Private',
-                                                                'PasswordProtected',
-                                                                'Password']},
+                                         {'CanUpdateConfiguration': True},
                                          []]))
 
     return chan
@@ -79,6 +74,15 @@ def test_props_present(q, bus, conn, stream):
 
     sync_stream(q, stream)
     q.unforbid_events(forbidden)
+
+    # we should have these mutable ones
+    mutable_props = ['InviteOnly',
+                     'Limit',
+                     'Moderated',
+                     'Private',
+                     'PasswordProtected',
+                     'Password']
+    assertEquals(mutable_props, props['MutableProperties'])
 
 def test_simple_bools(q, bus, conn, stream):
     chan = setup(q, bus, conn, stream)
@@ -336,7 +340,21 @@ def test_mode_no_op(q, bus, conn, stream):
                    {key: val})
 
         q.expect('dbus-error', method='UpdateConfiguration',
-                 name=cs.NOT_IMPLEMENTED)
+                 name=cs.PERMISSION_DENIED)
+
+    # op the user
+    change_channel_mode(stream, '+o test')
+    q.expect('dbus-signal', signal='PropertiesChanged',
+             args=[cs.CHANNEL_IFACE_ROOM_CONFIG,
+                   {'CanUpdateConfiguration': True},
+                   []])
+
+    # remove ops again
+    change_channel_mode(stream, '-o test')
+    q.expect('dbus-signal', signal='PropertiesChanged',
+             args=[cs.CHANNEL_IFACE_ROOM_CONFIG,
+                   {'CanUpdateConfiguration': False},
+                   []])
 
 if __name__ == '__main__':
     exec_test(test_props_present)

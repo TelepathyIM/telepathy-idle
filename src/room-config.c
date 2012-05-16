@@ -61,6 +61,35 @@ idle_room_config_init (IdleRoomConfig *self)
 {
   self->priv = G_TYPE_INSTANCE_GET_PRIVATE (self, IDLE_TYPE_ROOM_CONFIG,
       IdleRoomConfigPrivate);
+}
+
+static void
+idle_room_config_constructed (GObject *object)
+{
+  TpBaseRoomConfig *self = TP_BASE_ROOM_CONFIG (object);
+  static const TpBaseRoomConfigProperty prop_helper[] = {
+    TP_BASE_ROOM_CONFIG_INVITE_ONLY,
+    TP_BASE_ROOM_CONFIG_LIMIT,
+    TP_BASE_ROOM_CONFIG_MODERATED,
+    TP_BASE_ROOM_CONFIG_PASSWORD,
+    TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED,
+    TP_BASE_ROOM_CONFIG_PRIVATE,
+    TP_NUM_BASE_ROOM_CONFIG_PROPERTIES
+  };
+  guint i;
+  void (*chain_up)(GObject *) =
+      G_OBJECT_CLASS (idle_room_config_parent_class)->constructed;
+
+  if (chain_up != NULL)
+    chain_up (object);
+
+  for (i = 0; prop_helper[i] != TP_NUM_BASE_ROOM_CONFIG_PROPERTIES; ++i)
+    {
+      tp_base_room_config_set_property_mutable (self, prop_helper[i], TRUE);
+    }
+
+  /* Just to get the mutable properties out there. */
+  tp_base_room_config_emit_properties_changed (self);
 
   /* Let's reset the password back to the empty string when
    * password-protected is set to False. */
@@ -71,7 +100,10 @@ idle_room_config_init (IdleRoomConfig *self)
 static void
 idle_room_config_class_init (IdleRoomConfigClass *klass)
 {
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
   TpBaseRoomConfigClass *parent_class = TP_BASE_ROOM_CONFIG_CLASS (klass);
+
+  object_class->constructed = idle_room_config_constructed;
 
   parent_class->update_async = idle_room_config_update_configuration_async;
   g_type_class_add_private (klass, sizeof (IdleRoomConfigPrivate));
