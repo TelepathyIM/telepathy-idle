@@ -20,6 +20,8 @@
 #include "room-config.h"
 #include "idle-muc-channel.h"
 
+#include <telepathy-glib/telepathy-glib.h>
+
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_MUC
 #include "idle-debug.h"
 
@@ -87,23 +89,53 @@ idle_room_config_new (
 }
 
 static void
-updated_configuration_cb (
-    GObject *source,
-    GAsyncResult *result,
-    gpointer user_data)
+send_mode (IdleRoomConfig *self,
+    const gchar *cmd)
 {
-  IdleMUCChannel *channel = IDLE_MUC_CHANNEL (source);
-  GSimpleAsyncResult *simple = G_SIMPLE_ASYNC_RESULT (user_data);
-  GError *error = NULL;
+  TpBaseChannel *channel;
+  TpBaseConnection *connection;
+  gchar *s, *target_id;
 
-  if (!idle_muc_channel_update_configuration_finish (channel, result, &error))
+  channel = tp_base_room_config_dup_channel ((TpBaseRoomConfig *) self);
+  g_object_get (channel,
+      "target-id", &target_id,
+      NULL);
+
+  connection = tp_base_channel_get_connection (channel);
+
+  s = g_strdup_printf ("MODE %s %s", target_id, cmd);
+  idle_connection_send (IDLE_CONNECTION (connection), s);
+  g_free (s);
+
+  g_free (target_id);
+  g_object_unref (channel);
+}
+
+static void
+do_quick_boolean (IdleRoomConfig *self,
+    GHashTable *properties,
+    TpBaseRoomConfigProperty prop_id,
+    const gchar *gobject_property_name,
+    const gchar irc_mode)
+{
+  if (g_hash_table_lookup (properties, GUINT_TO_POINTER (prop_id)) != NULL)
     {
-      g_simple_async_result_set_from_error (simple, error);
-      g_clear_error (&error);
-    }
+      gboolean new_value = tp_asv_get_boolean (properties,
+          GUINT_TO_POINTER (prop_id), NULL);
+      gboolean current_value;
 
-  g_simple_async_result_complete (simple);
-  g_object_unref (simple);
+      g_object_get (self,
+          gobject_property_name, &current_value,
+          NULL);
+
+      if (current_value != new_value)
+        {
+          gchar *cmd = g_strdup_printf ("%c%c",
+              new_value ? '+' : '-', irc_mode);
+          send_mode (self, cmd);
+          g_free (cmd);
+        }
+    }
 }
 
 static void
@@ -113,13 +145,122 @@ idle_room_config_update_configuration_async (
     GAsyncReadyCallback callback,
     gpointer user_data)
 {
-  TpBaseChannel *base_channel = tp_base_room_config_dup_channel (base_config);
-  GSimpleAsyncResult *simple = g_simple_async_result_new (
-      G_OBJECT (base_config), callback, user_data,
-      idle_room_config_update_configuration_async);
+  IdleRoomConfig *self = IDLE_ROOM_CONFIG (base_config);
+  GSimpleAsyncResult *result = g_simple_async_result_new ((GObject *) self,
+      callback, user_data, idle_room_config_update_configuration_async);
+  gboolean present = FALSE;
 
-  idle_muc_channel_update_configuration_async (
-      IDLE_MUC_CHANNEL (base_channel), validated_properties,
-      updated_configuration_cb, simple);
-  g_object_unref (base_channel);
+  /* first, do sanity checking for Password & PasswordProtected */
+  if (tp_asv_get_boolean (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED), NULL)
+      && tp_str_empty (tp_asv_get_string (validated_properties,
+              GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD))))
+    {
+      g_simple_async_result_set_error (result, TP_ERROR,
+          TP_ERROR_INVALID_ARGUMENT,
+          "PasswordProtected=True but no password given");
+      g_simple_async_result_complete_in_idle (result);
+      g_object_unref (result);
+      return;
+    }
+
+  /* TODO: We shouldn't return from this function before we've had our
+   * commands acked back to us from the server, but that's harder and
+   * we'd have to add some queueing code which is a faff. We should
+   * really do this though...
+   *
+   * http://i.imgur.com/FIOwY.jpg
+   */
+
+  if (!tp_asv_get_boolean (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED), &present)
+      && present
+      && tp_asv_get_string (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD)) != NULL)
+    {
+      g_simple_async_result_set_error (result, TP_ERROR,
+          TP_ERROR_INVALID_ARGUMENT,
+          "PasswordProtected=False but then a password given, madness!");
+      g_simple_async_result_complete_in_idle (result);
+      g_object_unref (result);
+      return;
+    }
+
+  /* okay go and do the quick ones */
+  do_quick_boolean (self, validated_properties,
+      TP_BASE_ROOM_CONFIG_INVITE_ONLY, "invite-only", 'i');
+  do_quick_boolean (self, validated_properties,
+      TP_BASE_ROOM_CONFIG_MODERATED, "moderated", 'm');
+  do_quick_boolean (self, validated_properties,
+      TP_BASE_ROOM_CONFIG_PRIVATE, "private", 's');
+
+  /* now the rest */
+
+  /* limit */
+  if (g_hash_table_lookup (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_LIMIT)) != NULL)
+    {
+      guint limit = tp_asv_get_uint32 (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_LIMIT), NULL);
+      gchar *cmd = NULL;
+      guint current;
+
+      g_object_get (self,
+          "limit", &current,
+          NULL);
+
+      if (limit != current)
+        {
+          /* a non-zero limit means we want a limit enabled, so let's
+           * set it. if the limit is zero let's disable the limit. */
+          if (limit > 0)
+            cmd = g_strdup_printf ("+l %u", limit);
+          else
+            cmd = g_strdup ("-l");
+        }
+
+      if (cmd != NULL)
+        send_mode (self, cmd);
+      g_free (cmd);
+    }
+
+  /* set a new password */
+  if (g_hash_table_lookup (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD)) != NULL)
+    {
+      const gchar *password = tp_asv_get_string (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD));
+      gchar *cmd;
+
+      /* we've already validated this; either PasswordProtected was
+       * not included, or it's TRUE */
+
+      cmd = g_strdup_printf ("+k %s", password);
+      send_mode (self, cmd);
+      g_free (cmd);
+
+      /* TODO: this can be removed when we add queueing to these mode
+       * changes */
+      g_object_set (self,
+          "password-protected", TRUE,
+          NULL);
+    }
+
+  /* unset a password */
+  if (!tp_asv_get_boolean (validated_properties,
+          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED), &present)
+      && present)
+    {
+      gchar *cmd;
+
+      /* we've already validated this; PasswordProtected=FALSE so no
+       * Password is given */
+
+      cmd = g_strdup ("-k");
+      send_mode (self, cmd);
+      g_free (cmd);
+    }
+
+  g_simple_async_result_complete_in_idle (result);
+  g_object_unref (result);
 }
