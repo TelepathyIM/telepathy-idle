@@ -1059,13 +1059,16 @@ static IdleParserHandlerResult _ping_handler(IdleParser *parser, IdleParserMessa
 static IdleParserHandlerResult _version_privmsg_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	const gchar *msg = g_value_get_string(g_value_array_get_nth(args, 2));
+	TpHandle handle;
+	const gchar *nick;
+	gchar *reply;
 
 	if (g_ascii_strcasecmp(msg, "\001VERSION\001"))
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 
-	TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, 0));
-	const gchar *nick = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT), handle);
-	gchar *reply = g_strdup_printf("VERSION telepathy-idle %s Telepathy IM/VoIP Framework http://telepathy.freedesktop.org", VERSION);
+	handle = g_value_get_uint(g_value_array_get_nth(args, 0));
+	nick = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT), handle);
+	reply = g_strdup_printf("VERSION telepathy-idle %s Telepathy IM/VoIP Framework http://telepathy.freedesktop.org", VERSION);
 
 	idle_ctcp_notice(nick, reply, conn);
 
@@ -1095,11 +1098,15 @@ _whois_user_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray 
 	TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, 0));
 	TpHandle self = tp_base_connection_get_self_handle(TP_BASE_CONNECTION(conn));
 	if (handle == self) {
+			const char *user;
+			const char *host;
+
 			if (priv->relay_prefix != NULL) {
 					g_free(priv->relay_prefix);
 			}
-			const char* user = g_value_get_string(g_value_array_get_nth(args, 1));
-			const char* host = g_value_get_string(g_value_array_get_nth(args, 2));
+
+			user = g_value_get_string(g_value_array_get_nth(args, 1));
+			host = g_value_get_string(g_value_array_get_nth(args, 2));
 			priv->relay_prefix = g_strdup_printf("%s!%s@%s", priv->nickname, user, host);
 			IDLE_DEBUG("user host prefix = %s", priv->relay_prefix);
 	}
@@ -1161,7 +1168,8 @@ static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusRea
 	idle_connection_clear_queue_timeout (conn);
 }
 
-void _queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *alias) {
+static void
+_queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *alias) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
 
 	if (!priv->queued_aliases_owners) {
@@ -1181,7 +1189,8 @@ void _queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *al
 			G_TYPE_INVALID));
 }
 
-static GQuark _canon_nick_quark() {
+static GQuark
+_canon_nick_quark (void) {
 	static GQuark quark = 0;
 
 	if (!quark)
@@ -1271,6 +1280,7 @@ idle_connection_get_aliases (
   TpHandleRepoIface *repo = tp_base_connection_get_handles (
       TP_BASE_CONNECTION (iface), TP_HANDLE_TYPE_CONTACT);
   GError *error = NULL;
+  GHashTable *aliases;
 
   if (!tp_handles_are_valid (repo, handles, FALSE, &error))
     {
@@ -1279,7 +1289,7 @@ idle_connection_get_aliases (
       return;
     }
 
-  GHashTable *aliases = g_hash_table_new (NULL, NULL);
+  aliases = g_hash_table_new (NULL, NULL);
 
   for (guint i = 0; i < handles->len; i++)
     {
@@ -1297,6 +1307,7 @@ idle_connection_get_aliases (
 static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing *iface, const GArray *handles, DBusGMethodInvocation *context) {
 	TpHandleRepoIface *repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(iface), TP_HANDLE_TYPE_CONTACT);
 	GError *error = NULL;
+	const gchar **aliases;
 
 	if (!tp_handles_are_valid(repo, handles, FALSE, &error)) {
 		dbus_g_method_return_error(context, error);
@@ -1304,7 +1315,7 @@ static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing *if
 		return;
 	}
 
-	const gchar **aliases = g_new0(const gchar *, handles->len + 1);
+	aliases = g_new0(const gchar *, handles->len + 1);
 	for (guint i = 0; i < handles->len; i++) {
 		TpHandle handle = g_array_index(handles, TpHandle, i);
 
@@ -1318,19 +1329,17 @@ static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing *if
 static gboolean _send_rename_request(IdleConnection *obj, const gchar *nick, DBusGMethodInvocation *context) {
 	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(obj), TP_HANDLE_TYPE_CONTACT);
 	TpHandle handle = tp_handle_ensure(handles, nick, NULL, NULL);
+	gchar msg[IRC_MSG_MAXLEN + 1];
 
 	if (handle == 0) {
-		IDLE_DEBUG("failed to get handle for \"%s\"", nick);
-
 		GError error = {TP_ERROR, TP_ERROR_NOT_AVAILABLE, "Invalid nickname requested"};
+
+		IDLE_DEBUG("failed to get handle for \"%s\"", nick);
 		dbus_g_method_return_error(context, &error);
 
 		return FALSE;
 	}
 
-	tp_handle_unref(handles, handle);
-
-	gchar msg[IRC_MSG_MAXLEN + 1];
 	g_snprintf(msg, IRC_MSG_MAXLEN + 1, "NICK %s", nick);
 	idle_connection_send(obj, msg);
 

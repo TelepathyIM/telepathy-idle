@@ -84,11 +84,13 @@ const gchar *idle_ctcp_notice(const gchar *target, const gchar *ctcp, IdleConnec
 }
 
 gchar *idle_ctcp_kill_blingbling(const gchar *msg) {
+	gchar *killed, *killed_iter;
+
 	if (msg == NULL)
 		return NULL;
 
-	gchar *killed = g_malloc0(strlen(msg) + 1);
-	gchar *killed_iter = killed;
+	killed = g_malloc0(strlen(msg) + 1);
+	killed_iter = killed;
 
 	for (const gchar *iter = msg; *iter != '\0';) {
 		switch (*iter) {
@@ -125,15 +127,19 @@ gchar *idle_ctcp_kill_blingbling(const gchar *msg) {
 }
 
 gchar **idle_ctcp_decode(const gchar *msg) {
+	GPtrArray *tokens;
+	gchar cur_token[IRC_MSG_MAXLEN] = {'\0'};
+	gchar *cur_iter = cur_token;
+	gchar **ret;
+	const gchar *iter;
+	gboolean string = FALSE;
+
 	if (!msg || (msg[0] != '\001') || !msg[1] || (msg[1] == '\001'))
 		return NULL;
 
-	GPtrArray *tokens = g_ptr_array_new();
-	gchar cur_token[IRC_MSG_MAXLEN] = {'\0'};
-	gchar *cur_iter = cur_token;
+	tokens = g_ptr_array_new();
 
-	const gchar *iter = msg + 1;
-	gboolean string = FALSE;
+	iter = msg + 1;
 	while (*iter != '\0') {
 		switch (*iter) {
 			case '\\':
@@ -194,7 +200,7 @@ gchar **idle_ctcp_decode(const gchar *msg) {
 
 	g_ptr_array_add(tokens, NULL);
 
-	gchar **ret = (gchar **) tokens->pdata;
+	ret = (gchar **) tokens->pdata;
 	g_ptr_array_free(tokens, FALSE);
 
 	return ret;

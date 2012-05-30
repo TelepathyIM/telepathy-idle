@@ -6,7 +6,9 @@
 
 #include <telepathy-glib/util.h>
 
-int main() {
+int
+main (void)
+{
 	gboolean fail = FALSE;
 
 	const gchar *test_str = "\001  foo \" fo bar\" bar\\001\\002\\003baz\"for every foo there is \\001 bar\\\\\001";

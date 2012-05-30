@@ -103,7 +103,6 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 	GObject *obj;
 	IdleIMChannelPrivate *priv;
 	TpDBusDaemon *bus;
-	TpHandleRepoIface *handles;
 	TpBaseConnection *conn;
 	TpChannelTextMessageType types[] = {
 			TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
@@ -120,9 +119,6 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 
 	conn = TP_BASE_CONNECTION(priv->connection);
 
-	handles = tp_base_connection_get_handles(conn, TP_HANDLE_TYPE_CONTACT);
-	tp_handle_ref(handles, priv->handle);
-	tp_handle_ref(handles, priv->initiator);
 	g_assert(tp_handle_is_valid(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), priv->handle, NULL));
 
 	bus = tp_base_connection_get_dbus_daemon (conn);
@@ -269,6 +265,25 @@ static void idle_im_channel_set_property(GObject *object, guint property_id, con
 }
 
 static void idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_class) {
+	static TpDBusPropertiesMixinPropImpl channel_props[] = {
+		{ "Interfaces", "interfaces", NULL },
+		{ "ChannelType", "channel-type", NULL },
+		{ "TargetHandleType", "handle-type", NULL },
+		{ "TargetHandle", "handle", NULL },
+		{ "TargetID", "target-id", NULL },
+		{ "InitiatorHandle", "initiator-handle", NULL },
+		{ "InitiatorID", "initiator-id", NULL },
+		{ "Requested", "requested", NULL },
+		{ NULL }
+	};
+	static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
+		{ TP_IFACE_CHANNEL,
+			tp_dbus_properties_mixin_getter_gobject_properties,
+			NULL,
+			channel_props,
+		},
+		{ NULL }
+	};
 	GObjectClass *object_class = G_OBJECT_CLASS(idle_im_channel_class);
 	GParamSpec *param_spec;
 
@@ -326,26 +341,6 @@ static void idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_clas
 		NULL, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property (object_class, PROP_INITIATOR_ID, param_spec);
 
-	static TpDBusPropertiesMixinPropImpl channel_props[] = {
-		{ "Interfaces", "interfaces", NULL },
-		{ "ChannelType", "channel-type", NULL },
-		{ "TargetHandleType", "handle-type", NULL },
-		{ "TargetHandle", "handle", NULL },
-		{ "TargetID", "target-id", NULL },
-		{ "InitiatorHandle", "initiator-handle", NULL },
-		{ "InitiatorID", "initiator-id", NULL },
-		{ "Requested", "requested", NULL },
-		{ NULL }
-	};
-	static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
-		{ TP_IFACE_CHANNEL,
-			tp_dbus_properties_mixin_getter_gobject_properties,
-			NULL,
-			channel_props,
-		},
-		{ NULL }
-	};
-
 	idle_im_channel_class->dbus_props_class.interfaces = prop_interfaces;
 	tp_dbus_properties_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleIMChannelClass, dbus_props_class));
 	tp_message_mixin_init_dbus_properties (object_class);
@@ -372,11 +367,6 @@ void idle_im_channel_dispose (GObject *object) {
 void idle_im_channel_finalize (GObject *object) {
 	IdleIMChannel *self = IDLE_IM_CHANNEL(object);
 	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE(self);
-	TpHandleRepoIface *handles;
-
-	handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
-	tp_handle_unref(handles, priv->handle);
-	tp_handle_unref(handles, priv->initiator);
 
 	if (priv->object_path)
 		g_free(priv->object_path);
@@ -423,17 +413,10 @@ static void idle_im_channel_close (TpSvcChannel *iface, DBusGMethodInvocation *c
 		IDLE_DEBUG("Not really closing, I still have pending messages");
 
 		if (priv->initiator != priv->handle) {
-			TpHandleRepoIface *contact_repo =
-				tp_base_connection_get_handles(
-					(TpBaseConnection *) priv->connection,
-					TP_HANDLE_TYPE_CONTACT);
-
 			g_assert(priv->initiator != 0);
 			g_assert(priv->handle != 0);
 
-			tp_handle_unref(contact_repo, priv->initiator);
 			priv->initiator = priv->handle;
-			tp_handle_ref(contact_repo, priv->initiator);
 		}
 
 		tp_message_mixin_set_rescued ((GObject *) obj);

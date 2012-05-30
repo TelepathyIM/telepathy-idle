@@ -61,6 +61,10 @@ AM_CFLAGS = \
 	@TELEPATHY_CFLAGS@ \
 	-std=c99
 
+AM_LDFLAGS = \
+	$(ERROR_LDFLAGS) \
+	$(NULL)
+
 ALL_LIBS = \
 	@DBUS_LIBS@ \
 	@GLIB_LIBS@ \

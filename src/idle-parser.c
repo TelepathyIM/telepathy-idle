@@ -514,12 +514,10 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 			if (atom == 'r') {
 				if ((handle = tp_handle_ensure(room_repo, id, NULL, NULL))) {
 					tp_handle_set_add(room_reffed, handle);
-					tp_handle_unref(room_repo, handle);
 				}
 			} else {
 				if ((handle = tp_handle_ensure(contact_repo, id, NULL, NULL))) {
 					tp_handle_set_add(contact_reffed, handle);
-					tp_handle_unref(contact_repo, handle);
 
 					idle_connection_canon_nick_receive(priv->conn, handle, id);
 				}

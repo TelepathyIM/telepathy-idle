@@ -40,7 +40,7 @@
 
 G_DEFINE_TYPE (IdleProtocol, idle_protocol, TP_TYPE_BASE_PROTOCOL)
 
-gboolean
+static gboolean
 filter_nick (const TpCMParamSpec *paramspec,
     GValue *value,
     GError **error)
