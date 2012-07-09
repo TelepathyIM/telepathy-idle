@@ -180,10 +180,10 @@ static void idle_parser_finalize(GObject *obj) {
 	int i;
 
 	for (i = 0; i < IDLE_PARSER_LAST_MESSAGE_CODE; i++) {
-		GSList *link;
+		GSList *link_;
 
-		for (link = priv->handlers[i]; link != NULL; link = link->next)
-			g_slice_free(MessageHandlerClosure, link->data);
+		for (link_ = priv->handlers[i]; link_ != NULL; link_ = link_->next)
+			g_slice_free(MessageHandlerClosure, link_->data);
 
 		g_slist_free(priv->handlers[i]);
 	}
@@ -297,10 +297,10 @@ void idle_parser_remove_handlers_by_data(IdleParser *parser, gpointer user_data)
 	int i;
 
 	for (i = 0; i < IDLE_PARSER_LAST_MESSAGE_CODE; i++) {
-		GSList *link;
+		GSList *link_;
 
-		while ((link = g_slist_find_custom(priv->handlers[i], user_data, _message_handler_closure_user_data_compare)))
-			priv->handlers[i] = g_slist_remove_link(priv->handlers[i], link);
+		while ((link_ = g_slist_find_custom(priv->handlers[i], user_data, _message_handler_closure_user_data_compare)))
+			priv->handlers[i] = g_slist_remove_link(priv->handlers[i], link_);
 	}
 }
 
@@ -365,7 +365,7 @@ static void _parse_message(IdleParser *parser, const gchar *split_msg) {
 static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParserMessageCode code, const gchar *format) {
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
 	GValueArray *args = g_value_array_new(3);
-	GSList *link = priv->handlers[code];
+	GSList *link_ = priv->handlers[code];
 	IdleParserHandlerResult result = IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 	gboolean success = TRUE;
 	gchar **iter = tokens;
@@ -449,18 +449,18 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 
 	IDLE_DEBUG("successfully parsed");
 
-	while (link) {
-		MessageHandlerClosure *closure = link->data;
+	while (link_) {
+		MessageHandlerClosure *closure = link_->data;
 		result = closure->handler(parser, code, args, closure->user_data);
 		if (result == IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED) {
-			link = link->next;
+			link_ = link_->next;
 		} else if (result == IDLE_PARSER_HANDLER_RESULT_HANDLED) {
 			break;
 		} else if (result == IDLE_PARSER_HANDLER_RESULT_NO_MORE_PLEASE) {
-			GSList *tmp = link->next;
+			GSList *tmp = link_->next;
 			g_free(closure);
-			priv->handlers[code] = g_slist_remove_link(priv->handlers[code], link);
-			link = tmp;
+			priv->handlers[code] = g_slist_remove_link(priv->handlers[code], link_);
+			link_ = tmp;
 		} else {
 			g_assert_not_reached();
 		}

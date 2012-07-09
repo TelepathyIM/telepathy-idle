@@ -258,7 +258,7 @@ static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gp
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(g_async_result_get_source_object(G_ASYNC_RESULT(result)));
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 	GInputStream *input_stream;
-	GSocket *socket;
+	GSocket *socket_;
 	GSocketConnection *socket_connection;
 	gint nodelay = 1;
 	gint socket_fd;
@@ -274,10 +274,10 @@ static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gp
 		goto cleanup;
 	}
 
-	socket = g_socket_connection_get_socket(socket_connection);
-	g_socket_set_keepalive(socket, TRUE);
+	socket_ = g_socket_connection_get_socket(socket_connection);
+	g_socket_set_keepalive(socket_, TRUE);
 
-	socket_fd = g_socket_get_fd(socket);
+	socket_fd = g_socket_get_fd(socket_);
 	setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
 
 	g_tcp_connection_set_graceful_disconnect(G_TCP_CONNECTION(socket_connection), TRUE);
