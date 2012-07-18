@@ -437,7 +437,6 @@ _im_manager_new_channel (IdleIMManager *mgr,
 		tp_base_connection_get_handles (base_connection, TP_HANDLE_TYPE_CONTACT);
 	IdleIMChannel *chan;
 	const gchar *name;
-	gchar *object_path = NULL;
 	GSList *requests = NULL;
 
 	g_assert (g_hash_table_lookup (priv->channels, GUINT_TO_POINTER (handle))
@@ -446,14 +445,13 @@ _im_manager_new_channel (IdleIMManager *mgr,
 	name = tp_handle_inspect (handle_repo, handle);
 	IDLE_DEBUG ("Requested channel for handle: %u (%s)", handle, name);
 
-	object_path = g_strdup_printf("%s/ImChannel%u", priv->conn->parent.object_path, handle);
 	chan = g_object_new (IDLE_TYPE_IM_CHANNEL,
 						 "connection", priv->conn,
-						 "object-path", object_path,
 						 "handle", handle,
 						 "initiator-handle", initiator,
+						 "requested", handle != initiator,
 						 NULL);
-	g_free (object_path);
+	tp_base_channel_register (TP_BASE_CHANNEL (chan));
 	g_hash_table_insert (priv->channels, GUINT_TO_POINTER (handle), chan);
 
 	if (request != NULL)

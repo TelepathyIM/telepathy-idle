@@ -1,7 +1,7 @@
 /*
  * This file is part of telepathy-idle
  *
- * Copyright (C) 2006-2007 Collabora Limited
+ * Copyright (C) 2006-2007, 2012 Collabora Limited
  * Copyright (C) 2006-2007 Nokia Corporation
  *
  * This library is free software; you can redistribute it and/or
@@ -22,88 +22,42 @@
 
 #include "idle-im-channel.h"
 
-#include <time.h>
-
 #include <dbus/dbus-glib.h>
 
-#include <telepathy-glib/channel-iface.h>
-#include <telepathy-glib/dbus.h>
-#include <telepathy-glib/enums.h>
 #include <telepathy-glib/interfaces.h>
-#include <telepathy-glib/errors.h>
-#include <telepathy-glib/svc-channel.h>
-#include <telepathy-glib/svc-generic.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_IM
 #include "idle-connection.h"
 #include "idle-debug.h"
-#include "idle-handles.h"
 #include "idle-text.h"
 
-static void _channel_iface_init(gpointer, gpointer);
 static void _destroyable_iface_init(gpointer, gpointer);
 
+static GPtrArray *idle_im_channel_get_interfaces (TpBaseChannel *channel);
+static void idle_im_channel_close (TpBaseChannel *base);
 static void idle_im_channel_send (GObject *obj, TpMessage *message, TpMessageSendingFlags flags);
 
-G_DEFINE_TYPE_WITH_CODE(IdleIMChannel, idle_im_channel, G_TYPE_OBJECT,
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL, _channel_iface_init);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, tp_message_mixin_text_iface_init);
-		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_MESSAGES, tp_message_mixin_messages_iface_init);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_CHANNEL_IFACE, NULL);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_EXPORTABLE_CHANNEL, NULL);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE, _destroyable_iface_init)
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_DBUS_PROPERTIES, tp_dbus_properties_mixin_iface_init);)
-
-/* property enum */
-enum {
-	PROP_CONNECTION = 1,
-	PROP_OBJECT_PATH,
-	PROP_INTERFACES,
-	PROP_CHANNEL_TYPE,
-	PROP_HANDLE_TYPE,
-	PROP_HANDLE,
-	PROP_TARGET_ID,
-	PROP_REQUESTED,
-	PROP_INITIATOR_HANDLE,
-	PROP_INITIATOR_ID,
-	PROP_CHANNEL_DESTROYED,
-	PROP_CHANNEL_PROPERTIES,
-	LAST_PROPERTY_ENUM
-};
-
-const gchar *im_channel_interfaces[] = {
-	TP_IFACE_CHANNEL_INTERFACE_MESSAGES,
-	TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE,
-	NULL
-};
+G_DEFINE_TYPE_WITH_CODE(IdleIMChannel, idle_im_channel, TP_TYPE_BASE_CHANNEL,
+    G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, tp_message_mixin_text_iface_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_MESSAGES, tp_message_mixin_messages_iface_init);
+    G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE, _destroyable_iface_init);
+    )
 
 /* private structure */
 typedef struct _IdleIMChannelPrivate IdleIMChannelPrivate;
 
 struct _IdleIMChannelPrivate {
-	IdleConnection *connection;
-	gchar *object_path;
-	TpHandle handle;
-	TpHandle initiator;
-
-	gboolean closed;
-
-	gboolean dispose_has_run;
+  gpointer unused;
 };
-
-#define IDLE_IM_CHANNEL_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), IDLE_TYPE_IM_CHANNEL, IdleIMChannelPrivate))
 
 static void idle_im_channel_init (IdleIMChannel *obj) {
 }
 
-static void idle_im_channel_dispose (GObject *object);
 static void idle_im_channel_finalize (GObject *object);
 
-static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectConstructParam *props) {
-	GObject *obj;
-	IdleIMChannelPrivate *priv;
-	TpDBusDaemon *bus;
-	TpBaseConnection *conn;
+static void
+idle_im_channel_constructed (GObject *obj)
+{
 	TpChannelTextMessageType types[] = {
 			TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
 			TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION,
@@ -114,295 +68,79 @@ static GObject *idle_im_channel_constructor(GType type, guint n_props, GObjectCo
 			NULL
 	};
 
-	obj = G_OBJECT_CLASS(idle_im_channel_parent_class)->constructor(type, n_props, props);
-	priv = IDLE_IM_CHANNEL_GET_PRIVATE(IDLE_IM_CHANNEL(obj));
-
-	conn = TP_BASE_CONNECTION(priv->connection);
-
-	g_assert(tp_handle_is_valid(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), priv->handle, NULL));
-
-	bus = tp_base_connection_get_dbus_daemon (conn);
-	tp_dbus_daemon_register_object (bus, priv->object_path, obj);
+	G_OBJECT_CLASS (idle_im_channel_parent_class)->constructed (obj);
 
 	/* initialize message mixin */
 	tp_message_mixin_init (obj, G_STRUCT_OFFSET (IdleIMChannel, message_mixin),
-			conn);
+			tp_base_channel_get_connection (TP_BASE_CHANNEL (obj)));
 	tp_message_mixin_implement_sending (obj, idle_im_channel_send,
 			G_N_ELEMENTS (types), types, 0,
 			TP_DELIVERY_REPORTING_SUPPORT_FLAG_RECEIVE_FAILURES,
 			supported_content_types);
-
-	return obj;
 }
 
-static void idle_im_channel_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec) {
-	IdleIMChannel *chan;
-	IdleIMChannelPrivate *priv;
-	TpHandleRepoIface *handles;
+static void
+idle_im_channel_fill_properties (
+    TpBaseChannel *chan,
+    GHashTable *properties)
+{
+  TpBaseChannelClass *klass = TP_BASE_CHANNEL_CLASS (idle_im_channel_parent_class);
 
-	g_assert(object != NULL);
-	g_assert(IDLE_IS_IM_CHANNEL(object));
+  klass->fill_immutable_properties (chan, properties);
 
-	chan = IDLE_IM_CHANNEL(object);
-	priv = IDLE_IM_CHANNEL_GET_PRIVATE(chan);
-	handles = tp_base_connection_get_handles(
-		TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT);
-
-	switch (property_id) {
-		case PROP_CONNECTION:
-			g_value_set_object(value, priv->connection);
-			break;
-
-		case PROP_OBJECT_PATH:
-			g_value_set_string(value, priv->object_path);
-			break;
-
-		case PROP_INTERFACES:
-			g_value_set_static_boxed(value, im_channel_interfaces);
-			break;
-
-		case PROP_CHANNEL_TYPE:
-			g_value_set_string(value, TP_IFACE_CHANNEL_TYPE_TEXT);
-			break;
-
-		case PROP_HANDLE_TYPE:
-			g_value_set_uint(value, TP_HANDLE_TYPE_CONTACT);
-			break;
-
-		case PROP_HANDLE:
-			g_value_set_uint(value, priv->handle);
-			break;
-
-		case PROP_TARGET_ID:
-			g_value_set_string(value,
-				tp_handle_inspect(handles, priv->handle));
-			break;
-
-		case PROP_REQUESTED:
-			g_value_set_boolean(value, priv->initiator != priv->handle);
-			break;
-
-		case PROP_INITIATOR_HANDLE:
-			g_value_set_uint(value, priv->initiator);
-			break;
-
-		case PROP_INITIATOR_ID:
-			g_value_set_string(value,
-				tp_handle_inspect(handles, priv->initiator));
-			break;
-
-		case PROP_CHANNEL_DESTROYED:
-			g_value_set_boolean (value, priv->closed);
-			break;
-
-		case PROP_CHANNEL_PROPERTIES:
-		{
-			GHashTable *props =
-				tp_dbus_properties_mixin_make_properties_hash (
-					object,
-					TP_IFACE_CHANNEL, "Interfaces",
-					TP_IFACE_CHANNEL, "ChannelType",
-					TP_IFACE_CHANNEL, "TargetHandleType",
-					TP_IFACE_CHANNEL, "TargetHandle",
-					TP_IFACE_CHANNEL, "TargetID",
-					TP_IFACE_CHANNEL, "InitiatorHandle",
-					TP_IFACE_CHANNEL, "InitiatorID",
-					TP_IFACE_CHANNEL, "Requested",
-					TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessagePartSupportFlags",
-					TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "DeliveryReportingSupport",
-					TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "SupportedContentTypes",
-					TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessageTypes",
-					NULL);
-			g_value_take_boxed (value, props);
-			break;
-		}
-
-		default:
-			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-			break;
-	}
+  tp_dbus_properties_mixin_fill_properties_hash (
+      G_OBJECT (chan), properties,
+      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessagePartSupportFlags",
+      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "DeliveryReportingSupport",
+      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "SupportedContentTypes",
+      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessageTypes",
+      NULL);
 }
 
-static void idle_im_channel_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec) {
-	IdleIMChannel *chan = IDLE_IM_CHANNEL(object);
-	IdleIMChannelPrivate *priv;
-
-	g_assert(chan != NULL);
-	g_assert(IDLE_IS_IM_CHANNEL(chan));
-
-	priv = IDLE_IM_CHANNEL_GET_PRIVATE(chan);
-
-	switch (property_id) {
-		case PROP_CONNECTION:
-			priv->connection = g_value_get_object(value);
-			break;
-
-		case PROP_OBJECT_PATH:
-			if (priv->object_path)
-				g_free(priv->object_path);
-
-			priv->object_path = g_value_dup_string(value);
-			break;
-
-		case PROP_HANDLE:
-			priv->handle = g_value_get_uint(value);
-			break;
-
-		case PROP_INITIATOR_HANDLE:
-			priv->initiator = g_value_get_uint(value);
-			break;
-
-		case PROP_CHANNEL_TYPE:
-		case PROP_HANDLE_TYPE:
-			/* writeable in the interface, but setting them makes
-			no sense, so ignore them */
-			break;
-
-		default:
-			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-			break;
-	}
+static gchar *
+idle_im_channel_get_path_suffix (TpBaseChannel *base)
+{
+  return g_strdup_printf("ImChannel%u",
+      tp_base_channel_get_target_handle (base));
 }
 
-static void idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_class) {
-	static TpDBusPropertiesMixinPropImpl channel_props[] = {
-		{ "Interfaces", "interfaces", NULL },
-		{ "ChannelType", "channel-type", NULL },
-		{ "TargetHandleType", "handle-type", NULL },
-		{ "TargetHandle", "handle", NULL },
-		{ "TargetID", "target-id", NULL },
-		{ "InitiatorHandle", "initiator-handle", NULL },
-		{ "InitiatorID", "initiator-id", NULL },
-		{ "Requested", "requested", NULL },
-		{ NULL }
-	};
-	static TpDBusPropertiesMixinIfaceImpl prop_interfaces[] = {
-		{ TP_IFACE_CHANNEL,
-			tp_dbus_properties_mixin_getter_gobject_properties,
-			NULL,
-			channel_props,
-		},
-		{ NULL }
-	};
-	GObjectClass *object_class = G_OBJECT_CLASS(idle_im_channel_class);
-	GParamSpec *param_spec;
+static void
+idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_class)
+{
+  TpBaseChannelClass *base_class = TP_BASE_CHANNEL_CLASS (idle_im_channel_class);
+  GObjectClass *object_class = G_OBJECT_CLASS (idle_im_channel_class);
 
-	g_type_class_add_private (idle_im_channel_class, sizeof (IdleIMChannelPrivate));
+  g_type_class_add_private (idle_im_channel_class, sizeof (IdleIMChannelPrivate));
 
-	object_class->constructor = idle_im_channel_constructor;
+  object_class->constructed = idle_im_channel_constructed;
+  object_class->finalize = idle_im_channel_finalize;
 
-	object_class->get_property = idle_im_channel_get_property;
-	object_class->set_property = idle_im_channel_set_property;
+  base_class->channel_type = TP_IFACE_CHANNEL_TYPE_TEXT;
+  base_class->target_handle_type = TP_HANDLE_TYPE_CONTACT;
+  base_class->close = idle_im_channel_close;
+  base_class->fill_immutable_properties = idle_im_channel_fill_properties;
+  base_class->get_object_path_suffix = idle_im_channel_get_path_suffix;
+  base_class->get_interfaces = idle_im_channel_get_interfaces;
 
-	object_class->dispose = idle_im_channel_dispose;
-	object_class->finalize = idle_im_channel_finalize;
-
-	g_object_class_override_property(object_class, PROP_OBJECT_PATH, "object-path");
-	g_object_class_override_property(object_class, PROP_CHANNEL_TYPE, "channel-type");
-	g_object_class_override_property(object_class, PROP_HANDLE_TYPE, "handle-type");
-	g_object_class_override_property(object_class, PROP_HANDLE, "handle");
-	g_object_class_override_property(object_class, PROP_CHANNEL_DESTROYED, "channel-destroyed");
-	g_object_class_override_property(object_class, PROP_CHANNEL_PROPERTIES, "channel-properties");
-
-	param_spec = g_param_spec_object("connection", "IdleConnection object",
-									 "The IdleConnection object that owns this "
-									 "IMChannel object.",
-									 IDLE_TYPE_CONNECTION,
-									 G_PARAM_CONSTRUCT_ONLY |
-									 G_PARAM_READWRITE |
-									 G_PARAM_STATIC_NICK |
-									 G_PARAM_STATIC_BLURB);
-	g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
-
-	param_spec = g_param_spec_boxed ("interfaces", "Extra D-Bus interfaces",
-		"Interfaces implemented by this object besides Channel",
-		G_TYPE_STRV, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-	g_object_class_install_property (object_class, PROP_INTERFACES, param_spec);
-
-	param_spec = g_param_spec_string ("target-id", "Contact's identifier",
-		"The name of the person we're speaking to",
-		NULL, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-	g_object_class_install_property (object_class, PROP_TARGET_ID, param_spec);
-
-	param_spec = g_param_spec_boolean ("requested", "Requested?",
-		"True if this channel was requested by the local user",
-		FALSE,
-		G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-	g_object_class_install_property (object_class, PROP_REQUESTED, param_spec);
-
-	param_spec = g_param_spec_uint ("initiator-handle", "Initiator's handle",
-		"The contact who initiated the channel",
-		0, G_MAXUINT32, 0,
-		G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-	g_object_class_install_property (object_class, PROP_INITIATOR_HANDLE, param_spec);
-
-	param_spec = g_param_spec_string ("initiator-id", "Initiator's bare JID",
-		"The string obtained by inspecting the initiator-handle",
-		NULL, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-	g_object_class_install_property (object_class, PROP_INITIATOR_ID, param_spec);
-
-	idle_im_channel_class->dbus_props_class.interfaces = prop_interfaces;
-	tp_dbus_properties_mixin_class_init(object_class, G_STRUCT_OFFSET(IdleIMChannelClass, dbus_props_class));
-	tp_message_mixin_init_dbus_properties (object_class);
-}
-
-void idle_im_channel_dispose (GObject *object) {
-	IdleIMChannel *self = IDLE_IM_CHANNEL(object);
-	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE(self);
-
-	g_assert(object != NULL);
-
-	if (priv->dispose_has_run)
-		return;
-
-	priv->dispose_has_run = TRUE;
-
-	if (!priv->closed)
-		tp_svc_channel_emit_closed((TpSvcChannel *)(self));
-
-	if (G_OBJECT_CLASS(idle_im_channel_parent_class)->dispose)
-		G_OBJECT_CLASS(idle_im_channel_parent_class)->dispose (object);
+  tp_message_mixin_init_dbus_properties (object_class);
 }
 
 void idle_im_channel_finalize (GObject *object) {
-	IdleIMChannel *self = IDLE_IM_CHANNEL(object);
-	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE(self);
-
-	if (priv->object_path)
-		g_free(priv->object_path);
-
 	tp_message_mixin_finalize (object);
 
 	G_OBJECT_CLASS(idle_im_channel_parent_class)->finalize (object);
 }
 
 gboolean idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *text) {
-	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE (chan);
-	TpBaseConnection *base_conn = TP_BASE_CONNECTION (priv->connection);
+	TpBaseConnection *base_conn = tp_base_channel_get_connection (TP_BASE_CHANNEL (chan));
 
 	return idle_text_received (G_OBJECT (chan), base_conn, type, text, sender);
 }
 
-/**
- * idle_im_channel_close
- *
- * Implements DBus method Close
- * on interface org.freedesktop.Telepathy.Channel
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-static void idle_im_channel_close (TpSvcChannel *iface, DBusGMethodInvocation *context) {
-	IdleIMChannel *obj = IDLE_IM_CHANNEL(iface);
-	IdleIMChannelPrivate *priv;
-
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_IM_CHANNEL(obj));
-
-	priv = IDLE_IM_CHANNEL_GET_PRIVATE(obj);
+static void
+idle_im_channel_close (TpBaseChannel *base)
+{
+	IdleIMChannel *obj = IDLE_IM_CHANNEL (base);
 
 	IDLE_DEBUG("called on %p", obj);
 
@@ -412,81 +150,23 @@ static void idle_im_channel_close (TpSvcChannel *iface, DBusGMethodInvocation *c
 	if (tp_message_mixin_has_pending_messages ((GObject *)obj, NULL)) {
 		IDLE_DEBUG("Not really closing, I still have pending messages");
 
-		if (priv->initiator != priv->handle) {
-			g_assert(priv->initiator != 0);
-			g_assert(priv->handle != 0);
-
-			priv->initiator = priv->handle;
-		}
-
 		tp_message_mixin_set_rescued ((GObject *) obj);
+		tp_base_channel_reopened (base, tp_base_channel_get_target_handle (base));
 	} else {
 		IDLE_DEBUG ("Actually closing, I have no pending messages");
-		priv->closed = TRUE;
+		tp_base_channel_destroyed (base);
 	}
-
-	tp_svc_channel_emit_closed(iface);
-
-	tp_svc_channel_return_from_close(context);
 }
 
+static GPtrArray *
+idle_im_channel_get_interfaces (TpBaseChannel *channel)
+{
+  GPtrArray *interfaces = g_ptr_array_sized_new (2);
 
-/**
- * idle_im_channel_get_channel_type
- *
- * Implements DBus method GetChannelType
- * on interface org.freedesktop.Telepathy.Channel
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-static void idle_im_channel_get_channel_type (TpSvcChannel *iface, DBusGMethodInvocation *context) {
-	tp_svc_channel_return_from_get_channel_type(context, TP_IFACE_CHANNEL_TYPE_TEXT);
-}
+  g_ptr_array_add (interfaces, TP_IFACE_CHANNEL_INTERFACE_MESSAGES);
+  g_ptr_array_add (interfaces, TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE);
 
-
-/**
- * idle_im_channel_get_handle
- *
- * Implements DBus method GetHandle
- * on interface org.freedesktop.Telepathy.Channel
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-static void idle_im_channel_get_handle (TpSvcChannel *iface, DBusGMethodInvocation *context) {
-	IdleIMChannel *obj = IDLE_IM_CHANNEL(iface);
-	IdleIMChannelPrivate *priv;
-
-	g_assert(obj != NULL);
-	g_assert(IDLE_IS_IM_CHANNEL(obj));
-
-	priv = IDLE_IM_CHANNEL_GET_PRIVATE(obj);
-
-	tp_svc_channel_return_from_get_handle(context, TP_HANDLE_TYPE_CONTACT, priv->handle);
-}
-
-
-/**
- * idle_im_channel_get_interfaces
- *
- * Implements DBus method GetInterfaces
- * on interface org.freedesktop.Telepathy.Channel
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
-static void idle_im_channel_get_interfaces(TpSvcChannel *iface, DBusGMethodInvocation *context) {
-	tp_svc_channel_return_from_get_interfaces(context, im_channel_interfaces);
+  return interfaces;
 }
 
 /**
@@ -497,35 +177,26 @@ static void idle_im_channel_get_interfaces(TpSvcChannel *iface, DBusGMethodInvoc
  * Channel.Interface.Messages
  */
 static void idle_im_channel_send (GObject *obj, TpMessage *message, TpMessageSendingFlags flags) {
-	IdleIMChannel *self = (IdleIMChannel *) obj;
-	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE(self);
-	const gchar *recipient = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_CONTACT), priv->handle);
+  TpBaseChannel *base = TP_BASE_CHANNEL (obj);
+  TpBaseConnection *conn = tp_base_channel_get_connection (base);
+  const gchar *recipient = tp_handle_inspect (
+      tp_base_connection_get_handles (conn, TP_HANDLE_TYPE_CONTACT),
+      tp_base_channel_get_target_handle (base));
 
-	idle_text_send (obj, message, flags, recipient, priv->connection);
+  idle_text_send (obj, message, flags, recipient, IDLE_CONNECTION (conn));
 }
 
 static void idle_im_channel_destroy(TpSvcChannelInterfaceDestroyable *iface, DBusGMethodInvocation *context) {
-	IdleIMChannel *obj = (IdleIMChannel *)(iface);
-	IdleIMChannelPrivate *priv = IDLE_IM_CHANNEL_GET_PRIVATE(obj);
+	TpBaseChannel *chan = TP_BASE_CHANNEL (iface);
+	GObject *obj = (GObject *) chan;
 
 	IDLE_DEBUG ("called on %p with %spending messages", obj,
-		tp_message_mixin_has_pending_messages ((GObject *)obj, NULL) ? "" : "no ");
+		tp_message_mixin_has_pending_messages (obj, NULL) ? "" : "no ");
 
-	priv->closed = TRUE;
-	tp_svc_channel_emit_closed(iface);
+	tp_message_mixin_clear (obj);
+	tp_base_channel_destroyed (chan);
+
 	tp_svc_channel_interface_destroyable_return_from_destroy(context);
-}
-
-static void _channel_iface_init(gpointer g_iface, gpointer iface_data) {
-	TpSvcChannelClass *klass = (TpSvcChannelClass *)g_iface;
-
-#define IMPLEMENT(x) tp_svc_channel_implement_##x (\
-		klass, idle_im_channel_##x)
-	IMPLEMENT(close);
-	IMPLEMENT(get_channel_type);
-	IMPLEMENT(get_handle);
-	IMPLEMENT(get_interfaces);
-#undef IMPLEMENT
 }
 
 static void _destroyable_iface_init(gpointer klass, gpointer iface_data) {

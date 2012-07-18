@@ -24,6 +24,7 @@
 #include <glib-object.h>
 #include <telepathy-glib/message-mixin.h>
 #include <telepathy-glib/dbus-properties-mixin.h>
+#include <telepathy-glib/base-channel.h>
 
 G_BEGIN_DECLS
 
@@ -31,13 +32,12 @@ typedef struct _IdleIMChannel IdleIMChannel;
 typedef struct _IdleIMChannelClass IdleIMChannelClass;
 
 struct _IdleIMChannelClass {
-	GObjectClass parent_class;
-	TpDBusPropertiesMixinClass dbus_props_class;
+  TpBaseChannelClass parent_class;
 };
 
 struct _IdleIMChannel {
-	GObject parent;
-	TpMessageMixin message_mixin;
+  TpBaseChannel parent;
+  TpMessageMixin message_mixin;
 };
 
 GType idle_im_channel_get_type(void);
