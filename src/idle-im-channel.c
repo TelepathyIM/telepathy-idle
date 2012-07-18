@@ -36,6 +36,7 @@ static void _destroyable_iface_init(gpointer, gpointer);
 static GPtrArray *idle_im_channel_get_interfaces (TpBaseChannel *channel);
 static void idle_im_channel_close (TpBaseChannel *base);
 static void idle_im_channel_send (GObject *obj, TpMessage *message, TpMessageSendingFlags flags);
+static void idle_im_channel_finalize (GObject *object);
 
 G_DEFINE_TYPE_WITH_CODE(IdleIMChannel, idle_im_channel, TP_TYPE_BASE_CHANNEL,
     G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, tp_message_mixin_text_iface_init);
@@ -50,33 +51,33 @@ struct _IdleIMChannelPrivate {
   gpointer unused;
 };
 
-static void idle_im_channel_init (IdleIMChannel *obj) {
+static void
+idle_im_channel_init (IdleIMChannel *obj)
+{
 }
-
-static void idle_im_channel_finalize (GObject *object);
 
 static void
 idle_im_channel_constructed (GObject *obj)
 {
-	TpChannelTextMessageType types[] = {
-			TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
-			TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION,
-			TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE,
-	};
-	const gchar * supported_content_types[] = {
-			"text/plain",
-			NULL
-	};
+  TpChannelTextMessageType types[] = {
+      TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
+      TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION,
+      TP_CHANNEL_TEXT_MESSAGE_TYPE_NOTICE,
+  };
+  const gchar * supported_content_types[] = {
+      "text/plain",
+      NULL
+  };
 
-	G_OBJECT_CLASS (idle_im_channel_parent_class)->constructed (obj);
+  G_OBJECT_CLASS (idle_im_channel_parent_class)->constructed (obj);
 
-	/* initialize message mixin */
-	tp_message_mixin_init (obj, G_STRUCT_OFFSET (IdleIMChannel, message_mixin),
-			tp_base_channel_get_connection (TP_BASE_CHANNEL (obj)));
-	tp_message_mixin_implement_sending (obj, idle_im_channel_send,
-			G_N_ELEMENTS (types), types, 0,
-			TP_DELIVERY_REPORTING_SUPPORT_FLAG_RECEIVE_FAILURES,
-			supported_content_types);
+  /* initialize message mixin */
+  tp_message_mixin_init (obj, G_STRUCT_OFFSET (IdleIMChannel, message_mixin),
+      tp_base_channel_get_connection (TP_BASE_CHANNEL (obj)));
+  tp_message_mixin_implement_sending (obj, idle_im_channel_send,
+      G_N_ELEMENTS (types), types, 0,
+      TP_DELIVERY_REPORTING_SUPPORT_FLAG_RECEIVE_FAILURES,
+      supported_content_types);
 }
 
 static void
@@ -125,37 +126,46 @@ idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_class)
   tp_message_mixin_init_dbus_properties (object_class);
 }
 
-void idle_im_channel_finalize (GObject *object) {
-	tp_message_mixin_finalize (object);
+static void
+idle_im_channel_finalize (GObject *object)
+{
+  tp_message_mixin_finalize (object);
 
-	G_OBJECT_CLASS(idle_im_channel_parent_class)->finalize (object);
+  G_OBJECT_CLASS(idle_im_channel_parent_class)->finalize (object);
 }
 
-gboolean idle_im_channel_receive(IdleIMChannel *chan, TpChannelTextMessageType type, TpHandle sender, const gchar *text) {
-	TpBaseConnection *base_conn = tp_base_channel_get_connection (TP_BASE_CHANNEL (chan));
+gboolean
+idle_im_channel_receive (
+    IdleIMChannel *chan,
+    TpChannelTextMessageType type,
+    TpHandle sender,
+    const gchar *text)
+{
+  TpBaseConnection *base_conn = tp_base_channel_get_connection (TP_BASE_CHANNEL (chan));
 
-	return idle_text_received (G_OBJECT (chan), base_conn, type, text, sender);
+  return idle_text_received (G_OBJECT (chan), base_conn, type, text, sender);
 }
 
 static void
 idle_im_channel_close (TpBaseChannel *base)
 {
-	IdleIMChannel *obj = IDLE_IM_CHANNEL (base);
+  IdleIMChannel *obj = IDLE_IM_CHANNEL (base);
 
-	IDLE_DEBUG("called on %p", obj);
+  /* The IM manager will resurrect the channel if we have pending
+   * messages. When we're resurrected, we want the initiator
+   * to be the contact who sent us those messages, if it isn't already */
+  if (tp_message_mixin_has_pending_messages ((GObject *)obj, NULL))
+    {
+      IDLE_DEBUG("%p not really closing, I still have pending messages", obj);
 
-	/* The IM manager will resurrect the channel if we have pending
-	 * messages. When we're resurrected, we want the initiator
-	 * to be the contact who sent us those messages, if it isn't already */
-	if (tp_message_mixin_has_pending_messages ((GObject *)obj, NULL)) {
-		IDLE_DEBUG("Not really closing, I still have pending messages");
-
-		tp_message_mixin_set_rescued ((GObject *) obj);
-		tp_base_channel_reopened (base, tp_base_channel_get_target_handle (base));
-	} else {
-		IDLE_DEBUG ("Actually closing, I have no pending messages");
-		tp_base_channel_destroyed (base);
-	}
+      tp_message_mixin_set_rescued ((GObject *) obj);
+      tp_base_channel_reopened (base, tp_base_channel_get_target_handle (base));
+    }
+  else
+    {
+      IDLE_DEBUG ("%p actually closing, I have no pending messages", obj);
+      tp_base_channel_destroyed (base);
+    }
 }
 
 static GPtrArray *
@@ -176,7 +186,12 @@ idle_im_channel_get_interfaces (TpBaseChannel *channel)
  * org.freedesktop.Telepathy.Channel.Type.Text and D-Bus method SendMessage on
  * Channel.Interface.Messages
  */
-static void idle_im_channel_send (GObject *obj, TpMessage *message, TpMessageSendingFlags flags) {
+static void
+idle_im_channel_send (
+    GObject *obj,
+    TpMessage *message,
+    TpMessageSendingFlags flags)
+{
   TpBaseChannel *base = TP_BASE_CHANNEL (obj);
   TpBaseConnection *conn = tp_base_channel_get_connection (base);
   const gchar *recipient = tp_handle_inspect (
@@ -186,22 +201,30 @@ static void idle_im_channel_send (GObject *obj, TpMessage *message, TpMessageSen
   idle_text_send (obj, message, flags, recipient, IDLE_CONNECTION (conn));
 }
 
-static void idle_im_channel_destroy(TpSvcChannelInterfaceDestroyable *iface, DBusGMethodInvocation *context) {
-	TpBaseChannel *chan = TP_BASE_CHANNEL (iface);
-	GObject *obj = (GObject *) chan;
+static void
+idle_im_channel_destroy (
+    TpSvcChannelInterfaceDestroyable *iface,
+    DBusGMethodInvocation *context)
+{
+  TpBaseChannel *chan = TP_BASE_CHANNEL (iface);
+  GObject *obj = (GObject *) chan;
 
-	IDLE_DEBUG ("called on %p with %spending messages", obj,
-		tp_message_mixin_has_pending_messages (obj, NULL) ? "" : "no ");
+  IDLE_DEBUG ("called on %p with %spending messages", obj,
+      tp_message_mixin_has_pending_messages (obj, NULL) ? "" : "no ");
 
-	tp_message_mixin_clear (obj);
-	tp_base_channel_destroyed (chan);
+  tp_message_mixin_clear (obj);
+  tp_base_channel_destroyed (chan);
 
-	tp_svc_channel_interface_destroyable_return_from_destroy(context);
+  tp_svc_channel_interface_destroyable_return_from_destroy(context);
 }
 
-static void _destroyable_iface_init(gpointer klass, gpointer iface_data) {
+static void
+_destroyable_iface_init (
+    gpointer klass,
+    gpointer iface_data)
+{
 #define IMPLEMENT(x) tp_svc_channel_interface_destroyable_implement_##x (\
-		klass, idle_im_channel_##x)
-	IMPLEMENT (destroy);
+    klass, idle_im_channel_##x)
+  IMPLEMENT (destroy);
 #undef IMPLEMENT
 }
