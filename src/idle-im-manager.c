@@ -33,7 +33,7 @@
 #include "idle-text.h"
 
 static void _im_manager_iface_init(gpointer g_iface, gpointer iface_data);
-static GObject * _im_manager_constructor (GType type, guint n_props, GObjectConstructParam *props);
+static void _im_manager_constructed (GObject *obj);
 static void _im_manager_dispose (GObject *object);
 
 G_DEFINE_TYPE_WITH_CODE(IdleIMManager, idle_im_manager, G_TYPE_OBJECT,
@@ -128,7 +128,7 @@ static void idle_im_manager_class_init(IdleIMManagerClass *klass) {
 
 	g_type_class_add_private(klass, sizeof(IdleIMManagerPrivate));
 
-	object_class->constructor = _im_manager_constructor;
+	object_class->constructed = _im_manager_constructed;
 	object_class->dispose = _im_manager_dispose;
 	object_class->get_property = idle_im_manager_get_property;
 	object_class->set_property = idle_im_manager_set_property;
@@ -137,30 +137,20 @@ static void idle_im_manager_class_init(IdleIMManagerClass *klass) {
 	g_object_class_install_property(object_class, PROP_CONNECTION, param_spec);
 }
 
-static GObject *
-_im_manager_constructor (GType type,
-						 guint n_props,
-						 GObjectConstructParam *props)
+static void
+_im_manager_constructed (GObject *obj)
 {
-	GObject *obj;
-	IdleIMManager *self;
-	IdleIMManagerPrivate *priv;
+	IdleIMManager *self = IDLE_IM_MANAGER (obj);
+	IdleIMManagerPrivate *priv = IDLE_IM_MANAGER_GET_PRIVATE (self);
 
-	obj = G_OBJECT_CLASS (idle_im_manager_parent_class)->constructor (type,
-																	  n_props,
-																	  props);
+	G_OBJECT_CLASS (idle_im_manager_parent_class)->constructed (obj);
 
-	self = IDLE_IM_MANAGER (obj);
-	priv = IDLE_IM_MANAGER_GET_PRIVATE (self);
-
-	g_return_val_if_fail (priv->conn, obj);
+	g_return_if_fail (priv->conn);
 
 	priv->status_changed_id = g_signal_connect (priv->conn,
 												"status-changed", (GCallback)
 												connection_status_changed_cb,
 												self);
-
-	return obj;
 }
 
 
