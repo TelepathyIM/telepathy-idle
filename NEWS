@@ -1,3 +1,25 @@
+telepathy-idle 0.1.12 (UNRELEASED)
+==================================
+
+The “Menomale che Silvio c’è” release.
+
+Dependencies:
+
+• GLib 2.30 is now required. (fd.o#49600)
+
+Fixes:
+
+• Implement the the ActorHandle property on the Subject interface, to fix
+  showing who changed the topic in Empathy. (sjoerd)
+
+• fd.o#48084: Idle no longer gets stuck in a 100% CPU loop when the connection
+  is lost in some situations. (wjt)
+
+• fd.o#49600: Get rid of deprecated things. (smcv)
+
+• fd.o#51906: Renamed variables to avoid warnings with "-Werror=shadow".
+  (Thomas Thurman)
+
 telepathy-idle 0.1.11 (2011-10-28)
 ==================================
 
