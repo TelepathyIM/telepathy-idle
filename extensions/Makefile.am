@@ -12,6 +12,7 @@ libidle_extensions_la_SOURCES = \
 nodist_libidle_extensions_la_SOURCES = \
     _gen/enums.h \
     _gen/interfaces.h \
+    _gen/svc-gtk-doc.h \
     _gen/svc.h \
     _gen/svc.c
 
@@ -41,7 +42,7 @@ extensions.html: _gen/all.xml $(tools_dir)/doc-generator.xsl
 		$(tools_dir)/doc-generator.xsl \
 		$< > $@
 
-_gen/svc.c _gen/svc.h: _gen/all.xml \
+_gen/svc.c _gen/svc.h _gen/svc-gtk-doc.h: _gen/all.xml \
 	$(tools_dir)/glib-ginterface-gen.py
 	$(AM_V_GEN)$(PYTHON) $(tools_dir)/glib-ginterface-gen.py \
 		--filename=_gen/svc --signal-marshal-prefix=_idle_ext \
