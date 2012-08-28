@@ -1,7 +1,9 @@
 telepathy-idle 0.1.13 (UNRELEASED)
 ==================================
 
-🐙
+Fixes:
+
+• fd.o#54016: fix for "make -j" safety (Dan Winship)
 
 telepathy-idle 0.1.12 (2012-08-02)
 ==================================
