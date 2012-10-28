@@ -224,7 +224,7 @@ static void send_quit_request(IdleConnection *conn);
 static void connection_connect_cb(IdleConnection *conn, gboolean success, TpConnectionStatusReason fail_reason);
 static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusReason reason);
 static gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **_error);
-static void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **output);
+static gchar *idle_connection_ntoh(IdleConnection *obj, const gchar *input);
 
 static void idle_connection_add_queue_timeout (IdleConnection *self);
 static void idle_connection_clear_queue_timeout (IdleConnection *self);
@@ -792,9 +792,7 @@ static void sconn_status_changed_cb(IdleServerConnection *sconn, IdleServerConne
 }
 
 static void sconn_received_cb(IdleServerConnection *sconn, gchar *raw_msg, IdleConnection *conn) {
-	gchar *converted;
-
-	idle_connection_ntoh(conn, raw_msg, &converted);
+	gchar *converted = idle_connection_ntoh(conn, raw_msg);
 	idle_parser_receive(conn->parser, converted);
 
 	g_free(converted);
@@ -1393,7 +1391,8 @@ static gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gc
 	return TRUE;
 }
 
-static void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar **output) {
+static gchar *
+idle_connection_ntoh(IdleConnection *obj, const gchar *input) {
 	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(obj);
 	GError *error = NULL;
 	gsize bytes_written;
@@ -1401,8 +1400,7 @@ static void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar 
 	gchar *p;
 
 	if (input == NULL) {
-		*output = NULL;
-		return;
+		return NULL;
 	}
 
 	ret = g_convert(input, -1, "UTF-8", priv->charset, NULL, &bytes_written, &error);
@@ -1419,8 +1417,7 @@ static void idle_connection_ntoh(IdleConnection *obj, const gchar *input, gchar 
 		}
 	}
 
-	*output = ret;
-	return;
+	return ret;
 }
 
 static void _aliasing_iface_init(gpointer g_iface, gpointer iface_data) {
