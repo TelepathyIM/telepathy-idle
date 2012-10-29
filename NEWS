@@ -5,6 +5,16 @@ Fixes:
 
 • fd.o#54016: fix for "make -j" safety (Dan Winship)
 
+• fd.o#30741: sending well-formed but invalid UTF-8 no longer gets Idle
+  kicked off the bus.
+
+• fd.o#23005: initial support for listing rooms. (Jonathon Jongsma)
+
+  It would be better to have support for one of the extensions which
+  lets you search rooms rather than getting the entire list from the
+  server. If someone wants to work on adding this to Idle and Empathy,
+  go for it!
+
 telepathy-idle 0.1.12 (2012-08-02)
 ==================================
 
