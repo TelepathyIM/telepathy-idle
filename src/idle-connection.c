@@ -45,6 +45,7 @@
 #include "idle-handles.h"
 #include "idle-im-manager.h"
 #include "idle-muc-manager.h"
+#include "idle-roomlist-manager.h"
 #include "idle-parser.h"
 #include "idle-server-connection.h"
 
@@ -521,6 +522,9 @@ static GPtrArray *_iface_create_channel_managers(TpBaseConnection *self) {
 
 	priv->password_manager = tp_simple_password_manager_new(self);
 	g_ptr_array_add(managers, priv->password_manager);
+
+	manager = g_object_new(IDLE_TYPE_ROOMLIST_MANAGER, "connection", self, NULL);
+	g_ptr_array_add(managers, manager);
 
 	return managers;
 }
