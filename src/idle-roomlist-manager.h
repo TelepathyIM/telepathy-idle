@@ -40,7 +40,7 @@ struct _IdleRoomlistManager {
         IdleRoomlistManagerPrivate *priv;
 };
 
-GType idle_roomlist_manager_get_type();
+GType idle_roomlist_manager_get_type (void);
 
 #define IDLE_TYPE_ROOMLIST_MANAGER (idle_roomlist_manager_get_type())
 #define IDLE_ROOMLIST_MANAGER(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), IDLE_TYPE_ROOMLIST_MANAGER, IdleRoomlistManager))
