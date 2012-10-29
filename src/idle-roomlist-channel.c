@@ -90,9 +90,8 @@ idle_roomlist_channel_constructed (GObject *obj)
       IDLE_PARSER_NUMERIC_LISTEND, _rpl_listend_handler, obj);
 
   priv->rooms = g_ptr_array_new ();
-  TpHandleRepoIface *room_handles = tp_base_connection_get_handles (
-     TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_ROOM);
-  priv->handles = tp_handle_set_new(room_handles);
+  priv->handles = tp_handle_set_new(tp_base_connection_get_handles (
+     TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_ROOM));
 }
 
 static gchar *
@@ -136,6 +135,11 @@ idle_roomlist_channel_class_init (IdleRoomlistChannelClass *idle_roomlist_channe
 {
   GObjectClass *object_class = G_OBJECT_CLASS (idle_roomlist_channel_class);
   TpBaseChannelClass *base_channel_class = TP_BASE_CHANNEL_CLASS (idle_roomlist_channel_class);
+  static TpDBusPropertiesMixinPropImpl roomlist_props[] = {
+      { "Server", NULL, NULL },
+      { NULL }
+  };
+
 
   g_type_class_add_private (idle_roomlist_channel_class, sizeof (IdleRoomlistChannelPrivate));
 
@@ -148,11 +152,6 @@ idle_roomlist_channel_class_init (IdleRoomlistChannelClass *idle_roomlist_channe
   base_channel_class->close = idle_roomlist_channel_close;
   base_channel_class->fill_immutable_properties = idle_roomlist_channel_fill_properties;
   base_channel_class->get_object_path_suffix = idle_roomlist_channel_get_path_suffix;
-
-  static TpDBusPropertiesMixinPropImpl roomlist_props[] = {
-      { "Server", NULL, NULL },
-      { NULL }
-  };
 
   tp_dbus_properties_mixin_implement_interface (object_class,
       TP_IFACE_QUARK_CHANNEL_TYPE_ROOM_LIST,
@@ -268,12 +267,11 @@ idle_roomlist_channel_stop_listing (TpSvcChannelTypeRoomList *iface,
                                     DBusGMethodInvocation *context)
 {
   IdleRoomlistChannel *self = IDLE_ROOMLIST_CHANNEL (iface);
+  GError error = { TP_ERROR, TP_ERROR_NOT_IMPLEMENTED, "Can't stop listing!" };
 
   g_assert (IDLE_IS_ROOMLIST_CHANNEL (self));
 
-  GError *error = g_error_new (TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED, "Room listing not yet implemented");
-  dbus_g_method_return_error (context, error);
-  g_error_free (error);
+  dbus_g_method_return_error (context, &error);
 
   /*
   priv->listing = FALSE;

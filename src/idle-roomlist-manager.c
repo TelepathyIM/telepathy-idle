@@ -296,10 +296,11 @@ _roomlist_manager_requestotron (IdleRoomlistManager *self,
                                 GHashTable *request_properties,
                                 gboolean require_new)
 {
-  IDLE_DEBUG("requesting new room list channel");
   IdleRoomlistManagerPrivate *priv = self->priv;
   GError *error = NULL;
   TpHandle handle;
+
+  IDLE_DEBUG("requesting new room list channel");
 
   if (tp_strdiff (tp_asv_get_string (request_properties,
           TP_IFACE_CHANNEL ".ChannelType"), TP_IFACE_CHANNEL_TYPE_ROOM_LIST))
@@ -323,7 +324,7 @@ _roomlist_manager_requestotron (IdleRoomlistManager *self,
 
   if (handle != 0)
     {
-      g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_IMPLEMENTED,
+      g_set_error (&error, TP_ERROR, TP_ERROR_NOT_IMPLEMENTED,
           "Can't open a room list channel to a particular handle");
       goto error;
     }
@@ -336,7 +337,7 @@ _roomlist_manager_requestotron (IdleRoomlistManager *self,
 
   if (require_new)
     {
-      g_set_error (&error, TP_ERRORS, TP_ERROR_NOT_AVAILABLE,
+      g_set_error (&error, TP_ERROR, TP_ERROR_NOT_AVAILABLE,
           "Only one room list channel can be created");
       goto error;
     }
