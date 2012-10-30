@@ -297,7 +297,6 @@ _roomlist_manager_requestotron (IdleRoomlistManager *self,
 {
   IdleRoomlistManagerPrivate *priv = self->priv;
   GError *error = NULL;
-  TpHandle handle;
 
   IDLE_DEBUG("requesting new room list channel");
 
@@ -315,16 +314,6 @@ _roomlist_manager_requestotron (IdleRoomlistManager *self,
         roomlist_channel_allowed_properties,
         &error))
     {
-      goto error;
-    }
-
-  handle = tp_asv_get_uint32 (request_properties,
-      TP_IFACE_CHANNEL ".TargetHandle", NULL);
-
-  if (handle != 0)
-    {
-      g_set_error (&error, TP_ERROR, TP_ERROR_NOT_IMPLEMENTED,
-          "Can't open a room list channel to a particular handle");
       goto error;
     }
 
