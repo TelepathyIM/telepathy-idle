@@ -30,6 +30,7 @@ typedef enum {
 	IDLE_DEBUG_NETWORK = (1 << 4),
 	IDLE_DEBUG_PARSER = (1 << 5),
 	IDLE_DEBUG_TEXT = (1 << 6),
+	IDLE_DEBUG_ROOMLIST = (1 << 7),
 } IdleDebugFlags;
 
 void idle_debug_init (void);

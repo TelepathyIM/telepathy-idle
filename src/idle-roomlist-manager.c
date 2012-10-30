@@ -27,8 +27,7 @@
 #include <telepathy-glib/dbus.h>
 #include <telepathy-glib/util.h>
 
-/* FIXME: add new debug flag ? */
-#define IDLE_DEBUG_FLAG IDLE_DEBUG_CONNECTION
+#define IDLE_DEBUG_FLAG IDLE_DEBUG_ROOMLIST
 #include "idle-connection.h"
 #include "idle-debug.h"
 #include "idle-roomlist-channel.h"

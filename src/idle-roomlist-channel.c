@@ -26,8 +26,7 @@
 
 #include <dbus/dbus-glib.h>
 
-/* FIXME: add new debug flag? */
-#define IDLE_DEBUG_FLAG IDLE_DEBUG_CONNECTION
+#define IDLE_DEBUG_FLAG IDLE_DEBUG_ROOMLIST
 #include "idle-connection.h"
 #include "idle-debug.h"
 #include "idle-text.h"
