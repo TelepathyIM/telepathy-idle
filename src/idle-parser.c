@@ -352,10 +352,10 @@ static void _parse_message(IdleParser *parser, const gchar *split_msg) {
 	for (int i = 0; i < IDLE_PARSER_LAST_MESSAGE_CODE; i++) {
 		const MessageSpec *spec = &(message_specs[i]);
 
-		if ((split_msg[0] != ':') && (i <= IDLE_PARSER_CMD_PING)) {
+		if ((split_msg[0] != ':') && (i <= IDLE_PARSER_LAST_NON_PREFIX_CMD)) {
 			if (!g_ascii_strcasecmp(tokens[0], spec->str))
 				_parse_and_forward_one(parser, tokens, spec->code, spec->format);
-		} else if (i >= IDLE_PARSER_PREFIXCMD_INVITE) {
+		} else if (i > IDLE_PARSER_LAST_NON_PREFIX_CMD) {
 			if (!g_ascii_strcasecmp(tokens[2], spec->str))
 				_parse_and_forward_one(parser, tokens, spec->code, spec->format);
 		}
