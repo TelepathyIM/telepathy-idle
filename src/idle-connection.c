@@ -214,6 +214,7 @@ static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessa
 static IdleParserHandlerResult _nickname_in_use_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _ping_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _pong_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
+static IdleParserHandlerResult _unknown_command_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _version_privmsg_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _whois_user_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
@@ -713,6 +714,7 @@ static void _connection_connect_ready(GObject *source_object, GAsyncResult *res,
 
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_PONG, _pong_handler, conn);
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_UNKNOWNCOMMAND, _unknown_command_handler, conn);
 
 	idle_parser_add_handler_with_priority(conn->parser, IDLE_PARSER_PREFIXCMD_NICK, _nick_handler, conn, IDLE_PARSER_HANDLER_PRIORITY_FIRST);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_USER, _version_privmsg_handler, conn);
@@ -1103,6 +1105,23 @@ static IdleParserHandlerResult _pong_handler(IdleParser *parser, IdleParserMessa
 	priv->ping_time = 0;
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
+}
+
+static IdleParserHandlerResult _unknown_command_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
+	IdleConnectionPrivate *priv = conn->priv;
+	const gchar *command = g_value_get_string(g_value_array_get_nth(args, 0));
+
+	if (!tp_strdiff(command, "PING")) {
+		IDLE_DEBUG("PING not supported, disabling keepalive.");
+		g_source_remove(priv->keepalive_timeout);
+		priv->keepalive_timeout = 0;
+		priv->ping_time = 0;
+
+		return IDLE_PARSER_HANDLER_RESULT_HANDLED;
+	}
+
+	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 }
 
 static IdleParserHandlerResult _version_privmsg_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
