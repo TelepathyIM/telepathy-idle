@@ -51,14 +51,13 @@
 
 #include "extensions/extensions.h"    /* Renaming */
 
+#define DEFAULT_KEEPALIVE_INTERVAL 30 /* sec */
+
 /* From RFC 2813 :
  * This in essence means that the client may send one (1) message every
  * two (2) seconds without being adversely affected.  Services MAY also
  * be subject to this mechanism.
  */
-
-#define DEFAULT_KEEPALIVE_INTERVAL 30 /* sec */
-
 #define MSG_QUEUE_TIMEOUT 2
 static gboolean flush_queue_faster = FALSE;
 
