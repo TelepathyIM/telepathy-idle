@@ -818,7 +818,8 @@ static gboolean keepalive_timeout_cb(gpointer user_data) {
 	gchar cmd[IRC_MSG_MAXLEN + 1];
 	gint64 now;
 
-	if (priv->sconn_status != SERVER_CONNECTION_STATE_CONNECTED) {
+	if (priv->sconn_status != SERVER_CONNECTION_STATE_CONNECTED ||
+	    priv->quitting) {
 		priv->keepalive_timeout = 0;
 		return FALSE;
 	}
