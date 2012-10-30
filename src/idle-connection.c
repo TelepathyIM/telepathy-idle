@@ -140,13 +140,10 @@ enum {
 	LAST_PROPERTY_ENUM
 };
 
-/* private structure */
-typedef struct _IdleConnectionPrivate IdleConnectionPrivate;
 struct _IdleConnectionPrivate {
 	/*
 	 * network connection
 	 */
-
 	IdleServerConnection *conn;
 	guint sconn_status;
 
@@ -199,8 +196,6 @@ struct _IdleConnectionPrivate {
 	TpSimplePasswordManager *password_manager;
 };
 
-#define IDLE_CONNECTION_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), IDLE_TYPE_CONNECTION, IdleConnectionPrivate))
-
 static void _iface_create_handle_repos(TpBaseConnection *self, TpHandleRepoIface **repos);
 static GPtrArray *_iface_create_channel_managers(TpBaseConnection *self);
 static gchar *_iface_get_unique_connection_name(TpBaseConnection *self);
@@ -237,8 +232,9 @@ static void conn_aliasing_fill_contact_attributes (
     GHashTable *attributes_hash);
 
 static void idle_connection_init(IdleConnection *obj) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(obj);
+	IdleConnectionPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (obj, IDLE_TYPE_CONNECTION, IdleConnectionPrivate);
 
+	obj->priv = priv;
 	priv->sconn_status = SERVER_CONNECTION_STATE_NOT_CONNECTED;
 	priv->msg_queue = g_queue_new();
 
@@ -259,7 +255,8 @@ idle_connection_constructed (GObject *object)
 }
 
 static void idle_connection_set_property(GObject *obj, guint prop_id, const GValue *value, GParamSpec *pspec) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(obj);
+	IdleConnection *self = IDLE_CONNECTION (obj);
+	IdleConnectionPrivate *priv = self->priv;
 
 	switch (prop_id) {
 		case PROP_NICKNAME:
@@ -320,7 +317,8 @@ static void idle_connection_set_property(GObject *obj, guint prop_id, const GVal
 }
 
 static void idle_connection_get_property(GObject *obj, guint prop_id, GValue *value, GParamSpec *pspec) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(obj);
+	IdleConnection *self = IDLE_CONNECTION (obj);
+	IdleConnectionPrivate *priv = self->priv;
 
 	switch (prop_id) {
 		case PROP_NICKNAME:
@@ -375,7 +373,7 @@ static void idle_connection_get_property(GObject *obj, guint prop_id, GValue *va
 
 static void idle_connection_dispose (GObject *object) {
 	IdleConnection *self = IDLE_CONNECTION(object);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(self);
+	IdleConnectionPrivate *priv = self->priv;
 
 	if (priv->dispose_has_run)
 		return;
@@ -408,7 +406,8 @@ static void idle_connection_dispose (GObject *object) {
 }
 
 static void idle_connection_finalize (GObject *object) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(object);
+	IdleConnection *self = IDLE_CONNECTION (object);
+	IdleConnectionPrivate *priv = self->priv;
 	IdleOutputPendingMsg *msg;
 
 	idle_contact_info_finalize(object);
@@ -509,8 +508,9 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 		flush_queue_faster = TRUE;
 }
 
-static GPtrArray *_iface_create_channel_managers(TpBaseConnection *self) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(self);
+static GPtrArray *_iface_create_channel_managers(TpBaseConnection *base) {
+	IdleConnection *self = IDLE_CONNECTION (base);
+	IdleConnectionPrivate *priv = self->priv;
 	GPtrArray *managers = g_ptr_array_sized_new(1);
 	GObject *manager;
 
@@ -520,7 +520,7 @@ static GPtrArray *_iface_create_channel_managers(TpBaseConnection *self) {
 	manager = g_object_new(IDLE_TYPE_MUC_MANAGER, "connection", self, NULL);
 	g_ptr_array_add(managers, manager);
 
-	priv->password_manager = tp_simple_password_manager_new(self);
+	priv->password_manager = tp_simple_password_manager_new(base);
 	g_ptr_array_add(managers, priv->password_manager);
 
 	manager = g_object_new(IDLE_TYPE_ROOMLIST_MANAGER, "connection", self, NULL);
@@ -536,15 +536,17 @@ static void _iface_create_handle_repos(TpBaseConnection *self, TpHandleRepoIface
 	idle_handle_repos_init(repos);
 }
 
-static gchar *_iface_get_unique_connection_name(TpBaseConnection *self) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(self);
+static gchar *_iface_get_unique_connection_name(TpBaseConnection *base) {
+	IdleConnection *self = IDLE_CONNECTION (base);
+	IdleConnectionPrivate *priv = self->priv;
 
 	return g_strdup_printf("%s@%s%p", priv->nickname, priv->server, self);
 }
 
 static gboolean _finish_shutdown_idle_func(gpointer data) {
 	TpBaseConnection *conn = TP_BASE_CONNECTION(data);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnection *self = IDLE_CONNECTION(conn);
+	IdleConnectionPrivate *priv = self->priv;
 	if (priv->force_disconnect_id != 0) {
 		g_source_remove(priv->force_disconnect_id);
 	}
@@ -558,14 +560,14 @@ static gboolean
 _force_disconnect (gpointer data)
 {
 	IdleConnection *conn = IDLE_CONNECTION(data);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 	idle_server_connection_disconnect_async(priv->conn, NULL, NULL, NULL);
 	return FALSE;
 }
 
 static void _iface_disconnected(TpBaseConnection *self) {
 	IdleConnection *conn = IDLE_CONNECTION(self);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 
 	/* we never got around to actually creating the connection
 	 * iface object because we were still trying to connect, so
@@ -584,8 +586,9 @@ static void _iface_disconnected(TpBaseConnection *self) {
 	priv->force_disconnect_id = g_timeout_add_seconds(2, _force_disconnect, conn);
 }
 
-static void _iface_shut_down(TpBaseConnection *self) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(self);
+static void _iface_shut_down(TpBaseConnection *base) {
+	IdleConnection *self = IDLE_CONNECTION (base);
+	IdleConnectionPrivate *priv = self->priv;
 
 	if (priv->quitting)
 		return;
@@ -594,7 +597,7 @@ static void _iface_shut_down(TpBaseConnection *self) {
 	 * iface object because we were still trying to connect, so
 	 * don't try to send any traffic down it */
 	if (priv->conn == NULL) {
-		g_idle_add(_finish_shutdown_idle_func, self);;
+		g_idle_add(_finish_shutdown_idle_func, self);
 	} else {
 		idle_server_connection_disconnect_async(priv->conn, NULL, NULL, NULL);
 	}
@@ -628,7 +631,7 @@ static void _start_connecting_continue(IdleConnection *conn);
 static void _password_prompt_cb(GObject *source, GAsyncResult *result, gpointer user_data) {
 	IdleConnection *conn = user_data;
 	TpBaseConnection *base_conn = TP_BASE_CONNECTION(conn);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 	const GString *password;
 	GError *error = NULL;
 
@@ -655,7 +658,7 @@ static void _password_prompt_cb(GObject *source, GAsyncResult *result, gpointer 
 
 static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error) {
 	IdleConnection *conn = IDLE_CONNECTION(self);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 
 	g_assert(priv->nickname != NULL);
 	g_assert(priv->server != NULL);
@@ -679,7 +682,7 @@ static gboolean _iface_start_connecting(TpBaseConnection *self, GError **error) 
 static void _connection_connect_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
 	IdleServerConnection *sconn = IDLE_SERVER_CONNECTION(source_object);
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 	GError *error = NULL;
 
 	if (!idle_server_connection_connect_finish(sconn, res, &error)) {
@@ -709,7 +712,7 @@ static void _connection_connect_ready(GObject *source_object, GAsyncResult *res,
 }
 
 static void _start_connecting_continue(IdleConnection *conn) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 	IdleServerConnection *sconn;
 
 	if (tp_str_empty(priv->realname)) {
@@ -740,7 +743,7 @@ static void _start_connecting_continue(IdleConnection *conn) {
 static gboolean keepalive_timeout_cb(gpointer user_data);
 
 static void sconn_status_changed_cb(IdleServerConnection *sconn, IdleServerConnectionState state, IdleServerConnectionStateReason reason, IdleConnection *conn) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 	TpConnectionStatusReason tp_reason;
 
 	/* cancel scheduled forced disconnect since we are now disconnected */
@@ -804,7 +807,7 @@ static void sconn_received_cb(IdleServerConnection *sconn, gchar *raw_msg, IdleC
 
 static gboolean keepalive_timeout_cb(gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 	gchar cmd[IRC_MSG_MAXLEN + 1];
 	gint64 ping_time;
 
@@ -823,7 +826,7 @@ static gboolean keepalive_timeout_cb(gpointer user_data) {
 static void _msg_queue_timeout_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
 	IdleServerConnection *sconn = IDLE_SERVER_CONNECTION(source_object);
 	IdleConnection *conn = IDLE_CONNECTION (user_data);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 	GError *error = NULL;
 
 	priv->msg_sending = FALSE;
@@ -839,7 +842,7 @@ static void _msg_queue_timeout_ready(GObject *source_object, GAsyncResult *res, 
 
 static gboolean msg_queue_timeout_cb(gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 	IdleOutputPendingMsg *output_msg;
 
 	IDLE_DEBUG("called");
@@ -872,7 +875,7 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 static void
 idle_connection_add_queue_timeout (IdleConnection *self)
 {
-  IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE (self);
+  IdleConnectionPrivate *priv = self->priv;
 
   if (priv->msg_queue_timeout == 0)
     {
@@ -896,7 +899,7 @@ idle_connection_add_queue_timeout (IdleConnection *self)
 static void
 idle_connection_clear_queue_timeout (IdleConnection *self)
 {
-  IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE (self);
+  IdleConnectionPrivate *priv = self->priv;
 
   if (priv->msg_queue_timeout != 0)
     {
@@ -909,7 +912,7 @@ idle_connection_clear_queue_timeout (IdleConnection *self)
  * Queue a IRC command for sending, clipping it to IRC_MSG_MAXLEN bytes and appending the required <CR><LF> to it
  */
 static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint priority) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 	gchar cmd[IRC_MSG_MAXLEN + 3];
 	int len;
 	gchar *converted;
@@ -949,7 +952,7 @@ void idle_connection_send(IdleConnection *conn, const gchar *msg) {
 gsize
 idle_connection_get_max_message_length(IdleConnection *conn)
 {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 	if (priv->relay_prefix != NULL) {
 		/* server will add ':<relay_prefix> ' to all messages it relays on to
 		 * other users.  the +2 is for the initial : and the trailing space */
@@ -1094,7 +1097,7 @@ static IdleParserHandlerResult
 _whois_user_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data)
 {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 
 	/* message format: <nick> <user> <host> * :<real name> */
 	TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, 0));
@@ -1122,7 +1125,7 @@ static void irc_handshakes(IdleConnection *conn) {
 	g_assert(conn != NULL);
 	g_assert(IDLE_IS_CONNECTION(conn));
 
-	priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	priv = conn->priv;
 
 	if ((priv->password != NULL) && (priv->password[0] != '\0')) {
 		g_snprintf(msg, IRC_MSG_MAXLEN + 1, "PASS %s", priv->password);
@@ -1141,7 +1144,7 @@ static void irc_handshakes(IdleConnection *conn) {
 }
 
 static void send_quit_request(IdleConnection *conn) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 	gchar cmd[IRC_MSG_MAXLEN + 1] = "QUIT";
 
 	if (priv->quit_message != NULL)
@@ -1172,7 +1175,7 @@ static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusRea
 
 static void
 _queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *alias) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 
 	if (!priv->queued_aliases_owners) {
 		TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT);
@@ -1217,7 +1220,7 @@ void idle_connection_canon_nick_receive(IdleConnection *conn, TpHandle handle, c
 }
 
 void idle_connection_emit_queued_aliases_changed(IdleConnection *conn) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 
 	if (!priv->queued_aliases)
 		return;
@@ -1371,7 +1374,7 @@ static void idle_connection_set_aliases(TpSvcConnectionInterfaceAliasing *iface,
 }
 
 static gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **_error) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(obj);
+	IdleConnectionPrivate *priv = obj->priv;
 	GError *error = NULL;
 	gsize bytes_written;
 	gchar *ret;
@@ -1428,7 +1431,7 @@ idle_salvage_utf8 (gchar *supposed_utf8, gssize bytes)
 
 static gchar *
 idle_connection_ntoh(IdleConnection *obj, const gchar *input) {
-	IdleConnectionPrivate *priv = IDLE_CONNECTION_GET_PRIVATE(obj);
+	IdleConnectionPrivate *priv = obj->priv;
 	GError *error = NULL;
 	gsize bytes_written;
 	gchar *ret;
