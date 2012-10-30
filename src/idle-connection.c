@@ -567,7 +567,9 @@ _force_disconnect (gpointer data)
 {
 	IdleConnection *conn = IDLE_CONNECTION(data);
 	IdleConnectionPrivate *priv = conn->priv;
-	idle_server_connection_disconnect_async(priv->conn, NULL, NULL, NULL);
+
+	IDLE_DEBUG("gave up waiting, forcibly disconnecting");
+	idle_server_connection_force_disconnect(priv->conn);
 	return FALSE;
 }
 
@@ -830,23 +832,11 @@ static gboolean keepalive_timeout_cb(gpointer user_data) {
 		gint64 seconds_since_ping = (now - priv->ping_time) / G_USEC_PER_SEC;
 
 		if (seconds_since_ping > priv->keepalive_interval * MISSED_KEEPALIVES_BEFORE_DISCONNECTING) {
-			GCancellable *kill_me_now = g_cancellable_new();
-
 			IDLE_DEBUG("haven't heard from the server in %" G_GINT64_FORMAT " seconds "
 				"(more than %u keepalive intervals)",
 				seconds_since_ping, MISSED_KEEPALIVES_BEFORE_DISCONNECTING);
 
-			/* Passing a cancelled cancellable to g_io_stream_close_async() stops us
-			 * waiting for a TCP-level reply from the server which we already know
-			 * has gone away. Quoth the docs for g_io_stream_close():
-			 *
-			 *     Cancelling a close will still leave the stream closed, but some
-			 *     streams can use a faster close that doesn't block to e.g. check
-			 *     errors.
-			 */
-			g_cancellable_cancel(kill_me_now);
-			idle_server_connection_disconnect_full_async(priv->conn, SERVER_CONNECTION_STATE_REASON_ERROR, kill_me_now, NULL, NULL);
-			g_object_unref(kill_me_now);
+			idle_server_connection_force_disconnect(priv->conn);
 			return FALSE;
 		}
 
