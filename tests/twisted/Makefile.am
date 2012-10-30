@@ -4,6 +4,7 @@ TWISTED_TESTS = \
 		connect/connect-success-ssl.py \
 		connect/connect-fail.py \
 		connect/connect-fail-ssl.py \
+		connect/ping.py \
 		connect/server-quit-ignore.py \
 		connect/server-quit-noclose.py \
 		connect/socket-closed-after-handshake.py \
