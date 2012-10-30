@@ -52,6 +52,7 @@
 #include "extensions/extensions.h"    /* Renaming */
 
 #define DEFAULT_KEEPALIVE_INTERVAL 30 /* sec */
+#define MISSED_KEEPALIVES_BEFORE_DISCONNECTING 3
 
 /* From RFC 2813 :
  * This in essence means that the client may send one (1) message every
@@ -146,6 +147,11 @@ struct _IdleConnectionPrivate {
 	IdleServerConnection *conn;
 	guint sconn_status;
 
+	/* When we sent a PING to the server which it hasn't PONGed for yet, or 0 if
+	 * there isn't a PING outstanding.
+	 */
+	gint64 ping_time;
+
 	/* IRC connection properties */
 	char *nickname;
 	char *server;
@@ -207,6 +213,7 @@ static IdleParserHandlerResult _erroneous_nickname_handler(IdleParser *parser, I
 static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _nickname_in_use_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _ping_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
+static IdleParserHandlerResult _pong_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _version_privmsg_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _whois_user_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
@@ -703,6 +710,7 @@ static void _connection_connect_ready(GObject *source_object, GAsyncResult *res,
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_WHOISUSER, _whois_user_handler, conn);
 
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_CMD_PING, _ping_handler, conn);
+	idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_PONG, _pong_handler, conn);
 
 	idle_parser_add_handler_with_priority(conn->parser, IDLE_PARSER_PREFIXCMD_NICK, _nick_handler, conn, IDLE_PARSER_HANDLER_PRIORITY_FIRST);
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_PREFIXCMD_PRIVMSG_USER, _version_privmsg_handler, conn);
@@ -808,15 +816,49 @@ static gboolean keepalive_timeout_cb(gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	IdleConnectionPrivate *priv = conn->priv;
 	gchar cmd[IRC_MSG_MAXLEN + 1];
-	gint64 ping_time;
+	gint64 now;
 
 	if (priv->sconn_status != SERVER_CONNECTION_STATE_CONNECTED) {
 		priv->keepalive_timeout = 0;
 		return FALSE;
 	}
 
-	ping_time = g_get_real_time();
-	g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "PING %" G_GINT64_FORMAT, ping_time);
+	now = g_get_real_time();
+
+	if (priv->ping_time != 0) {
+		gint64 seconds_since_ping = (now - priv->ping_time) / G_USEC_PER_SEC;
+
+		if (seconds_since_ping > priv->keepalive_interval * MISSED_KEEPALIVES_BEFORE_DISCONNECTING) {
+			GCancellable *kill_me_now = g_cancellable_new();
+
+			IDLE_DEBUG("haven't heard from the server in %" G_GINT64_FORMAT " seconds "
+				"(more than %u keepalive intervals)",
+				seconds_since_ping, MISSED_KEEPALIVES_BEFORE_DISCONNECTING);
+
+			/* Passing a cancelled cancellable to g_io_stream_close_async() stops us
+			 * waiting for a TCP-level reply from the server which we already know
+			 * has gone away. Quoth the docs for g_io_stream_close():
+			 *
+			 *     Cancelling a close will still leave the stream closed, but some
+			 *     streams can use a faster close that doesn't block to e.g. check
+			 *     errors.
+			 */
+			g_cancellable_cancel(kill_me_now);
+			idle_server_connection_disconnect_full_async(priv->conn, SERVER_CONNECTION_STATE_REASON_ERROR, kill_me_now, NULL, NULL);
+			g_object_unref(kill_me_now);
+			return FALSE;
+		}
+
+		return TRUE;
+	}
+
+	if (priv->msg_queue->length > 0) {
+		/* No point in sending a PING if we're sending data anyway. */
+		return TRUE;
+	}
+
+	priv->ping_time = now;
+	g_snprintf(cmd, IRC_MSG_MAXLEN + 1, "PING %" G_GINT64_FORMAT, priv->ping_time);
 	_send_with_priority(conn, cmd, SERVER_CMD_MIN_PRIORITY);
 
 	return TRUE;
@@ -1056,6 +1098,18 @@ static IdleParserHandlerResult _ping_handler(IdleParser *parser, IdleParserMessa
 	gchar *reply = g_strdup_printf("PONG %s", g_value_get_string(g_value_array_get_nth(args, 0)));
 	_send_with_priority(conn, reply, SERVER_CMD_MAX_PRIORITY);
 	g_free(reply);
+
+	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
+}
+
+static IdleParserHandlerResult _pong_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
+	IdleConnection *conn = IDLE_CONNECTION(user_data);
+	IdleConnectionPrivate *priv = conn->priv;
+
+	/* We could compare ping_time to g_get_real_time() and give some indication
+	 * of lag, if we were feeling enthusiastic.
+	 */
+	priv->ping_time = 0;
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 }
