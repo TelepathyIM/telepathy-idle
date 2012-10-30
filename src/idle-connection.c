@@ -862,9 +862,9 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 		return FALSE;
 	}
 
+	priv->msg_sending = TRUE;
 	idle_server_connection_send_async(priv->conn, output_msg->message, NULL, _msg_queue_timeout_ready, conn);
 	idle_output_pending_msg_free (output_msg);
-	priv->msg_sending = TRUE;
 
 	return TRUE;
 }
