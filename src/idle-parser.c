@@ -85,6 +85,7 @@ static const MessageSpec message_specs[] = {
 	{"NOTICE", "cIr:", IDLE_PARSER_PREFIXCMD_NOTICE_CHANNEL},
 	{"NOTICE", "cIc:", IDLE_PARSER_PREFIXCMD_NOTICE_USER},
 	{"PART", "cIr.", IDLE_PARSER_PREFIXCMD_PART},
+	{"PONG", "IIs:", IDLE_PARSER_PREFIXCMD_PONG},
 	{"PRIVMSG", "cIr:", IDLE_PARSER_PREFIXCMD_PRIVMSG_CHANNEL},
 	{"PRIVMSG", "cIc:", IDLE_PARSER_PREFIXCMD_PRIVMSG_USER},
 	{"QUIT", "cI.", IDLE_PARSER_PREFIXCMD_QUIT},
@@ -121,6 +122,7 @@ static const MessageSpec message_specs[] = {
 	{"317", "IIIcd", IDLE_PARSER_NUMERIC_WHOISIDLE},
 	{"322", "IIIrd.", IDLE_PARSER_NUMERIC_LIST},
 	{"323", "I", IDLE_PARSER_NUMERIC_LISTEND},
+	{"421", "IIIs:", IDLE_PARSER_NUMERIC_UNKNOWNCOMMAND},
 
 	{NULL, NULL, IDLE_PARSER_LAST_MESSAGE_CODE}
 };
@@ -352,10 +354,10 @@ static void _parse_message(IdleParser *parser, const gchar *split_msg) {
 	for (int i = 0; i < IDLE_PARSER_LAST_MESSAGE_CODE; i++) {
 		const MessageSpec *spec = &(message_specs[i]);
 
-		if ((split_msg[0] != ':') && (i <= IDLE_PARSER_CMD_PING)) {
+		if ((split_msg[0] != ':') && (i <= IDLE_PARSER_LAST_NON_PREFIX_CMD)) {
 			if (!g_ascii_strcasecmp(tokens[0], spec->str))
 				_parse_and_forward_one(parser, tokens, spec->code, spec->format);
-		} else if (i >= IDLE_PARSER_PREFIXCMD_INVITE) {
+		} else if (i > IDLE_PARSER_LAST_NON_PREFIX_CMD) {
 			if (!g_ascii_strcasecmp(tokens[2], spec->str))
 				_parse_and_forward_one(parser, tokens, spec->code, spec->format);
 		}

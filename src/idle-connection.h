@@ -34,6 +34,7 @@ G_BEGIN_DECLS
 
 typedef struct _IdleConnection IdleConnection;
 typedef struct _IdleConnectionClass IdleConnectionClass;
+typedef struct _IdleConnectionPrivate IdleConnectionPrivate;
 
 struct _IdleConnectionClass {
 	TpBaseConnectionClass parent_class;
@@ -45,6 +46,7 @@ struct _IdleConnection {
 	TpContactsMixin contacts;
 	IdleParser *parser;
 	GQueue *contact_info_requests;
+	IdleConnectionPrivate *priv;
 };
 
 GType idle_connection_get_type(void);
