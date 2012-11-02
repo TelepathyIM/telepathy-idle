@@ -832,8 +832,9 @@ static gboolean keepalive_timeout_cb(gpointer user_data) {
 
 	if (priv->ping_time != 0) {
 		gint64 seconds_since_ping = (now - priv->ping_time) / G_USEC_PER_SEC;
+		gint64 grace_period = priv->keepalive_interval * MISSED_KEEPALIVES_BEFORE_DISCONNECTING;
 
-		if (seconds_since_ping > priv->keepalive_interval * MISSED_KEEPALIVES_BEFORE_DISCONNECTING) {
+		if (seconds_since_ping > grace_period) {
 			IDLE_DEBUG("haven't heard from the server in %" G_GINT64_FORMAT " seconds "
 				"(more than %u keepalive intervals)",
 				seconds_since_ping, MISSED_KEEPALIVES_BEFORE_DISCONNECTING);
