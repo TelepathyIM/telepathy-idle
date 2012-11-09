@@ -309,6 +309,20 @@ idle_muc_channel_fill_immutable_properties (
       NULL);
 }
 
+static GPtrArray *
+idle_muc_channel_get_interfaces (TpBaseChannel *self)
+{
+  TpBaseChannelClass *parent_class =
+      TP_BASE_CHANNEL_CLASS (idle_muc_channel_parent_class);
+  GPtrArray *interfaces = parent_class->get_interfaces (self);
+  const gchar **interface;
+
+  for (interface = muc_channel_interfaces; *interface != NULL; interface++)
+    g_ptr_array_add (interfaces, (gchar *) *interface);
+
+  return interfaces;
+}
+
 static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class) {
 	GObjectClass *object_class = G_OBJECT_CLASS (idle_muc_channel_class);
 	TpBaseChannelClass *base_channel_class = TP_BASE_CHANNEL_CLASS (idle_muc_channel_class);
@@ -336,11 +350,11 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
 
 	base_channel_class->channel_type = TP_IFACE_CHANNEL_TYPE_TEXT;
 	base_channel_class->target_handle_type = TP_HANDLE_TYPE_ROOM;
-	base_channel_class->interfaces = muc_channel_interfaces;
 
 	base_channel_class->close = idle_muc_channel_close;
 	base_channel_class->fill_immutable_properties = idle_muc_channel_fill_immutable_properties;
 	base_channel_class->get_object_path_suffix = idle_muc_channel_get_path_suffix;
+	base_channel_class->get_interfaces = idle_muc_channel_get_interfaces;
 
 	param_spec = g_param_spec_string (
 		"server", "Room.Server", "always empty",
