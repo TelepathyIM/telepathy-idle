@@ -171,7 +171,9 @@ idle_im_channel_close (TpBaseChannel *base)
 static GPtrArray *
 idle_im_channel_get_interfaces (TpBaseChannel *channel)
 {
-  GPtrArray *interfaces = g_ptr_array_sized_new (2);
+  GPtrArray *interfaces =
+      TP_BASE_CHANNEL_CLASS (idle_im_channel_parent_class)->get_interfaces (
+          channel);
 
   g_ptr_array_add (interfaces, TP_IFACE_CHANNEL_INTERFACE_MESSAGES);
   g_ptr_array_add (interfaces, TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE);
