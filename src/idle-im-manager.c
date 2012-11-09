@@ -387,21 +387,16 @@ _im_channel_closed_cb (IdleIMChannel *chan,
 {
 	IdleIMManager *self = IDLE_IM_MANAGER (user_data);
 	IdleIMManagerPrivate *priv = IDLE_IM_MANAGER_GET_PRIVATE (self);
-	TpHandle handle;
+	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
 
 	tp_channel_manager_emit_channel_closed_for_object (self,
 													   TP_EXPORTABLE_CHANNEL (chan));
 
 	if (priv->channels)
 	{
-		gboolean really_destroyed;
+		TpHandle handle = tp_base_channel_get_target_handle (base);
 
-		g_object_get (chan,
-			"handle", &handle,
-			"channel-destroyed", &really_destroyed,
-			NULL);
-
-		if (really_destroyed)
+		if (tp_base_channel_is_destroyed (base))
 		{
 			IDLE_DEBUG ("removing channel with handle %u", handle);
 			g_hash_table_remove (priv->channels, GUINT_TO_POINTER (handle));
