@@ -5,8 +5,8 @@ Test connecting to a IRC channel via the Requests interface
 import functools
 from idletest import exec_test, BaseIRCServer, sync_stream
 from servicetest import (
-    EventPattern, call_async, sync_dbus, make_channel_proxy, assertEquals,
-    assertSameSets, assertContains,
+    EventPattern, call_async, sync_dbus, wrap_channel, assertEquals,
+    assertSameSets, assertContains, assertLength,
 )
 import constants as cs
 import dbus
@@ -123,7 +123,12 @@ def test(q, bus, conn, stream, use_room=False):
     assert len(chans) == 1
     assert chans[0] == (path, props)
 
-    chan = make_channel_proxy(conn, path, 'Channel')
+    chan = wrap_channel(bus.get_object(conn.bus_name, path), 'Text',
+        ['Destroyable', 'Messages'])
+
+    # Put an unacknowledged message into the channel
+    stream.sendMessage('PRIVMSG', '#idletest', ':oi oi', prefix='lol')
+    q.expect('dbus-signal', signal='MessageReceived', path=path)
 
     # Make sure Close()ing the channel makes it respawn. This avoids the old
     # bug where empathy-chat crashing booted you out of all your channels.
@@ -139,6 +144,11 @@ def test(q, bus, conn, stream, use_room=False):
     # back up.
     assertEquals(0, props[cs.INITIATOR_HANDLE])
     assert not props[cs.REQUESTED]
+
+    # The unacknowledged message should still be there and be marked as rescued.
+    messages = chan.Properties.Get(cs.CHANNEL_IFACE_MESSAGES, 'PendingMessages')
+    assertLength(1, messages)
+    assert messages[0][0]['rescued'], messages[0]
 
     # Check that ensuring a respawned channel does what you'd expect.
     ec_yours, ec_path, ec_props = conn.EnsureChannel(request,
