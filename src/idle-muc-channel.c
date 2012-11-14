@@ -1373,18 +1373,7 @@ idle_muc_channel_destroy (
 	tp_svc_channel_interface_destroyable_return_from_destroy (context);
 }
 
-/**
- * idle_muc_channel_get_password_flags
- *
- * Implements DBus method GetPasswordFlags
- * on interface org.freedesktop.Telepathy.Channel.Interface.Password
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
+
 static void idle_muc_channel_get_password_flags (TpSvcChannelInterfacePassword *iface, DBusGMethodInvocation *context) {
 	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
 	IdleMUCChannelPrivate *priv;
@@ -1398,18 +1387,6 @@ static void idle_muc_channel_get_password_flags (TpSvcChannelInterfacePassword *
 }
 
 
-/**
- * idle_muc_channel_provide_password
- *
- * Implements DBus method ProvidePassword
- * on interface org.freedesktop.Telepathy.Channel.Interface.Password
- *
- * @error: Used to return a pointer to a GError detailing any error
- *         that occured, DBus will throw the error only if this
- *         function returns false.
- *
- * Returns: TRUE if successful, FALSE if an error was thrown.
- */
 static void idle_muc_channel_provide_password (TpSvcChannelInterfacePassword *iface, const gchar * password, DBusGMethodInvocation *context) {
 	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
 	IdleMUCChannelPrivate *priv;
