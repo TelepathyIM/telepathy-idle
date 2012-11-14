@@ -46,6 +46,7 @@
 
 static void _password_iface_init(gpointer, gpointer);
 static void subject_iface_init(gpointer, gpointer);
+static void destroyable_iface_init(gpointer, gpointer);
 
 static void idle_muc_channel_send (GObject *obj, TpMessage *message, TpMessageSendingFlags flags);
 static void idle_muc_channel_close (TpBaseChannel *base);
@@ -59,6 +60,7 @@ G_DEFINE_TYPE_WITH_CODE(IdleMUCChannel, idle_muc_channel, TP_TYPE_BASE_CHANNEL,
 		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_SUBJECT, subject_iface_init);
 		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_ROOM_CONFIG,
                                        tp_base_room_config_iface_init);
+		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE, destroyable_iface_init);
 		)
 
 /* property enum */
@@ -131,6 +133,7 @@ static const gchar *muc_channel_interfaces[] = {
 	TP_IFACE_CHANNEL_INTERFACE_ROOM,
 	TP_IFACE_CHANNEL_INTERFACE_SUBJECT,
 	TP_IFACE_CHANNEL_INTERFACE_ROOM_CONFIG,
+	TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE,
 	NULL
 };
 
@@ -1339,12 +1342,35 @@ idle_muc_channel_close (
 
 	IDLE_DEBUG ("called on %p", self);
 
+	if (priv->state == MUC_STATE_JOINED) {
+		tp_message_mixin_set_rescued (G_OBJECT (self));
+		tp_base_channel_reopened (base, 0);
+	} else {
+	/* FIXME: this is wrong if called while JOIN is in flight. */
+		tp_base_channel_destroyed (base);
+	}
+}
+
+
+static void
+idle_muc_channel_destroy (
+    TpSvcChannelInterfaceDestroyable *object,
+    DBusGMethodInvocation *context)
+{
+	TpBaseChannel *base = TP_BASE_CHANNEL (object);
+	IdleMUCChannel *self = IDLE_MUC_CHANNEL (object);
+	IdleMUCChannelPrivate *priv = self->priv;
+
+	IDLE_DEBUG ("called on %p", self);
+
 	if (priv->state == MUC_STATE_JOINED)
 		part_from_channel (self, NULL);
 
 	/* FIXME: this is wrong if called while JOIN is in flight. */
 	if (priv->state < MUC_STATE_JOINED)
 		tp_base_channel_destroyed (base);
+
+	tp_svc_channel_interface_destroyable_return_from_destroy (context);
 }
 
 /**
@@ -1535,5 +1561,18 @@ subject_iface_init (
 #define IMPLEMENT(x) \
   tp_svc_channel_interface_subject_implement_##x (klass, idle_muc_channel_##x)
   IMPLEMENT (set_subject);
+#undef IMPLEMENT
+}
+
+static void
+destroyable_iface_init (
+    gpointer g_iface,
+    gpointer iface_data G_GNUC_UNUSED)
+{
+  TpSvcChannelInterfaceDestroyableClass *klass = g_iface;
+
+#define IMPLEMENT(x) \
+  tp_svc_channel_interface_destroyable_implement_##x (klass, idle_muc_channel_##x)
+  IMPLEMENT (destroy);
 #undef IMPLEMENT
 }

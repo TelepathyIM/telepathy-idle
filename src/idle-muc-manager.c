@@ -676,6 +676,7 @@ static GSList *take_request_tokens(IdleMUCManager *manager, IdleMUCChannel *chan
 static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data) {
 	IdleMUCManager *manager = IDLE_MUC_MANAGER(user_data);
 	IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE(manager);
+	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
 	GSList *reqs = take_request_tokens(user_data, chan);
 
 	/* If there are any tokens for this channel when it closes, the request
@@ -689,10 +690,17 @@ static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data) {
 
 	g_slist_free(reqs);
 
+	tp_channel_manager_emit_channel_closed_for_object (manager,
+		TP_EXPORTABLE_CHANNEL (chan));
+
 	if (priv->channels) {
-		TpHandle handle;
-		g_object_get(chan, "handle", &handle, NULL);
-		g_hash_table_remove(priv->channels, GUINT_TO_POINTER(handle));
+		TpHandle handle = tp_base_channel_get_target_handle (base);
+
+		if (tp_base_channel_is_destroyed (base))
+			g_hash_table_remove(priv->channels, GUINT_TO_POINTER(handle));
+		else
+			tp_channel_manager_emit_new_channel (manager, TP_EXPORTABLE_CHANNEL (chan),
+				NULL);
 	}
 }
 

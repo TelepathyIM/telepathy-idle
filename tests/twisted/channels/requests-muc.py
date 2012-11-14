@@ -3,7 +3,7 @@ Test connecting to a IRC channel via the Requests interface
 """
 
 import functools
-from idletest import exec_test, BaseIRCServer
+from idletest import exec_test, BaseIRCServer, sync_stream
 from servicetest import (
     EventPattern, call_async, sync_dbus, make_channel_proxy, assertEquals,
     assertSameSets, assertContains,
@@ -89,6 +89,7 @@ def test(q, bus, conn, stream, use_room=False):
          cs.CHANNEL_IFACE_ROOM,
          cs.CHANNEL_IFACE_SUBJECT,
          cs.CHANNEL_IFACE_ROOM_CONFIG,
+         cs.CHANNEL_IFACE_DESTROYABLE,
         ], props[cs.INTERFACES])
     assert props[cs.TARGET_HANDLE_TYPE] == cs.HT_ROOM
     assert props[cs.TARGET_ID] == '#idletest'
@@ -123,6 +124,32 @@ def test(q, bus, conn, stream, use_room=False):
     assert chans[0] == (path, props)
 
     chan = make_channel_proxy(conn, path, 'Channel')
+
+    # Make sure Close()ing the channel makes it respawn. This avoids the old
+    # bug where empathy-chat crashing booted you out of all your channels.
+    patterns = [EventPattern('stream-PART')]
+    q.forbid_events(patterns)
+    chan.Close()
+    q.expect('dbus-signal', signal='Closed', path=chan.object_path)
+    e = q.expect('dbus-signal', signal='NewChannels')
+
+    path, props = e.args[0][0]
+    assertEquals(chan.object_path, path)
+    # We requested the channel originally, but we didn't request it popping
+    # back up.
+    assertEquals(0, props[cs.INITIATOR_HANDLE])
+    assert not props[cs.REQUESTED]
+
+    # Check that ensuring a respawned channel does what you'd expect.
+    ec_yours, ec_path, ec_props = conn.EnsureChannel(request,
+        dbus_interface=cs.CONN_IFACE_REQUESTS)
+    assert not ec_yours
+    assertEquals(chan.object_path, ec_path)
+    assertEquals(props, ec_props)
+
+    sync_stream(q, stream)
+    q.unforbid_events(patterns)
+
     chan.RemoveMembers([self_handle], "bye bye cruel\r\nworld",
         dbus_interface=cs.CHANNEL_IFACE_GROUP)
 
