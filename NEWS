@@ -1,5 +1,7 @@
-telepathy-idle 0.1.13 (UNRELEASED)
+telepathy-idle 0.1.13 (2012-11-14)
 ==================================
+
+Wow, what a lot of fixes!
 
 Enhancements:
 
@@ -9,6 +11,17 @@ Enhancements:
   lets you search rooms rather than getting the entire list from the
   server. If someone wants to work on adding this to Idle and Empathy,
   go for it!
+
+• fd.o#24614: chat room channels now respawn if you Close() them. This
+  means that if empathy-chat (or your friendly neighbourhood chat UI)
+  crashes, it pops right back up with your channels in it, rather than
+  you getting kicked out of all your channels.
+
+  If your UI is using Close() to leave channels, you'll need to change
+  it to use RemoveMembers with the SelfHandle property from the Group
+  interface. empathy-chat has done this for literally years, and
+  tp_channel_leave_async() in telepathy-glib and
+  Tp::Channel::requestLeave in telepathy-qt4 do the right thing.
 
 Fixes:
 
