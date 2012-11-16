@@ -16,6 +16,12 @@ def test(q, bus, conn, stream):
     stream.sendMessage('PONG', 'idle.test.server', ':%s' % timestamp,
         prefix='idle.test.server')
 
+    # Apparently bip replies like this:
+    e = q.expect('stream-PING')
+    assertLength(1, e.data)
+    timestamp = e.data[0]
+    stream.sendMessage('PONG', timestamp, prefix='idle.test.server')
+
     q.expect('stream-PING')
     # If we don't answer Idle's ping, after some period of time Idle should
     # give up and close the connection.
