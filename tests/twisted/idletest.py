@@ -214,6 +214,7 @@ def make_connection(bus, event_func, params=None):
         'quit-message': 'happy testing...',
         'use-ssl': dbus.Boolean(False),
         'port': dbus.UInt32(6900),
+        'keepalive-interval': dbus.UInt32(0),
         }
 
     if params:
