@@ -1,3 +1,14 @@
+telepathy-idle 0.1.14 (2012-11-16)
+==================================
+
+Wow, what a small number of fixes!
+
+Fixes:
+
+• Parse PONG replies more leniently. bip's PONGs were rejected by
+  0.1.13.
+
+
 telepathy-idle 0.1.13 (2012-11-14)
 ==================================
 
