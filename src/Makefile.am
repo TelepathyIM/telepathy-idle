@@ -61,7 +61,6 @@ AM_CFLAGS = \
 	$(ERROR_CFLAGS) \
 	@DBUS_CFLAGS@ \
 	@GLIB_CFLAGS@ \
-	@OPENSSL_CFLAGS@ \
 	@TELEPATHY_CFLAGS@ \
 	-std=c99
 
@@ -72,7 +71,6 @@ AM_LDFLAGS = \
 ALL_LIBS = \
 	@DBUS_LIBS@ \
 	@GLIB_LIBS@ \
-	@OPENSSL_LIBS@ \
 	@TELEPATHY_LIBS@
 
 man_MANS = telepathy-idle.8

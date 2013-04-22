@@ -97,8 +97,6 @@ AC_DEFINE(TP_VERSION_MIN_REQUIRED, TP_VERSION_0_18, [Ignore post 0.18 deprecatio
 AC_DEFINE(TP_VERSION_MAX_ALLOWED, TP_VERSION_0_20, [Prevent post 0.20 APIs])
 PKG_CHECK_MODULES([TELEPATHY], [telepathy-glib >= 0.15.9])
 
-PKG_CHECK_MODULES([OPENSSL], [openssl >= 0.9.7])
-
 dnl Check for code generation tools
 XSLTPROC=
 AC_CHECK_PROGS([XSLTPROC], [xsltproc])
