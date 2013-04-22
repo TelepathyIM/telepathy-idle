@@ -1,7 +1,7 @@
 Requirements
 ------------
 
-To compile telepathy-idle from darcs source, you need:
+To compile telepathy-idle from git, you need:
 
 - GNU autoconf
 - GNU automake
@@ -15,7 +15,7 @@ additionally, as when compiling a idle release, you need these libraries:
 - libglib-2.0
 - libdbus
 - libdbus-glib
-- openssl
+- libtelepathy-glib
 
 and obviously, a working C compiler and make.
 
@@ -29,9 +29,9 @@ and installing telepathy-idle. Finally, run make.
 Version control
 ---------------
 
-telepathy-idle is maintained in a Darcs repository at
+telepathy-idle is maintained in a Git repository at
 
-http://darcs.collabora.co.uk/darcs/telepathy/telepathy-idle/
+http://cgit.freedesktop.org/telepathy/telepathy-idle
 
 Patches
 -------
@@ -41,9 +41,8 @@ file a bug at
 
 https://bugs.freedesktop.org
 
-with the product "Telepathy" and component "telepathy-idle" and include a URL to
-a Darcs branch with your patches, or if this is not possible, attach a patch
-file produced by diff -unr.
+with the product "Telepathy" and component "idle". Use "git format-patch", and
+attach the patch files it spits out; or include the URL to a Git branch.
 
 Coding style
 ------------
