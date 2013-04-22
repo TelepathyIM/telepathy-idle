@@ -46,6 +46,7 @@ check-twisted:
 	rm -f tools/core
 	rm -f tools/idle-testing.log
 	failed=0; \
+	IDLE_TEST_BE_VULNERABLE_TO_MAN_IN_THE_MIDDLE_ATTACKS=vulnerable \
 	sh $(srcdir)/tools/with-session-bus.sh \
 		--config-file=tools/tmp-session-bus.conf \
 		-- $(MAKE) check-TESTS \

@@ -505,9 +505,14 @@ IdleServerConnectionState idle_server_connection_get_state(IdleServerConnection 
 void idle_server_connection_set_tls(IdleServerConnection *conn, gboolean tls) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 	g_socket_client_set_tls(priv->socket_client, tls);
-	g_socket_client_set_tls_validation_flags(priv->socket_client,
-		G_TLS_CERTIFICATE_VALIDATE_ALL
-		& ~G_TLS_CERTIFICATE_UNKNOWN_CA
-		& ~G_TLS_CERTIFICATE_BAD_IDENTITY
-		& ~G_TLS_CERTIFICATE_EXPIRED);
+
+	/* The regression tests don't have a CA-issued certificate,
+	 * oddly enough. */
+	if (!tp_strdiff (g_getenv ("IDLE_TEST_BE_VULNERABLE_TO_MAN_IN_THE_MIDDLE_ATTACKS"), "vulnerable")) {
+		g_socket_client_set_tls_validation_flags(priv->socket_client,
+			G_TLS_CERTIFICATE_VALIDATE_ALL
+			& ~G_TLS_CERTIFICATE_UNKNOWN_CA
+			& ~G_TLS_CERTIFICATE_BAD_IDENTITY
+			& ~G_TLS_CERTIFICATE_EXPIRED);
+	}
 }
