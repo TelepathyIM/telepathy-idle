@@ -20,6 +20,7 @@
  *  Jonathon Jongsma <jonathon.jongsma@collabora.co.uk>
  */
 
+#include "config.h"
 #include "idle-roomlist-channel.h"
 
 #include <time.h>

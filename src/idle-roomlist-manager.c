@@ -20,6 +20,7 @@
  *  Jonathon Jongsma <jonathon.jongsma@collabora.co.uk>
  */
 
+#include "config.h"
 #include "idle-roomlist-manager.h"
 
 #include <telepathy-glib/channel-manager.h>

@@ -1,3 +1,5 @@
+#include "config.h"
+
 #include <idle-ctcp.h>
 
 #include <stdio.h>
