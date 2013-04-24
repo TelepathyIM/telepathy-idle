@@ -1,3 +1,21 @@
+telepathy-idle 0.1.15 (2013-04-24)
+==================================
+
+The “secure by default“ release.
+
+Fixes:
+
+• Validate TLS certificates properly, preventing man-in-the-middle attacks.
+  (fd.o#63810, Simon)
+
+  This will be a regression for users of IRC-over-SSL servers/proxies that
+  do not have a certificate trusted by system-wide CA configuration; they
+  will no longer be able to connect. If someone implements fd.o #57130, that
+  will provide the ability for those users to approve additional
+  certificates.
+
+• Fix compilation and regression tests with GLib 2.36 (Simon)
+
 telepathy-idle 0.1.14 (2012-11-16)
 ==================================
 
