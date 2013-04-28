@@ -18,16 +18,10 @@ def test(q, bus, conn, stream):
     path, props = channels[0]
 
     cert = bus.get_object (conn.bus_name, props[cs.TLS_CERT_PATH])
-    cert.Accept()
+    cert.Reject([(cs.TLS_REJECT_REASON_UNTRUSTED, cs.CERT_UNTRUSTED, {})],
+        signature = 'a(usa{sv})')
 
-    q.expect('dbus-signal', signal='SelfHandleChanged',
-        args=[1L])
-    q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
-    call_async(q, conn, 'Disconnect')
-    q.expect_many(
-            EventPattern('dbus-signal', signal='StatusChanged', args=[2, 1]),
-            EventPattern('irc-disconnected'),
-            EventPattern('dbus-return', method='Disconnect'))
+    q.expect('dbus-signal', signal='StatusChanged', args=[2, 2])
     return True
 
 if __name__ == '__main__':
