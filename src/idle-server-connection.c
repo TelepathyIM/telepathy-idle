@@ -254,7 +254,6 @@ cleanup:
 }
 
 static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
-	GSocketClient *socket_client = G_SOCKET_CLIENT(source_object);
 	GSimpleAsyncResult *result = G_SIMPLE_ASYNC_RESULT(user_data);
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(g_async_result_get_source_object(G_ASYNC_RESULT(result)));
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
@@ -265,7 +264,7 @@ static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gp
 	gint socket_fd;
 	GError *error = NULL;
 
-	socket_connection = g_socket_client_connect_to_host_finish(socket_client, res, &error);
+	socket_connection = g_task_propagate_pointer (G_TASK (res), &error);
 	if (socket_connection == NULL) {
 		IDLE_DEBUG("g_socket_client_connect_to_host failed: %s", error->message);
 		g_simple_async_result_set_error(result, TP_ERROR, TP_ERROR_NETWORK_ERROR, "%s", error->message);
@@ -294,9 +293,24 @@ cleanup:
 	g_object_unref(result);
 }
 
+static void _connect_in_thread (GTask *task, gpointer source_object, gpointer task_data, GCancellable *cancellable)
+{
+	IdleServerConnection *conn = source_object;
+	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
+	GError *error = NULL;
+	GSocketConnection *socket_connection;
+
+	socket_connection = g_socket_client_connect_to_host (priv->socket_client, priv->host, priv->port, cancellable, &error);
+	if (socket_connection != NULL)
+		g_task_return_pointer (task, socket_connection, NULL);
+	else
+		g_task_return_error (task, error);
+}
+
 void idle_server_connection_connect_async(IdleServerConnection *conn, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 	GSimpleAsyncResult *result;
+	GTask *task;
 
 	if (priv->state != SERVER_CONNECTION_STATE_NOT_CONNECTED) {
 		IDLE_DEBUG("already connecting or connected!");
@@ -326,7 +340,11 @@ void idle_server_connection_connect_async(IdleServerConnection *conn, GCancellab
 	}
 
 	result = g_simple_async_result_new(G_OBJECT(conn), callback, user_data, idle_server_connection_connect_async);
-	g_socket_client_connect_to_host_async(priv->socket_client, priv->host, priv->port, cancellable, _connect_to_host_ready, result);
+
+	task = g_task_new (conn, cancellable,
+		_connect_to_host_ready, result);
+	g_task_run_in_thread (task, _connect_in_thread);
+
 	change_state(conn, SERVER_CONNECTION_STATE_CONNECTING, SERVER_CONNECTION_STATE_REASON_REQUESTED);
 }
 
