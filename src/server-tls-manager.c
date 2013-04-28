@@ -24,41 +24,30 @@
 #include <telepathy-glib/telepathy-glib.h>
 #include <telepathy-glib/telepathy-glib-dbus.h>
 
-#define DEBUG_FLAG IDLE_DEBUG_TLS
-#include "debug.h"
-#include "gabble/caps-channel-manager.h"
-#include "connection.h"
+#define IDLE_DEBUG_FLAG IDLE_DEBUG_TLS
+#include "idle-debug.h"
+#include "idle-connection.h"
 #include "server-tls-channel.h"
-#include "util.h"
 
 #include "extensions/extensions.h"
-
-#include <wocky/wocky.h>
 
 static void channel_manager_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (IdleServerTLSManager, idle_server_tls_manager,
-    WOCKY_TYPE_TLS_HANDLER,
+    G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (TP_TYPE_CHANNEL_MANAGER,
-      channel_manager_iface_init);
-    G_IMPLEMENT_INTERFACE (IDLE_TYPE_CAPS_CHANNEL_MANAGER,
-      NULL));
+      channel_manager_iface_init));
 
 enum {
   PROP_CONNECTION = 1,
-  PROP_INTERACTIVE_TLS,
   NUM_PROPERTIES
 };
 
 struct _IdleServerTLSManagerPrivate {
   /* Properties */
   IdleConnection *connection;
-  gboolean interactive_tls;
 
   /* Current operation data */
-  gchar *peername;
-  GStrv reference_identities;
-  WockyTLSSession *tls_session;
   IdleServerTLSChannel *channel;
   GSimpleAsyncResult *async_result;
 
@@ -84,9 +73,6 @@ idle_server_tls_manager_get_property (GObject *object,
     case PROP_CONNECTION:
       g_value_set_object (value, self->priv->connection);
       break;
-    case PROP_INTERACTIVE_TLS:
-      g_value_set_boolean (value, self->priv->interactive_tls);
-      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
@@ -105,9 +91,6 @@ idle_server_tls_manager_set_property (GObject *object,
     {
     case PROP_CONNECTION:
       self->priv->connection = g_value_dup_object (value);
-      break;
-    case PROP_INTERACTIVE_TLS:
-      self->priv->interactive_tls = g_value_get_boolean (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -144,7 +127,7 @@ connection_status_changed_cb (IdleConnection *conn,
 {
   IdleServerTLSManager *self = user_data;
 
-  DEBUG ("Connection status changed, now %d", status);
+  IDLE_DEBUG ("Connection status changed, now %d", status);
 
   if (status == TP_CONNECTION_STATUS_DISCONNECTED)
     {
@@ -167,25 +150,8 @@ complete_verify (IdleServerTLSManager *self)
   g_simple_async_result_complete (self->priv->async_result);
 
   /* Reset to initial state */
-  tp_clear_pointer (&self->priv->peername, g_free);
-  tp_clear_pointer (&self->priv->reference_identities, g_strfreev);
-  g_clear_object (&self->priv->tls_session);
   g_clear_object (&self->priv->channel);
   g_clear_object (&self->priv->async_result);
-}
-
-static void
-verify_fallback_cb (GObject *source,
-    GAsyncResult *result,
-    gpointer user_data)
-{
-  IdleServerTLSManager *self = (IdleServerTLSManager *) source;
-  GError *error = NULL;
-
-  if (!chainup->verify_finish_func (WOCKY_TLS_HANDLER (self), result, &error))
-    g_simple_async_result_take_error (self->priv->async_result, error);
-
-  complete_verify (self);
 }
 
 static void
@@ -194,18 +160,11 @@ server_tls_channel_closed_cb (IdleServerTLSChannel *channel,
 {
   IdleServerTLSManager *self = user_data;
 
-  DEBUG ("Server TLS channel closed.");
+  IDLE_DEBUG ("Server TLS channel closed.");
 
   if (channel == self->priv->channel)
     {
-      /* fallback to the old-style non interactive TLS verification */
-      DEBUG ("Channel closed, but unhandled, falling back...");
-
-      chainup->verify_async_func (WOCKY_TLS_HANDLER (self),
-          self->priv->tls_session, self->priv->peername,
-          self->priv->reference_identities, verify_fallback_cb, NULL);
-
-      self->priv->channel = NULL;
+      complete_verify (self);
     }
   else
     {
@@ -240,7 +199,7 @@ tls_certificate_accepted_cb (IdleTLSCertificate *certificate,
 {
   IdleServerTLSManager *self = user_data;
 
-  DEBUG ("TLS certificate accepted");
+  IDLE_DEBUG ("TLS certificate accepted");
 
   complete_verify (self);
 }
@@ -252,7 +211,7 @@ tls_certificate_rejected_cb (IdleTLSCertificate *certificate,
 {
   IdleServerTLSManager *self = user_data;
 
-  DEBUG ("TLS certificate rejected with rejections %p, length %u.",
+  IDLE_DEBUG ("TLS certificate rejected with rejections %p, length %u.",
       rejections, rejections->len);
 
   g_simple_async_result_set_error (self->priv->async_result,
@@ -261,91 +220,27 @@ tls_certificate_rejected_cb (IdleTLSCertificate *certificate,
   complete_verify (self);
 }
 
-static void
-extend_string_ptr_array (GPtrArray *array,
-    GStrv new_elements)
-{
-  gint i;
-
-  if (new_elements != NULL)
-    {
-      for (i = 0; new_elements[i] != NULL; i++)
-        {
-          if (!tp_str_empty (new_elements[i]))
-            g_ptr_array_add (array, g_strdup (new_elements[i]));
-        }
-    }
-}
-
-static void
-fill_reference_identities (IdleServerTLSManager *self,
+void
+idle_server_tls_manager_verify_async (IdleServerTLSManager *self,
+    GTlsCertificate *certificate,
     const gchar *peername,
-    GStrv original_extra_identities)
-{
-  GPtrArray *identities;
-  gchar *connect_server = NULL;
-  gchar *explicit_server = NULL;
-  GStrv extra_certificate_identities = NULL;
-
-  g_return_if_fail (self->priv->reference_identities == NULL);
-
-  g_object_get (self->priv->connection,
-      "connect-server", &connect_server,
-      "explicit-server", &explicit_server,
-      "extra-certificate-identities", &extra_certificate_identities,
-      NULL);
-
-  identities = g_ptr_array_new ();
-
-  /* The peer name, i.e, the domain part of the JID */
-  g_ptr_array_add (identities, g_strdup (peername));
-
-  /* The extra identities that the caller of verify_async() passed */
-  extend_string_ptr_array (identities, original_extra_identities);
-
-  /* The explicitly overridden server (if in use) */
-  if (!tp_str_empty (explicit_server) &&
-      !tp_strdiff (connect_server, explicit_server))
-    {
-      g_ptr_array_add (identities, g_strdup (explicit_server));
-    }
-
-  /* Extra identities added to the account as a result of user choices */
-  extend_string_ptr_array (identities, extra_certificate_identities);
-
-  /* Null terminate, since this is a gchar** */
-  g_ptr_array_add (identities, NULL);
-
-  self->priv->reference_identities = (GStrv) g_ptr_array_free (identities,
-      FALSE);
-
-  g_strfreev (extra_certificate_identities);
-  g_free (explicit_server);
-  g_free (connect_server);
-}
-
-static void
-idle_server_tls_manager_verify_async (WockyTLSHandler *handler,
-    WockyTLSSession *tls_session,
-    const gchar *peername,
-    GStrv extra_identities,
     GAsyncReadyCallback callback,
     gpointer user_data)
 {
-  IdleServerTLSManager *self = IDLE_SERVER_TLS_MANAGER (handler);
-  IdleTLSCertificate *certificate;
+  IdleTLSCertificate *cert;
   GSimpleAsyncResult *result;
+  const gchar *identities[] = { peername, NULL };
 
   g_return_if_fail (self->priv->async_result == NULL);
 
-  DEBUG ("verify_async() called on the IdleServerTLSManager.");
+  IDLE_DEBUG ("verify_async() called on the IdleServerTLSManager.");
 
   result = g_simple_async_result_new (G_OBJECT (self),
       callback, user_data, idle_server_tls_manager_verify_async);
 
   if (self->priv->connection == NULL)
     {
-      DEBUG ("connection already went away; failing immediately");
+      IDLE_DEBUG ("connection already went away; failing immediately");
       g_simple_async_result_set_error (result, TP_ERROR, TP_ERROR_CANCELLED,
           "The Telepathy connection has already been disconnected");
       g_simple_async_result_complete_in_idle (result);
@@ -355,37 +250,21 @@ idle_server_tls_manager_verify_async (WockyTLSHandler *handler,
 
   self->priv->async_result = result;
 
-  fill_reference_identities (self, peername, extra_identities);
-
-  if (!self->priv->interactive_tls)
-    {
-      DEBUG ("ignore-ssl-errors is set, fallback to non-interactive "
-          "verification.");
-
-      chainup->verify_async_func (WOCKY_TLS_HANDLER (self), tls_session,
-          peername, self->priv->reference_identities, verify_fallback_cb, NULL);
-
-      return;
-    }
-
-  self->priv->tls_session = g_object_ref (tls_session);
-  self->priv->peername = g_strdup (peername);
-
   self->priv->channel = g_object_new (IDLE_TYPE_SERVER_TLS_CHANNEL,
       "connection", self->priv->connection,
-      "tls-session", tls_session,
+      "certificate", certificate,
       "hostname", peername,
-      "reference-identities", self->priv->reference_identities,
+      "reference-identities", identities,
       NULL);
 
   g_signal_connect (self->priv->channel, "closed",
       G_CALLBACK (server_tls_channel_closed_cb), self);
 
-  certificate = idle_server_tls_channel_get_certificate (self->priv->channel);
+  cert = idle_server_tls_channel_get_certificate (self->priv->channel);
 
-  g_signal_connect (certificate, "accepted",
+  g_signal_connect (cert, "accepted",
       G_CALLBACK (tls_certificate_accepted_cb), self);
-  g_signal_connect (certificate, "rejected",
+  g_signal_connect (cert, "rejected",
       G_CALLBACK (tls_certificate_rejected_cb), self);
 
   /* emit NewChannel on the ChannelManager iface */
@@ -393,12 +272,18 @@ idle_server_tls_manager_verify_async (WockyTLSHandler *handler,
       (TpExportableChannel *) self->priv->channel, NULL);
 }
 
-static gboolean
-idle_server_tls_manager_verify_finish (WockyTLSHandler *self,
+gboolean
+idle_server_tls_manager_verify_finish (IdleServerTLSManager *self,
     GAsyncResult *result,
     GError **error)
 {
-  wocky_implement_finish_void (self, idle_server_tls_manager_verify_async);
+  if (g_simple_async_result_propagate_error (
+      G_SIMPLE_ASYNC_RESULT (result), error))
+    return FALSE;
+
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+    G_OBJECT(self), idle_server_tls_manager_verify_async), FALSE);
+  return TRUE;
 }
 
 static void
@@ -413,14 +298,13 @@ idle_server_tls_manager_dispose (GObject *object)
 {
   IdleServerTLSManager *self = IDLE_SERVER_TLS_MANAGER (object);
 
-  DEBUG ("%p", self);
+  IDLE_DEBUG ("%p", self);
 
   if (self->priv->dispose_has_run)
     return;
 
   self->priv->dispose_has_run = TRUE;
 
-  tp_clear_object (&self->priv->tls_session);
   tp_clear_object (&self->priv->connection);
 
   G_OBJECT_CLASS (idle_server_tls_manager_parent_class)->dispose (object);
@@ -431,12 +315,9 @@ idle_server_tls_manager_finalize (GObject *object)
 {
   IdleServerTLSManager *self = IDLE_SERVER_TLS_MANAGER (object);
 
-  DEBUG ("%p", self);
+  IDLE_DEBUG ("%p", self);
 
   close_all (self);
-
-  g_free (self->priv->peername);
-  g_strfreev (self->priv->reference_identities);
 
   G_OBJECT_CLASS (idle_server_tls_manager_parent_class)->finalize (object);
 }
@@ -451,17 +332,16 @@ idle_server_tls_manager_constructed (GObject *object)
   if (chain_up != NULL)
     chain_up (object);
 
-  DEBUG ("Server TLS Manager constructed");
+  IDLE_DEBUG ("Server TLS Manager constructed");
 
-  idle_signal_connect_weak (self->priv->connection, "status-changed",
-      G_CALLBACK (connection_status_changed_cb), object);
+  tp_g_signal_connect_object (self->priv->connection, "status-changed",
+      G_CALLBACK (connection_status_changed_cb), object, 0);
 }
 
 static void
 idle_server_tls_manager_class_init (IdleServerTLSManagerClass *klass)
 {
   GObjectClass *oclass = G_OBJECT_CLASS (klass);
-  WockyTLSHandlerClass *hclass = WOCKY_TLS_HANDLER_CLASS (klass);
   GParamSpec *pspec;
 
   g_type_class_add_private (klass, sizeof (IdleServerTLSManagerPrivate));
@@ -472,20 +352,11 @@ idle_server_tls_manager_class_init (IdleServerTLSManagerClass *klass)
   oclass->set_property = idle_server_tls_manager_set_property;
   oclass->get_property = idle_server_tls_manager_get_property;
 
-  hclass->verify_async_func = idle_server_tls_manager_verify_async;
-  hclass->verify_finish_func = idle_server_tls_manager_verify_finish;
-
-  pspec = g_param_spec_object ("connection", "IdleConnection object",
-      "Idle connection object that owns this manager.",
-      IDLE_TYPE_CONNECTION,
+  pspec = g_param_spec_object ("connection", "Base connection object",
+      "base connection object that owns this manager.",
+      TP_TYPE_BASE_CONNECTION,
       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
   g_object_class_install_property (oclass, PROP_CONNECTION, pspec);
-
-  pspec = g_param_spec_boolean ("interactive-tls", "Interactive TLS setting",
-      "Whether interactive TLS certificate verification is enabled.",
-      FALSE,
-      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-  g_object_class_install_property (oclass, PROP_INTERACTIVE_TLS, pspec);
 }
 
 static void

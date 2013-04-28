@@ -38,6 +38,12 @@ libidle_convenience_la_SOURCES = \
 	idle-server-connection.h \
 	idle-text.h \
 	idle-text.c \
+	server-tls-channel.c \
+	server-tls-channel.h \
+	server-tls-manager.c \
+	server-tls-manager.h \
+	tls-certificate.c \
+	tls-certificate.h \
 	$(NULL)
 
 nodist_libidle_convenience_la_SOURCES = \

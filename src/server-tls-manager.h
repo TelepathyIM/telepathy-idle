@@ -22,7 +22,6 @@
 #define __IDLE_SERVER_TLS_MANAGER_H__
 
 #include <glib-object.h>
-#include <wocky/wocky.h>
 #include <telepathy-glib/telepathy-glib.h>
 
 #include "extensions/extensions.h"
@@ -34,11 +33,11 @@ typedef struct _IdleServerTLSManagerClass IdleServerTLSManagerClass;
 typedef struct _IdleServerTLSManagerPrivate IdleServerTLSManagerPrivate;
 
 struct _IdleServerTLSManagerClass {
-  WockyTLSHandlerClass parent_class;
+  GObjectClass parent_class;
 };
 
 struct _IdleServerTLSManager {
-  WockyTLSHandler parent;
+  GObject parent;
   IdleServerTLSManagerPrivate *priv;
 };
 
@@ -68,6 +67,16 @@ void idle_server_tls_manager_get_rejection_details (
     gchar **dbus_error,
     GHashTable **details,
     TpConnectionStatusReason *reason);
+
+void idle_server_tls_manager_verify_async (IdleServerTLSManager *self,
+    GTlsCertificate *certificate,
+    const gchar *peername,
+    GAsyncReadyCallback callback,
+    gpointer user_data);
+
+gboolean idle_server_tls_manager_verify_finish (IdleServerTLSManager *self,
+    GAsyncResult *result,
+    GError **error);
 
 G_END_DECLS
 

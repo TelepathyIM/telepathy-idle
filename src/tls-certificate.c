@@ -24,8 +24,8 @@
 #include <telepathy-glib/telepathy-glib.h>
 #include <telepathy-glib/telepathy-glib-dbus.h>
 
-#define DEBUG_FLAG IDLE_DEBUG_TLS
-#include "debug.h"
+#define IDLE_DEBUG_FLAG IDLE_DEBUG_TLS
+#include "idle-debug.h"
 
 static void
 tls_certificate_iface_init (gpointer g_iface, gpointer iface_data);
@@ -260,7 +260,7 @@ idle_tls_certificate_accept (TpSvcAuthenticationTLSCertificate *cert,
 {
   IdleTLSCertificate *self = IDLE_TLS_CERTIFICATE (cert);
 
-  DEBUG ("Accept() called on the TLS certificate; current state %u",
+  IDLE_DEBUG ("Accept() called on the TLS certificate; current state %u",
       self->priv->cert_state);
 
   if (self->priv->cert_state != TP_TLS_CERTIFICATE_STATE_PENDING)
@@ -289,7 +289,7 @@ idle_tls_certificate_reject (TpSvcAuthenticationTLSCertificate *cert,
 {
   IdleTLSCertificate *self = IDLE_TLS_CERTIFICATE (cert);
 
-  DEBUG ("Reject() called on the TLS certificate with rejections %p, "
+  IDLE_DEBUG ("Reject() called on the TLS certificate with rejections %p, "
       "length %u; current state %u", rejections, rejections->len,
       self->priv->cert_state);
 
