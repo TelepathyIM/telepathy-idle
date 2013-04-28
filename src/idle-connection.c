@@ -48,6 +48,7 @@
 #include "idle-roomlist-manager.h"
 #include "idle-parser.h"
 #include "idle-server-connection.h"
+#include "server-tls-manager.h"
 
 #include "extensions/extensions.h"    /* Renaming */
 
@@ -199,6 +200,9 @@ struct _IdleConnectionPrivate {
 
 	/* so we can pop up a SASL channel asking for the password */
 	TpSimplePasswordManager *password_manager;
+
+	/* TLS channel */
+	IdleServerTLSManager *tls_manager;
 };
 
 static void _iface_create_handle_repos(TpBaseConnection *self, TpHandleRepoIface **repos);
@@ -533,6 +537,10 @@ static GPtrArray *_iface_create_channel_managers(TpBaseConnection *base) {
 	manager = g_object_new(IDLE_TYPE_ROOMLIST_MANAGER, "connection", self, NULL);
 	g_ptr_array_add(managers, manager);
 
+	priv->tls_manager = g_object_new (IDLE_TYPE_SERVER_TLS_MANAGER,
+		"connection", self, NULL);
+	g_ptr_array_add(managers, priv->tls_manager);
+
 	return managers;
 }
 
@@ -742,7 +750,7 @@ static void _start_connecting_continue(IdleConnection *conn) {
 		priv->username = g_strdup(g_get_user_name());
 	}
 
-	sconn = g_object_new(IDLE_TYPE_SERVER_CONNECTION, "host", priv->server, "port", priv->port, NULL);
+	sconn = g_object_new(IDLE_TYPE_SERVER_CONNECTION, "host", priv->server, "port", priv->port, "tls-manager", priv->tls_manager, NULL);
 	if (priv->use_ssl)
 		idle_server_connection_set_tls(sconn, TRUE);
 
