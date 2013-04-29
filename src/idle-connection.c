@@ -800,13 +800,6 @@ static void sconn_status_changed_cb(IdleServerConnection *sconn, IdleServerConne
 			break;
 
 		case SERVER_CONNECTION_STATE_CONNECTED:
-			if (priv->keepalive_interval != 0 && priv->keepalive_timeout == 0)
-				priv->keepalive_timeout = g_timeout_add_seconds(priv->keepalive_interval, keepalive_timeout_cb, conn);
-
-			if (g_queue_get_length(priv->msg_queue) > 0) {
-				IDLE_DEBUG("we had messages in queue, start unloading them now");
-				idle_connection_add_queue_timeout (conn);
-			}
 			break;
 
 		default:
@@ -1227,11 +1220,21 @@ static void send_quit_request(IdleConnection *conn) {
 
 static void connection_connect_cb(IdleConnection *conn, gboolean success, TpConnectionStatusReason fail_reason) {
 	TpBaseConnection *base = TP_BASE_CONNECTION(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 
-	if (success)
+	if (success) {
 		tp_base_connection_change_status(base, TP_CONNECTION_STATUS_CONNECTED, TP_CONNECTION_STATUS_REASON_REQUESTED);
-	else
+
+		if (priv->keepalive_interval != 0 && priv->keepalive_timeout == 0)
+			priv->keepalive_timeout = g_timeout_add_seconds(priv->keepalive_interval, keepalive_timeout_cb, conn);
+
+		if (g_queue_get_length(priv->msg_queue) > 0) {
+			IDLE_DEBUG("we had messages in queue, start unloading them now");
+			idle_connection_add_queue_timeout (conn);
+		}
+	} else {
 		tp_base_connection_change_status(base, TP_CONNECTION_STATUS_DISCONNECTED, fail_reason);
+	}
 }
 
 static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusReason reason) {
