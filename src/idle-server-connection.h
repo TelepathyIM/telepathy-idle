@@ -31,12 +31,6 @@ typedef struct _IdleServerConnection IdleServerConnection;
 typedef struct _IdleServerConnectionClass IdleServerConnectionClass;
 
 typedef enum {
-	SERVER_CONNECTION_STATE_NOT_CONNECTED,
-	SERVER_CONNECTION_STATE_CONNECTING,
-	SERVER_CONNECTION_STATE_CONNECTED
-} IdleServerConnectionState;
-
-typedef enum {
 	SERVER_CONNECTION_STATE_REASON_ERROR,
 	SERVER_CONNECTION_STATE_REASON_REQUESTED
 } IdleServerConnectionStateReason;
@@ -77,7 +71,7 @@ void idle_server_connection_force_disconnect(IdleServerConnection *conn);
 gboolean idle_server_connection_disconnect_finish(IdleServerConnection *conn, GAsyncResult *result, GError **error);
 void idle_server_connection_send_async(IdleServerConnection *conn, const gchar *cmd, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data);
 gboolean idle_server_connection_send_finish(IdleServerConnection *conn, GAsyncResult *result, GError **error);
-IdleServerConnectionState idle_server_connection_get_state(IdleServerConnection *conn);
+gboolean idle_server_connection_is_connected(IdleServerConnection *conn);
 void idle_server_connection_set_tls(IdleServerConnection *conn, gboolean tls);
 
 G_END_DECLS

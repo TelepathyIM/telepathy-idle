@@ -52,6 +52,12 @@ enum {
 	PROP_TLS_MANAGER
 };
 
+typedef enum {
+	SERVER_CONNECTION_STATE_NOT_CONNECTED,
+	SERVER_CONNECTION_STATE_CONNECTING,
+	SERVER_CONNECTION_STATE_CONNECTED
+} IdleServerConnectionState;
+
 struct _IdleServerConnectionPrivate {
 	gchar *host;
 	guint16 port;
@@ -599,9 +605,10 @@ gboolean idle_server_connection_send_finish(IdleServerConnection *conn, GAsyncRe
 	return !g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT(result), error);
 }
 
-IdleServerConnectionState idle_server_connection_get_state(IdleServerConnection *conn) {
+gboolean idle_server_connection_is_connected(IdleServerConnection *conn) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
-	return priv->state;
+
+	return priv->state == SERVER_CONNECTION_STATE_CONNECTED;
 }
 
 void idle_server_connection_set_tls(IdleServerConnection *conn, gboolean tls) {
