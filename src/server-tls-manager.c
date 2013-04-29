@@ -164,6 +164,12 @@ server_tls_channel_closed_cb (IdleServerTLSChannel *channel,
 
   if (channel == self->priv->channel)
     {
+      IDLE_DEBUG ("Channel closed before being handled. Failing verification");
+
+      g_simple_async_result_set_error (self->priv->async_result,
+          IDLE_SERVER_TLS_ERROR, 0, "TLS verification channel closed");
+
+      self->priv->channel = NULL;
       complete_verify (self);
     }
   else
