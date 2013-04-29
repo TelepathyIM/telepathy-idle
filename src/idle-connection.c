@@ -223,7 +223,7 @@ static IdleParserHandlerResult _version_privmsg_handler(IdleParser *parser, Idle
 static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _whois_user_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 
-static void sconn_status_changed_cb(IdleServerConnection *sconn, IdleServerConnectionState state, IdleServerConnectionStateReason reason, IdleConnection *conn);
+static void sconn_disconnected_cb(IdleServerConnection *sconn, IdleServerConnectionStateReason reason, IdleConnection *conn);
 static void sconn_received_cb(IdleServerConnection *sconn, gchar *raw_msg, IdleConnection *conn);
 
 static void irc_handshakes(IdleConnection *conn);
@@ -711,6 +711,7 @@ static void _connection_connect_ready(GObject *source_object, GAsyncResult *res,
 	}
 
 	priv->conn = sconn;
+	priv->sconn_status = SERVER_CONNECTION_STATE_CONNECTED;
 
 	g_signal_connect(sconn, "received", (GCallback)(sconn_received_cb), conn);
 
@@ -754,25 +755,22 @@ static void _start_connecting_continue(IdleConnection *conn) {
 	if (priv->use_ssl)
 		idle_server_connection_set_tls(sconn, TRUE);
 
-	g_signal_connect(sconn, "status-changed", (GCallback)(sconn_status_changed_cb), conn);
+	g_signal_connect(sconn, "disconnected", (GCallback)(sconn_disconnected_cb), conn);
 
 	idle_server_connection_connect_async(sconn, NULL, _connection_connect_ready, conn);
 }
 
 static gboolean keepalive_timeout_cb(gpointer user_data);
 
-static void sconn_status_changed_cb(IdleServerConnection *sconn, IdleServerConnectionState state, IdleServerConnectionStateReason reason, IdleConnection *conn) {
+static void sconn_disconnected_cb(IdleServerConnection *sconn, IdleServerConnectionStateReason reason, IdleConnection *conn) {
 	IdleConnectionPrivate *priv = conn->priv;
 	TpConnectionStatusReason tp_reason;
 
 	/* cancel scheduled forced disconnect since we are now disconnected */
-	if (state == SERVER_CONNECTION_STATE_NOT_CONNECTED &&
-		priv->force_disconnect_id) {
+	if (priv->force_disconnect_id) {
 		g_source_remove(priv->force_disconnect_id);
 		priv->force_disconnect_id = 0;
 	}
-
-	IDLE_DEBUG("called with state %u", state);
 
 	switch (reason) {
 		case SERVER_CONNECTION_STATE_REASON_ERROR:
@@ -791,23 +789,8 @@ static void sconn_status_changed_cb(IdleServerConnection *sconn, IdleServerConne
 	if (priv->quitting)
 		tp_reason = TP_CONNECTION_STATUS_REASON_REQUESTED;
 
-	switch (state) {
-		case SERVER_CONNECTION_STATE_NOT_CONNECTED:
-			connection_disconnect_cb(conn, tp_reason);
-			break;
-
-		case SERVER_CONNECTION_STATE_CONNECTING:
-			break;
-
-		case SERVER_CONNECTION_STATE_CONNECTED:
-			break;
-
-		default:
-			g_assert_not_reached();
-			break;
-	}
-
-	priv->sconn_status = state;
+	connection_disconnect_cb(conn, tp_reason);
+	priv->sconn_status = SERVER_CONNECTION_STATE_NOT_CONNECTED;
 }
 
 static void sconn_received_cb(IdleServerConnection *sconn, gchar *raw_msg, IdleConnection *conn) {

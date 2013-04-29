@@ -41,7 +41,7 @@ typedef struct _IdleServerConnectionPrivate IdleServerConnectionPrivate;
 G_DEFINE_TYPE(IdleServerConnection, idle_server_connection, G_TYPE_OBJECT)
 
 enum {
-	STATUS_CHANGED,
+	DISCONNECTED,
 	RECEIVED,
 	LAST_SIGNAL
 };
@@ -207,13 +207,13 @@ static void idle_server_connection_class_init(IdleServerConnectionClass *klass) 
 
 	g_object_class_install_property(object_class, PROP_TLS_MANAGER, pspec);
 
-	signals[STATUS_CHANGED] = g_signal_new("status-changed",
+	signals[DISCONNECTED] = g_signal_new("disconnected",
 						G_OBJECT_CLASS_TYPE(klass),
 						G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
 						0,
 						NULL, NULL,
 						g_cclosure_marshal_generic,
-						G_TYPE_NONE, 2, G_TYPE_UINT, G_TYPE_UINT);
+						G_TYPE_NONE, 1, G_TYPE_UINT);
 
 	signals[RECEIVED] = g_signal_new("received",
 						G_OBJECT_CLASS_TYPE(klass),
@@ -231,10 +231,11 @@ static void change_state(IdleServerConnection *conn, IdleServerConnectionState s
 	if (state == priv->state)
 		return;
 
-	IDLE_DEBUG("emitting status-changed, state %u, reason %u", state, reason);
-
+	IDLE_DEBUG("moving to state %u, reason %u", state, reason);
 	priv->state = state;
-	g_signal_emit(conn, signals[STATUS_CHANGED], 0, state, reason);
+
+	if (state == SERVER_CONNECTION_STATE_NOT_CONNECTED)
+		g_signal_emit(conn, signals[DISCONNECTED], 0, reason);
 }
 
 static void _input_stream_read(IdleServerConnection *conn, GInputStream *input_stream, GAsyncReadyCallback callback) {
