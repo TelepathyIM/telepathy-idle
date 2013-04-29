@@ -146,7 +146,11 @@ struct _IdleConnectionPrivate {
 	 * network connection
 	 */
 	IdleServerConnection *conn;
-	guint sconn_status;
+	/*
+	 * TRUE if 'conn' is connected to the server. (This just represents the TCP
+	 * stream; not whether we are authenticated.)
+	 */
+	gboolean sconn_connected;
 
 	/* When we sent a PING to the server which it hasn't PONGed for yet, or 0 if
 	 * there isn't a PING outstanding.
@@ -246,7 +250,7 @@ static void idle_connection_init(IdleConnection *obj) {
 	IdleConnectionPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (obj, IDLE_TYPE_CONNECTION, IdleConnectionPrivate);
 
 	obj->priv = priv;
-	priv->sconn_status = SERVER_CONNECTION_STATE_NOT_CONNECTED;
+	priv->sconn_connected = FALSE;
 	priv->msg_queue = g_queue_new();
 
 	tp_contacts_mixin_init ((GObject *) obj, G_STRUCT_OFFSET (IdleConnection, contacts));
@@ -711,7 +715,7 @@ static void _connection_connect_ready(GObject *source_object, GAsyncResult *res,
 	}
 
 	priv->conn = sconn;
-	priv->sconn_status = SERVER_CONNECTION_STATE_CONNECTED;
+	priv->sconn_connected = TRUE;
 
 	g_signal_connect(sconn, "received", (GCallback)(sconn_received_cb), conn);
 
@@ -790,7 +794,7 @@ static void sconn_disconnected_cb(IdleServerConnection *sconn, IdleServerConnect
 		tp_reason = TP_CONNECTION_STATUS_REASON_REQUESTED;
 
 	connection_disconnect_cb(conn, tp_reason);
-	priv->sconn_status = SERVER_CONNECTION_STATE_NOT_CONNECTED;
+	priv->sconn_connected = FALSE;
 }
 
 static void sconn_received_cb(IdleServerConnection *sconn, gchar *raw_msg, IdleConnection *conn) {
@@ -806,7 +810,7 @@ static gboolean keepalive_timeout_cb(gpointer user_data) {
 	gchar cmd[IRC_MSG_MAXLEN + 1];
 	gint64 now;
 
-	if (priv->sconn_status != SERVER_CONNECTION_STATE_CONNECTED ||
+	if (!priv->sconn_connected ||
 	    priv->quitting) {
 		priv->keepalive_timeout = 0;
 		return FALSE;
@@ -866,7 +870,7 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 
 	IDLE_DEBUG("called");
 
-	if (priv->sconn_status != SERVER_CONNECTION_STATE_CONNECTED) {
+	if (!priv->sconn_connected) {
 		IDLE_DEBUG("connection was not connected!");
 
 		priv->msg_queue_timeout = 0;
