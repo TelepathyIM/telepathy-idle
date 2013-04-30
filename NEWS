@@ -10,7 +10,7 @@ The “secure by default“ release.
 Fixes:
 
 • Validate TLS certificates properly, preventing man-in-the-middle attacks.
-  (fd.o#63810, Simon)
+  (CVE-2007-6746, fd.o#63810; Simon)
 
   This will be a regression for users of IRC-over-SSL servers/proxies that
   do not have a certificate trusted by system-wide CA configuration; they
