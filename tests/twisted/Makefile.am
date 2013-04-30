@@ -1,10 +1,12 @@
 TWISTED_TESTS = \
 		cm/protocol.py \
+		connect/connect-close-ssl.py \
 		connect/connect-success.py \
 		connect/connect-success-ssl.py \
 		connect/connect-reject-ssl.py \
 		connect/connect-fail.py \
 		connect/connect-fail-ssl.py \
+		connect/disconnect-during-cert-verification.py \
 		connect/ping.py \
 		connect/server-quit-ignore.py \
 		connect/server-quit-noclose.py \
