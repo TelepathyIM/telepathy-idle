@@ -152,6 +152,9 @@ struct _IdleConnectionPrivate {
 	 */
 	gboolean sconn_connected;
 
+	/* Used for idle_server_connection_connect_async(). */
+	GCancellable *connect_cancellable;
+
 	/* When we sent a PING to the server which it hasn't PONGed for yet, or 0 if
 	 * there isn't a PING outstanding.
 	 */
@@ -408,6 +411,8 @@ static void idle_connection_dispose (GObject *object) {
 		priv->conn = NULL;
 	}
 
+	g_clear_object (&priv->connect_cancellable);
+
 	if (priv->queued_aliases_owners)
 		tp_handle_set_destroy(priv->queued_aliases_owners);
 
@@ -620,7 +625,8 @@ static void _iface_shut_down(TpBaseConnection *base) {
 	if (priv->conn == NULL) {
 		g_idle_add(_finish_shutdown_idle_func, self);
 	} else if (!priv->sconn_connected) {
-		IDLE_DEBUG("TODO: cancel connecting");
+		IDLE_DEBUG("cancelling connection");
+		g_cancellable_cancel (priv->connect_cancellable);
 	} else {
 		idle_server_connection_disconnect_async(priv->conn, NULL, NULL, NULL);
 	}
@@ -762,7 +768,9 @@ static void _start_connecting_continue(IdleConnection *conn) {
 	g_signal_connect(sconn, "disconnected", (GCallback)(sconn_disconnected_cb), conn);
 
 	priv->conn = sconn;
-	idle_server_connection_connect_async(sconn, NULL, _connection_connect_ready, conn);
+	g_warn_if_fail (priv->connect_cancellable == NULL);
+	priv->connect_cancellable = g_cancellable_new ();
+	idle_server_connection_connect_async(sconn, priv->connect_cancellable, _connection_connect_ready, conn);
 }
 
 static gboolean keepalive_timeout_cb(gpointer user_data);

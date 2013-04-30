@@ -6,6 +6,7 @@ TWISTED_TESTS = \
 		connect/connect-reject-ssl.py \
 		connect/connect-fail.py \
 		connect/connect-fail-ssl.py \
+		connect/disconnect-before-socket-connected.py \
 		connect/disconnect-during-cert-verification.py \
 		connect/ping.py \
 		connect/server-quit-ignore.py \

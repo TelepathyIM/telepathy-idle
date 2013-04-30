@@ -431,8 +431,7 @@ void idle_server_connection_connect_async(IdleServerConnection *conn, GCancellab
 
 	result = g_simple_async_result_new(G_OBJECT(conn), callback, user_data, idle_server_connection_connect_async);
 
-	task = g_task_new (conn, cancellable,
-		_connect_to_host_ready, result);
+	task = g_task_new (conn, cancellable, _connect_to_host_ready, result);
 	g_task_run_in_thread (task, _connect_in_thread);
 
 	change_state(conn, SERVER_CONNECTION_STATE_CONNECTING, SERVER_CONNECTION_STATE_REASON_REQUESTED);
