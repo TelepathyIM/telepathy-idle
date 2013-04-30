@@ -285,6 +285,7 @@ cleanup:
 }
 
 static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
+	GTask *task = G_TASK (res);
 	GSimpleAsyncResult *result = G_SIMPLE_ASYNC_RESULT(user_data);
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(g_async_result_get_source_object(G_ASYNC_RESULT(result)));
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
@@ -295,7 +296,7 @@ static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gp
 	gint socket_fd;
 	GError *error = NULL;
 
-	socket_connection = g_task_propagate_pointer (G_TASK (res), &error);
+	socket_connection = g_task_propagate_pointer (task, &error);
 	if (socket_connection == NULL) {
 		IDLE_DEBUG("g_socket_client_connect_to_host failed: %s", error->message);
 		g_simple_async_result_set_error(result, TP_ERROR, TP_ERROR_NETWORK_ERROR, "%s", error->message);
@@ -322,6 +323,7 @@ static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gp
 cleanup:
 	g_simple_async_result_complete(result);
 	g_object_unref(result);
+	g_object_unref(task);
 }
 
 
