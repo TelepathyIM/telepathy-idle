@@ -593,7 +593,7 @@ static void _iface_disconnected(TpBaseConnection *self) {
 	/* we never got around to actually creating the connection
 	 * iface object because we were still trying to connect, so
 	 * don't try to send any traffic down it */
-	if (priv->conn == NULL) {
+	if (!priv->sconn_connected) {
 		return;
 	}
 
@@ -619,6 +619,8 @@ static void _iface_shut_down(TpBaseConnection *base) {
 	 * don't try to send any traffic down it */
 	if (priv->conn == NULL) {
 		g_idle_add(_finish_shutdown_idle_func, self);
+	} else if (!priv->sconn_connected) {
+		IDLE_DEBUG("TODO: cancel connecting");
 	} else {
 		idle_server_connection_disconnect_async(priv->conn, NULL, NULL, NULL);
 	}
@@ -710,11 +712,9 @@ static void _connection_connect_ready(GObject *source_object, GAsyncResult *res,
 		IDLE_DEBUG("idle_server_connection_connect failed: %s", error->message);
 		_connection_disconnect_with_gerror(conn, TP_CONNECTION_STATUS_REASON_NETWORK_ERROR, "debug-message", error);
 		g_error_free(error);
-		g_object_unref(sconn);
 		return;
 	}
 
-	priv->conn = sconn;
 	priv->sconn_connected = TRUE;
 
 	g_signal_connect(sconn, "received", (GCallback)(sconn_received_cb), conn);
@@ -761,6 +761,7 @@ static void _start_connecting_continue(IdleConnection *conn) {
 
 	g_signal_connect(sconn, "disconnected", (GCallback)(sconn_disconnected_cb), conn);
 
+	priv->conn = sconn;
 	idle_server_connection_connect_async(sconn, NULL, _connection_connect_ready, conn);
 }
 
@@ -793,8 +794,8 @@ static void sconn_disconnected_cb(IdleServerConnection *sconn, IdleServerConnect
 	if (priv->quitting)
 		tp_reason = TP_CONNECTION_STATUS_REASON_REQUESTED;
 
-	connection_disconnect_cb(conn, tp_reason);
 	priv->sconn_connected = FALSE;
+	connection_disconnect_cb(conn, tp_reason);
 }
 
 static void sconn_received_cb(IdleServerConnection *sconn, gchar *raw_msg, IdleConnection *conn) {
