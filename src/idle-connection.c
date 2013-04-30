@@ -505,7 +505,7 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 	param_spec = g_param_spec_string("username", "User name", "The username of the user connecting to IRC", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property(object_class, PROP_USERNAME, param_spec);
 
-	param_spec = g_param_spec_string("charset", "Character set", "The character set to use to communicate with the outside world", "NULL", G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
+	param_spec = g_param_spec_string("charset", "Character set", "The character set to use to communicate with the outside world", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
 	g_object_class_install_property(object_class, PROP_CHARSET, param_spec);
 
 	param_spec = g_param_spec_uint("keepalive-interval", "Keepalive interval", "Seconds between keepalive packets, or 0 to disable", 0, G_MAXUINT, DEFAULT_KEEPALIVE_INTERVAL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
