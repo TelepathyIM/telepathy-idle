@@ -394,7 +394,7 @@ static void _connect_in_thread (GTask *task, gpointer source_object, gpointer ta
 	socket_connection = g_socket_client_connect_to_host (priv->socket_client, priv->host, priv->port, cancellable, &error);
 	g_signal_handler_disconnect (priv->socket_client, event_id);
 	if (socket_connection != NULL)
-		g_task_return_pointer (task, socket_connection, NULL);
+		g_task_return_pointer (task, socket_connection, g_object_unref);
 	else
 		g_task_return_error (task, error);
 }
