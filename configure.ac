@@ -86,16 +86,16 @@ AC_HEADER_STDC([])
 AC_C_INLINE
 
 AC_DEFINE(GLIB_VERSION_MIN_REQUIRED, GLIB_VERSION_2_28, [Ignore post 2.28 deprecations])
-AC_DEFINE(GLIB_VERSION_MAX_ALLOWED, GLIB_VERSION_2_30, [Prevent post 2.30 APIs])
+AC_DEFINE(GLIB_VERSION_MAX_ALLOWED, GLIB_VERSION_2_32, [Prevent post 2.32 APIs])
 
 PKG_CHECK_MODULES([GLIB],
-  [glib-2.0 >= 2.30.0, gobject-2.0 >= 2.30.0, gio-2.0 >= 2.30.0 ])
+  [glib-2.0 >= 2.32.0, gobject-2.0 >= 2.32.0, gio-2.0 >= 2.32.0 ])
 
 PKG_CHECK_MODULES([DBUS], [dbus-1 >= 0.51, dbus-glib-1 >= 0.51])
 
 AC_DEFINE(TP_VERSION_MIN_REQUIRED, TP_VERSION_0_18, [Ignore post 0.18 deprecations])
 AC_DEFINE(TP_VERSION_MAX_ALLOWED, TP_VERSION_0_20, [Prevent post 0.20 APIs])
-PKG_CHECK_MODULES([TELEPATHY], [telepathy-glib >= 0.15.9])
+PKG_CHECK_MODULES([TELEPATHY], [telepathy-glib >= 0.20])
 
 dnl Check for code generation tools
 XSLTPROC=
