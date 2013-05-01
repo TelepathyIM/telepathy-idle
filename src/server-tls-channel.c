@@ -174,7 +174,9 @@ idle_server_tls_channel_constructed (GObject *object)
       GByteArray *content;
       GArray *c;
 
-      g_object_get (cert, "certificate", &content, NULL);
+      g_object_get (cert,
+          "certificate", &content,
+          NULL);
       c = g_array_sized_new (TRUE, TRUE, sizeof (guchar), content->len);
       g_array_append_vals (c, content->data, content->len);
       g_ptr_array_add (certificates, c);

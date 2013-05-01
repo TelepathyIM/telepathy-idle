@@ -547,7 +547,8 @@ static GPtrArray *_iface_create_channel_managers(TpBaseConnection *base) {
 	g_ptr_array_add(managers, manager);
 
 	priv->tls_manager = g_object_new (IDLE_TYPE_SERVER_TLS_MANAGER,
-		"connection", self, NULL);
+		"connection", self,
+                NULL);
 	g_ptr_array_add(managers, priv->tls_manager);
 
 	return managers;
@@ -761,7 +762,11 @@ static void _start_connecting_continue(IdleConnection *conn) {
 		priv->username = g_strdup(g_get_user_name());
 	}
 
-	sconn = g_object_new(IDLE_TYPE_SERVER_CONNECTION, "host", priv->server, "port", priv->port, "tls-manager", priv->tls_manager, NULL);
+	sconn = g_object_new(IDLE_TYPE_SERVER_CONNECTION,
+            "host", priv->server,
+            "port", priv->port,
+            "tls-manager", priv->tls_manager,
+            NULL);
 	if (priv->use_ssl)
 		idle_server_connection_set_tls(sconn, TRUE);
 
