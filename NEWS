@@ -1,6 +1,13 @@
-telepathy-idle 0.1.16 (UNRELEASED)
+telepathy-idle 0.1.16 (2013-05-01)
 ==================================
 
+The "smörgåsbord of crashes" release.
+
+Enhancements:
+
+• Add support for interactive TLS certificate validation, fixing the
+  regression in 0.1.15 that self-signed certificates could not be used
+  any more. (fd.o #57130; Sjoerd, Will)
 
 telepathy-idle 0.1.15 (2013-04-24)
 ==================================
