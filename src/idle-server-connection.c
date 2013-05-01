@@ -206,10 +206,8 @@ static void idle_server_connection_class_init(IdleServerConnectionClass *klass) 
 	pspec = g_param_spec_object("tls-manager", "TLS Manager",
 							  "TLS manager for interactive certificate checking",
 							  IDLE_TYPE_SERVER_TLS_MANAGER,
-							  G_PARAM_READABLE|
-							  G_PARAM_WRITABLE|
-							  G_PARAM_STATIC_NICK|
-							  G_PARAM_STATIC_BLURB);
+							  G_PARAM_READWRITE|
+							  G_PARAM_STATIC_STRINGS);
 
 	g_object_class_install_property(object_class, PROP_TLS_MANAGER, pspec);
 
