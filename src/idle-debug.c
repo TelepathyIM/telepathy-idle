@@ -34,6 +34,7 @@ static GDebugKey _keys[] = {
 	{"network", IDLE_DEBUG_NETWORK},
 	{"parser", IDLE_DEBUG_PARSER},
 	{"text", IDLE_DEBUG_TEXT},
+	{"tls", IDLE_DEBUG_TLS},
 	{NULL, 0}
 };
 

@@ -31,6 +31,7 @@
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_NETWORK
 #include "idle-connection.h"
+#include "server-tls-manager.h"
 #include "idle-debug.h"
 
 typedef struct _IdleServerConnectionPrivate IdleServerConnectionPrivate;
@@ -40,15 +41,22 @@ typedef struct _IdleServerConnectionPrivate IdleServerConnectionPrivate;
 G_DEFINE_TYPE(IdleServerConnection, idle_server_connection, G_TYPE_OBJECT)
 
 enum {
-	STATUS_CHANGED,
+	DISCONNECTED,
 	RECEIVED,
 	LAST_SIGNAL
 };
 
 enum {
 	PROP_HOST = 1,
-	PROP_PORT
+	PROP_PORT,
+	PROP_TLS_MANAGER
 };
+
+typedef enum {
+	SERVER_CONNECTION_STATE_NOT_CONNECTED,
+	SERVER_CONNECTION_STATE_CONNECTING,
+	SERVER_CONNECTION_STATE_CONNECTED
+} IdleServerConnectionState;
 
 struct _IdleServerConnectionPrivate {
 	gchar *host;
@@ -66,6 +74,8 @@ struct _IdleServerConnectionPrivate {
 	GCancellable *cancellable;
 
 	IdleServerConnectionState state;
+	IdleServerTLSManager *tls_manager;
+	GAsyncQueue *certificate_queue;
 };
 
 static GObject *idle_server_connection_constructor(GType type, guint n_props, GObjectConstructParam *props);
@@ -81,6 +91,7 @@ static void idle_server_connection_init(IdleServerConnection *conn) {
 	priv->socket_client = g_socket_client_new();
 
 	priv->state = SERVER_CONNECTION_STATE_NOT_CONNECTED;
+	priv->certificate_queue = g_async_queue_new ();
 }
 
 static GObject *idle_server_connection_constructor(GType type, guint n_props, GObjectConstructParam *props) {
@@ -105,6 +116,7 @@ static void idle_server_connection_finalize(GObject *obj) {
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(obj);
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 
+	g_async_queue_unref (priv->certificate_queue);
 	g_free(priv->host);
 }
 
@@ -119,6 +131,10 @@ static void idle_server_connection_get_property(GObject 	*obj, guint prop_id, GV
 
 		case PROP_PORT:
 			g_value_set_uint(value, priv->port);
+			break;
+
+		case PROP_TLS_MANAGER:
+			g_value_set_object(value, priv->tls_manager);
 			break;
 
 		default:
@@ -142,6 +158,10 @@ static void idle_server_connection_set_property(GObject 	*obj,
 
 		case PROP_PORT:
 			priv->port = (guint16) g_value_get_uint(value);
+			break;
+
+		case PROP_TLS_MANAGER:
+			priv->tls_manager = g_value_dup_object(value);
 			break;
 
 		default:
@@ -183,13 +203,21 @@ static void idle_server_connection_class_init(IdleServerConnectionClass *klass) 
 
 	g_object_class_install_property(object_class, PROP_PORT, pspec);
 
-	signals[STATUS_CHANGED] = g_signal_new("status-changed",
+	pspec = g_param_spec_object("tls-manager", "TLS Manager",
+							  "TLS manager for interactive certificate checking",
+							  IDLE_TYPE_SERVER_TLS_MANAGER,
+							  G_PARAM_READWRITE|
+							  G_PARAM_STATIC_STRINGS);
+
+	g_object_class_install_property(object_class, PROP_TLS_MANAGER, pspec);
+
+	signals[DISCONNECTED] = g_signal_new("disconnected",
 						G_OBJECT_CLASS_TYPE(klass),
 						G_SIGNAL_RUN_LAST | G_SIGNAL_DETAILED,
 						0,
 						NULL, NULL,
 						g_cclosure_marshal_generic,
-						G_TYPE_NONE, 2, G_TYPE_UINT, G_TYPE_UINT);
+						G_TYPE_NONE, 1, G_TYPE_UINT);
 
 	signals[RECEIVED] = g_signal_new("received",
 						G_OBJECT_CLASS_TYPE(klass),
@@ -207,10 +235,11 @@ static void change_state(IdleServerConnection *conn, IdleServerConnectionState s
 	if (state == priv->state)
 		return;
 
-	IDLE_DEBUG("emitting status-changed, state %u, reason %u", state, reason);
-
+	IDLE_DEBUG("moving to state %u, reason %u", state, reason);
 	priv->state = state;
-	g_signal_emit(conn, signals[STATUS_CHANGED], 0, state, reason);
+
+	if (state == SERVER_CONNECTION_STATE_NOT_CONNECTED)
+		g_signal_emit(conn, signals[DISCONNECTED], 0, reason);
 }
 
 static void _input_stream_read(IdleServerConnection *conn, GInputStream *input_stream, GAsyncReadyCallback callback) {
@@ -254,7 +283,7 @@ cleanup:
 }
 
 static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
-	GSocketClient *socket_client = G_SOCKET_CLIENT(source_object);
+	GSimpleAsyncResult *task = G_SIMPLE_ASYNC_RESULT (res);
 	GSimpleAsyncResult *result = G_SIMPLE_ASYNC_RESULT(user_data);
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(g_async_result_get_source_object(G_ASYNC_RESULT(result)));
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
@@ -265,8 +294,7 @@ static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gp
 	gint socket_fd;
 	GError *error = NULL;
 
-	socket_connection = g_socket_client_connect_to_host_finish(socket_client, res, &error);
-	if (socket_connection == NULL) {
+	if (g_simple_async_result_propagate_error (task, &error)) {
 		IDLE_DEBUG("g_socket_client_connect_to_host failed: %s", error->message);
 		g_simple_async_result_set_error(result, TP_ERROR, TP_ERROR_NETWORK_ERROR, "%s", error->message);
 		g_error_free(error);
@@ -275,6 +303,7 @@ static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gp
 		goto cleanup;
 	}
 
+	socket_connection = g_object_ref (g_simple_async_result_get_op_res_gpointer (task));
 	socket_ = g_socket_connection_get_socket(socket_connection);
 	g_socket_set_keepalive(socket_, TRUE);
 
@@ -292,11 +321,87 @@ static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gp
 cleanup:
 	g_simple_async_result_complete(result);
 	g_object_unref(result);
+	g_object_unref(task);
+}
+
+
+#define CERT_ACCEPTED 1
+#define CERT_REJECTED 2
+struct CertData {
+	IdleServerConnection *self;
+	GTlsCertificate *certificate;
+};
+
+static void _certificate_verified (GObject *source, GAsyncResult *res, gpointer user_data)
+{
+	IdleServerConnection *self = user_data;
+	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(self);
+	gboolean ret;
+
+	ret = idle_server_tls_manager_verify_finish (IDLE_SERVER_TLS_MANAGER (source), res, NULL);
+	g_async_queue_push (priv->certificate_queue, GINT_TO_POINTER (ret ?  CERT_ACCEPTED : CERT_REJECTED));
+}
+
+static gboolean
+_check_certificate_interactively (gpointer data) {
+	struct CertData *d = data;
+	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(d->self);
+
+	idle_server_tls_manager_verify_async (priv->tls_manager, d->certificate, priv->host, _certificate_verified, d->self);
+	return FALSE;
+}
+
+static gboolean _accept_certificate_request (GTlsConnection *tls_connection, GTlsCertificate *peer_cert, GTlsCertificateFlags errors, IdleServerConnection *conn)
+{
+	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
+	struct CertData d;
+	gpointer result;
+
+	/* Requested to check the extra errors from an ssl certificate,
+	 * Need to bounce this back into the main thread so we can ask the UI
+	 * on dbus */
+	IDLE_DEBUG ("Requested to validate certificate");
+
+	d.self = conn;
+	d.certificate = peer_cert;
+
+	g_idle_add (_check_certificate_interactively, &d);
+	result = g_async_queue_pop (priv->certificate_queue);
+
+	return GPOINTER_TO_INT (result) == CERT_ACCEPTED;
+}
+
+static void _connect_event_cb (GSocketClient *client, GSocketClientEvent event, GSocketConnectable *connectable, GIOStream *connection, gpointer user_data)
+{
+	if (event != G_SOCKET_CLIENT_TLS_HANDSHAKING)
+		return;
+
+	g_signal_connect (connection, "accept-certificate", G_CALLBACK (_accept_certificate_request), user_data);
+}
+
+static void _connect_in_thread (GSimpleAsyncResult *task, GObject *source_object, GCancellable *cancellable)
+{
+	IdleServerConnection *conn = IDLE_SERVER_CONNECTION (source_object);
+	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
+	GError *error = NULL;
+	GSocketConnection *socket_connection;
+	gulong event_id;
+
+	event_id = g_signal_connect (priv->socket_client, "event",
+		G_CALLBACK (_connect_event_cb), conn);
+	socket_connection = g_socket_client_connect_to_host (priv->socket_client, priv->host, priv->port, cancellable, &error);
+	g_signal_handler_disconnect (priv->socket_client, event_id);
+
+	if (socket_connection != NULL)
+		g_simple_async_result_set_op_res_gpointer (task, socket_connection, g_object_unref);
+	else
+		g_simple_async_result_take_error (task, error);
 }
 
 void idle_server_connection_connect_async(IdleServerConnection *conn, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 	GSimpleAsyncResult *result;
+	GSimpleAsyncResult *task;
 
 	if (priv->state != SERVER_CONNECTION_STATE_NOT_CONNECTED) {
 		IDLE_DEBUG("already connecting or connected!");
@@ -326,7 +431,10 @@ void idle_server_connection_connect_async(IdleServerConnection *conn, GCancellab
 	}
 
 	result = g_simple_async_result_new(G_OBJECT(conn), callback, user_data, idle_server_connection_connect_async);
-	g_socket_client_connect_to_host_async(priv->socket_client, priv->host, priv->port, cancellable, _connect_to_host_ready, result);
+
+	task = g_simple_async_result_new (G_OBJECT (conn), _connect_to_host_ready, result, NULL);
+	g_simple_async_result_run_in_thread (task, _connect_in_thread, G_PRIORITY_DEFAULT, cancellable);
+
 	change_state(conn, SERVER_CONNECTION_STATE_CONNECTING, SERVER_CONNECTION_STATE_REASON_REQUESTED);
 }
 
@@ -497,22 +605,13 @@ gboolean idle_server_connection_send_finish(IdleServerConnection *conn, GAsyncRe
 	return !g_simple_async_result_propagate_error (G_SIMPLE_ASYNC_RESULT(result), error);
 }
 
-IdleServerConnectionState idle_server_connection_get_state(IdleServerConnection *conn) {
+gboolean idle_server_connection_is_connected(IdleServerConnection *conn) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
-	return priv->state;
+
+	return priv->state == SERVER_CONNECTION_STATE_CONNECTED;
 }
 
 void idle_server_connection_set_tls(IdleServerConnection *conn, gboolean tls) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 	g_socket_client_set_tls(priv->socket_client, tls);
-
-	/* The regression tests don't have a CA-issued certificate,
-	 * oddly enough. */
-	if (!tp_strdiff (g_getenv ("IDLE_TEST_BE_VULNERABLE_TO_MAN_IN_THE_MIDDLE_ATTACKS"), "vulnerable")) {
-		g_socket_client_set_tls_validation_flags(priv->socket_client,
-			G_TLS_CERTIFICATE_VALIDATE_ALL
-			& ~G_TLS_CERTIFICATE_UNKNOWN_CA
-			& ~G_TLS_CERTIFICATE_BAD_IDENTITY
-			& ~G_TLS_CERTIFICATE_EXPIRED);
-	}
 }

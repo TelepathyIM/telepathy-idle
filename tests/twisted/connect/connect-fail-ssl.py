@@ -14,4 +14,3 @@ def test(q, bus, conn, stream):
 if __name__ == '__main__':
     # there is no ssl server listening at port 5600, so this should fail
     exec_test(test, {'port': dbus.UInt32(5600), 'use-ssl': dbus.Boolean(True)})
-

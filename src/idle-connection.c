@@ -48,6 +48,7 @@
 #include "idle-roomlist-manager.h"
 #include "idle-parser.h"
 #include "idle-server-connection.h"
+#include "server-tls-manager.h"
 
 #include "extensions/extensions.h"    /* Renaming */
 
@@ -145,7 +146,14 @@ struct _IdleConnectionPrivate {
 	 * network connection
 	 */
 	IdleServerConnection *conn;
-	guint sconn_status;
+	/*
+	 * TRUE if 'conn' is connected to the server. (This just represents the TCP
+	 * stream; not whether we are authenticated.)
+	 */
+	gboolean sconn_connected;
+
+	/* Used for idle_server_connection_connect_async(). */
+	GCancellable *connect_cancellable;
 
 	/* When we sent a PING to the server which it hasn't PONGed for yet, or 0 if
 	 * there isn't a PING outstanding.
@@ -199,6 +207,9 @@ struct _IdleConnectionPrivate {
 
 	/* so we can pop up a SASL channel asking for the password */
 	TpSimplePasswordManager *password_manager;
+
+	/* TLS channel */
+	IdleServerTLSManager *tls_manager;
 };
 
 static void _iface_create_handle_repos(TpBaseConnection *self, TpHandleRepoIface **repos);
@@ -219,7 +230,7 @@ static IdleParserHandlerResult _version_privmsg_handler(IdleParser *parser, Idle
 static IdleParserHandlerResult _welcome_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 static IdleParserHandlerResult _whois_user_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data);
 
-static void sconn_status_changed_cb(IdleServerConnection *sconn, IdleServerConnectionState state, IdleServerConnectionStateReason reason, IdleConnection *conn);
+static void sconn_disconnected_cb(IdleServerConnection *sconn, IdleServerConnectionStateReason reason, IdleConnection *conn);
 static void sconn_received_cb(IdleServerConnection *sconn, gchar *raw_msg, IdleConnection *conn);
 
 static void irc_handshakes(IdleConnection *conn);
@@ -242,7 +253,7 @@ static void idle_connection_init(IdleConnection *obj) {
 	IdleConnectionPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (obj, IDLE_TYPE_CONNECTION, IdleConnectionPrivate);
 
 	obj->priv = priv;
-	priv->sconn_status = SERVER_CONNECTION_STATE_NOT_CONNECTED;
+	priv->sconn_connected = FALSE;
 	priv->msg_queue = g_queue_new();
 
 	tp_contacts_mixin_init ((GObject *) obj, G_STRUCT_OFFSET (IdleConnection, contacts));
@@ -400,6 +411,8 @@ static void idle_connection_dispose (GObject *object) {
 		priv->conn = NULL;
 	}
 
+	g_clear_object (&priv->connect_cancellable);
+
 	if (priv->queued_aliases_owners)
 		tp_handle_set_destroy(priv->queued_aliases_owners);
 
@@ -492,7 +505,7 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 	param_spec = g_param_spec_string("username", "User name", "The username of the user connecting to IRC", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property(object_class, PROP_USERNAME, param_spec);
 
-	param_spec = g_param_spec_string("charset", "Character set", "The character set to use to communicate with the outside world", "NULL", G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
+	param_spec = g_param_spec_string("charset", "Character set", "The character set to use to communicate with the outside world", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
 	g_object_class_install_property(object_class, PROP_CHARSET, param_spec);
 
 	param_spec = g_param_spec_uint("keepalive-interval", "Keepalive interval", "Seconds between keepalive packets, or 0 to disable", 0, G_MAXUINT, DEFAULT_KEEPALIVE_INTERVAL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
@@ -532,6 +545,11 @@ static GPtrArray *_iface_create_channel_managers(TpBaseConnection *base) {
 
 	manager = g_object_new(IDLE_TYPE_ROOMLIST_MANAGER, "connection", self, NULL);
 	g_ptr_array_add(managers, manager);
+
+	priv->tls_manager = g_object_new (IDLE_TYPE_SERVER_TLS_MANAGER,
+		"connection", self,
+                NULL);
+	g_ptr_array_add(managers, priv->tls_manager);
 
 	return managers;
 }
@@ -581,7 +599,7 @@ static void _iface_disconnected(TpBaseConnection *self) {
 	/* we never got around to actually creating the connection
 	 * iface object because we were still trying to connect, so
 	 * don't try to send any traffic down it */
-	if (priv->conn == NULL) {
+	if (!priv->sconn_connected) {
 		return;
 	}
 
@@ -607,6 +625,9 @@ static void _iface_shut_down(TpBaseConnection *base) {
 	 * don't try to send any traffic down it */
 	if (priv->conn == NULL) {
 		g_idle_add(_finish_shutdown_idle_func, self);
+	} else if (!priv->sconn_connected) {
+		IDLE_DEBUG("cancelling connection");
+		g_cancellable_cancel (priv->connect_cancellable);
 	} else {
 		idle_server_connection_disconnect_async(priv->conn, NULL, NULL, NULL);
 	}
@@ -698,11 +719,10 @@ static void _connection_connect_ready(GObject *source_object, GAsyncResult *res,
 		IDLE_DEBUG("idle_server_connection_connect failed: %s", error->message);
 		_connection_disconnect_with_gerror(conn, TP_CONNECTION_STATUS_REASON_NETWORK_ERROR, "debug-message", error);
 		g_error_free(error);
-		g_object_unref(sconn);
 		return;
 	}
 
-	priv->conn = sconn;
+	priv->sconn_connected = TRUE;
 
 	g_signal_connect(sconn, "received", (GCallback)(sconn_received_cb), conn);
 
@@ -742,29 +762,33 @@ static void _start_connecting_continue(IdleConnection *conn) {
 		priv->username = g_strdup(g_get_user_name());
 	}
 
-	sconn = g_object_new(IDLE_TYPE_SERVER_CONNECTION, "host", priv->server, "port", priv->port, NULL);
+	sconn = g_object_new(IDLE_TYPE_SERVER_CONNECTION,
+            "host", priv->server,
+            "port", priv->port,
+            "tls-manager", priv->tls_manager,
+            NULL);
 	if (priv->use_ssl)
 		idle_server_connection_set_tls(sconn, TRUE);
 
-	g_signal_connect(sconn, "status-changed", (GCallback)(sconn_status_changed_cb), conn);
+	g_signal_connect(sconn, "disconnected", (GCallback)(sconn_disconnected_cb), conn);
 
-	idle_server_connection_connect_async(sconn, NULL, _connection_connect_ready, conn);
+	priv->conn = sconn;
+	g_warn_if_fail (priv->connect_cancellable == NULL);
+	priv->connect_cancellable = g_cancellable_new ();
+	idle_server_connection_connect_async(sconn, priv->connect_cancellable, _connection_connect_ready, conn);
 }
 
 static gboolean keepalive_timeout_cb(gpointer user_data);
 
-static void sconn_status_changed_cb(IdleServerConnection *sconn, IdleServerConnectionState state, IdleServerConnectionStateReason reason, IdleConnection *conn) {
+static void sconn_disconnected_cb(IdleServerConnection *sconn, IdleServerConnectionStateReason reason, IdleConnection *conn) {
 	IdleConnectionPrivate *priv = conn->priv;
 	TpConnectionStatusReason tp_reason;
 
 	/* cancel scheduled forced disconnect since we are now disconnected */
-	if (state == SERVER_CONNECTION_STATE_NOT_CONNECTED &&
-		priv->force_disconnect_id) {
+	if (priv->force_disconnect_id) {
 		g_source_remove(priv->force_disconnect_id);
 		priv->force_disconnect_id = 0;
 	}
-
-	IDLE_DEBUG("called with state %u", state);
 
 	switch (reason) {
 		case SERVER_CONNECTION_STATE_REASON_ERROR:
@@ -783,30 +807,8 @@ static void sconn_status_changed_cb(IdleServerConnection *sconn, IdleServerConne
 	if (priv->quitting)
 		tp_reason = TP_CONNECTION_STATUS_REASON_REQUESTED;
 
-	switch (state) {
-		case SERVER_CONNECTION_STATE_NOT_CONNECTED:
-			connection_disconnect_cb(conn, tp_reason);
-			break;
-
-		case SERVER_CONNECTION_STATE_CONNECTING:
-			break;
-
-		case SERVER_CONNECTION_STATE_CONNECTED:
-			if (priv->keepalive_interval != 0 && priv->keepalive_timeout == 0)
-				priv->keepalive_timeout = g_timeout_add_seconds(priv->keepalive_interval, keepalive_timeout_cb, conn);
-
-			if (g_queue_get_length(priv->msg_queue) > 0) {
-				IDLE_DEBUG("we had messages in queue, start unloading them now");
-				idle_connection_add_queue_timeout (conn);
-			}
-			break;
-
-		default:
-			g_assert_not_reached();
-			break;
-	}
-
-	priv->sconn_status = state;
+	priv->sconn_connected = FALSE;
+	connection_disconnect_cb(conn, tp_reason);
 }
 
 static void sconn_received_cb(IdleServerConnection *sconn, gchar *raw_msg, IdleConnection *conn) {
@@ -822,7 +824,7 @@ static gboolean keepalive_timeout_cb(gpointer user_data) {
 	gchar cmd[IRC_MSG_MAXLEN + 1];
 	gint64 now;
 
-	if (priv->sconn_status != SERVER_CONNECTION_STATE_CONNECTED ||
+	if (!priv->sconn_connected ||
 	    priv->quitting) {
 		priv->keepalive_timeout = 0;
 		return FALSE;
@@ -882,7 +884,7 @@ static gboolean msg_queue_timeout_cb(gpointer user_data) {
 
 	IDLE_DEBUG("called");
 
-	if (priv->sconn_status != SERVER_CONNECTION_STATE_CONNECTED) {
+	if (!priv->sconn_connected) {
 		IDLE_DEBUG("connection was not connected!");
 
 		priv->msg_queue_timeout = 0;
@@ -1219,11 +1221,21 @@ static void send_quit_request(IdleConnection *conn) {
 
 static void connection_connect_cb(IdleConnection *conn, gboolean success, TpConnectionStatusReason fail_reason) {
 	TpBaseConnection *base = TP_BASE_CONNECTION(conn);
+	IdleConnectionPrivate *priv = conn->priv;
 
-	if (success)
+	if (success) {
 		tp_base_connection_change_status(base, TP_CONNECTION_STATUS_CONNECTED, TP_CONNECTION_STATUS_REASON_REQUESTED);
-	else
+
+		if (priv->keepalive_interval != 0 && priv->keepalive_timeout == 0)
+			priv->keepalive_timeout = g_timeout_add_seconds(priv->keepalive_interval, keepalive_timeout_cb, conn);
+
+		if (g_queue_get_length(priv->msg_queue) > 0) {
+			IDLE_DEBUG("we had messages in queue, start unloading them now");
+			idle_connection_add_queue_timeout (conn);
+		}
+	} else {
 		tp_base_connection_change_status(base, TP_CONNECTION_STATUS_DISCONNECTED, fail_reason);
+	}
 }
 
 static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusReason reason) {
