@@ -285,7 +285,7 @@ cleanup:
 }
 
 static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
-	GTask *task = G_TASK (res);
+	GSimpleAsyncResult *task = G_SIMPLE_ASYNC_RESULT (res);
 	GSimpleAsyncResult *result = G_SIMPLE_ASYNC_RESULT(user_data);
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(g_async_result_get_source_object(G_ASYNC_RESULT(result)));
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
@@ -296,8 +296,7 @@ static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gp
 	gint socket_fd;
 	GError *error = NULL;
 
-	socket_connection = g_task_propagate_pointer (task, &error);
-	if (socket_connection == NULL) {
+	if (g_simple_async_result_propagate_error (task, &error)) {
 		IDLE_DEBUG("g_socket_client_connect_to_host failed: %s", error->message);
 		g_simple_async_result_set_error(result, TP_ERROR, TP_ERROR_NETWORK_ERROR, "%s", error->message);
 		g_error_free(error);
@@ -306,6 +305,7 @@ static void _connect_to_host_ready(GObject *source_object, GAsyncResult *res, gp
 		goto cleanup;
 	}
 
+	socket_connection = g_object_ref (g_simple_async_result_get_op_res_gpointer (task));
 	socket_ = g_socket_connection_get_socket(socket_connection);
 	g_socket_set_keepalive(socket_, TRUE);
 
@@ -381,9 +381,9 @@ static void _connect_event_cb (GSocketClient *client, GSocketClientEvent event, 
 	g_signal_connect (connection, "accept-certificate", G_CALLBACK (_accept_certificate_request), user_data);
 }
 
-static void _connect_in_thread (GTask *task, gpointer source_object, gpointer task_data, GCancellable *cancellable)
+static void _connect_in_thread (GSimpleAsyncResult *task, GObject *source_object, GCancellable *cancellable)
 {
-	IdleServerConnection *conn = source_object;
+	IdleServerConnection *conn = IDLE_SERVER_CONNECTION (source_object);
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 	GError *error = NULL;
 	GSocketConnection *socket_connection;
@@ -393,16 +393,17 @@ static void _connect_in_thread (GTask *task, gpointer source_object, gpointer ta
 		G_CALLBACK (_connect_event_cb), conn);
 	socket_connection = g_socket_client_connect_to_host (priv->socket_client, priv->host, priv->port, cancellable, &error);
 	g_signal_handler_disconnect (priv->socket_client, event_id);
+
 	if (socket_connection != NULL)
-		g_task_return_pointer (task, socket_connection, g_object_unref);
+		g_simple_async_result_set_op_res_gpointer (task, socket_connection, g_object_unref);
 	else
-		g_task_return_error (task, error);
+		g_simple_async_result_take_error (task, error);
 }
 
 void idle_server_connection_connect_async(IdleServerConnection *conn, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 	GSimpleAsyncResult *result;
-	GTask *task;
+	GSimpleAsyncResult *task;
 
 	if (priv->state != SERVER_CONNECTION_STATE_NOT_CONNECTED) {
 		IDLE_DEBUG("already connecting or connected!");
@@ -433,8 +434,8 @@ void idle_server_connection_connect_async(IdleServerConnection *conn, GCancellab
 
 	result = g_simple_async_result_new(G_OBJECT(conn), callback, user_data, idle_server_connection_connect_async);
 
-	task = g_task_new (conn, cancellable, _connect_to_host_ready, result);
-	g_task_run_in_thread (task, _connect_in_thread);
+	task = g_simple_async_result_new (G_OBJECT (conn), _connect_to_host_ready, result, NULL);
+	g_simple_async_result_run_in_thread (task, _connect_in_thread, G_PRIORITY_DEFAULT, cancellable);
 
 	change_state(conn, SERVER_CONNECTION_STATE_CONNECTING, SERVER_CONNECTION_STATE_REASON_REQUESTED);
 }
