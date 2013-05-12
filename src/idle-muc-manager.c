@@ -741,7 +741,7 @@ static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer use
 			break;
 	}
 
-	for (l = reqs; reqs != NULL; reqs = reqs->next) {
+	for (l = reqs; l != NULL; l = l->next) {
 		tp_channel_manager_emit_request_failed(manager, l->data, TP_ERROR, err_code, err_msg);
 	}
 
