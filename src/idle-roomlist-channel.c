@@ -325,6 +325,7 @@ _rpl_list_handler (IdleParser *parser,
     }
 
   keys = tp_asv_new (
+      "handle-name", G_TYPE_STRING, room_name,
       "name", G_TYPE_STRING, room_name,
       "members", G_TYPE_UINT, num_users,
       "subject", G_TYPE_STRING, topic,

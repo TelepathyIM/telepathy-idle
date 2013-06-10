@@ -22,7 +22,7 @@ def check_rooms(received_rooms):
         for r in TEST_CHANNELS:
             if r[0] == info['name']:
                 found = True
-                assert r[1] == info['members'] and r[2] == info['subject']
+                assert r[1] == info['members'] and r[2] == info['subject'] and r[0] == info['handle-name']
                 break;
         assert found
     return True
