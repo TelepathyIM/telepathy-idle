@@ -79,9 +79,8 @@ AC_SUBST([ERROR_CFLAGS])
 
 # these aren't really error flags but they serve a similar purpose for us -
 # making the toolchain stricter
-if test "x$enable_fatal_warnings" = xyes; then
-  TP_ADD_LINKER_FLAG([ERROR_LDFLAGS], [-Wl,--no-copy-dt-needed-entries])
-fi
+AS_IF([test "x$enable_fatal_warnings" = xyes],
+  [TP_ADD_LINKER_FLAG([ERROR_LDFLAGS], [-Wl,--no-copy-dt-needed-entries])])
 
 AC_HEADER_STDC([])
 AC_C_INLINE
@@ -103,23 +102,23 @@ PKG_CHECK_MODULES([TELEPATHY], [telepathy-glib >= 0.21])
 dnl Check for code generation tools
 XSLTPROC=
 AC_CHECK_PROGS([XSLTPROC], [xsltproc])
-if test -z "$XSLTPROC"; then
-  AC_MSG_ERROR([xsltproc (from the libxslt source package) is required])
-fi
+AS_IF([test -z "$XSLTPROC"],
+  [AC_MSG_ERROR([xsltproc (from the libxslt source package) is required])])
 
 AM_PATH_PYTHON([2.3])
 
 dnl check for a version of python that can run the twisted tests
 AC_MSG_CHECKING([for Python with Twisted and IRC protocol support])
 for TEST_PYTHON in python2.5 python2.6 python; do
-  if $TEST_PYTHON -c "from sys import version_info; import dbus, dbus.mainloop.glib; raise SystemExit(version_info < (2, 5, 0, 'final', 0))" >/dev/null 2>&1; then
-    if $TEST_PYTHON -c "import twisted.words.protocols.irc, twisted.internet.reactor" >/dev/null 2>&1; then
-      AM_CONDITIONAL([WANT_TWISTED_TESTS], true)
+  AS_IF([$TEST_PYTHON -c "from sys import version_info; import dbus, dbus.mainloop.glib; raise SystemExit(version_info < (2, 5, 0, 'final', 0))" >/dev/null 2>&1],
+    [
+    AS_IF([$TEST_PYTHON -c "import twisted.words.protocols.irc, twisted.internet.reactor" >/dev/null 2>&1],
+      [
+      AM_CONDITIONAL([WANT_TWISTED_TESTS], [true])
       break
-    else
-      TEST_PYTHON=no
-    fi
-  fi
+      ],
+      [TEST_PYTHON=no])
+    ])
 done
 AC_MSG_RESULT([$TEST_PYTHON])
 AC_SUBST(TEST_PYTHON)
