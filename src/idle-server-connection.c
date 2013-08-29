@@ -71,6 +71,7 @@ struct _IdleServerConnectionPrivate {
 
 	GSocketClient *socket_client;
 	GIOStream *io_stream;
+	GCancellable *read_cancellable;
 	GCancellable *cancellable;
 
 	IdleServerConnectionState state;
@@ -245,8 +246,12 @@ static void change_state(IdleServerConnection *conn, IdleServerConnectionState s
 static void _input_stream_read(IdleServerConnection *conn, GInputStream *input_stream, GAsyncReadyCallback callback) {
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 
+	if (priv->read_cancellable == NULL)
+		priv->read_cancellable = g_cancellable_new ();
+
+
 	memset(priv->input_buffer, '\0', sizeof(priv->input_buffer));
-	g_input_stream_read_async (input_stream, &priv->input_buffer, sizeof(priv->input_buffer) - 1, G_PRIORITY_DEFAULT, NULL, callback, conn);
+	g_input_stream_read_async (input_stream, &priv->input_buffer, sizeof(priv->input_buffer) - 1, G_PRIORITY_DEFAULT, priv->read_cancellable, callback, conn);
 }
 
 static void _input_stream_read_ready(GObject *source_object, GAsyncResult *res, gpointer user_data) {
@@ -513,6 +518,9 @@ void idle_server_connection_disconnect_full_async(IdleServerConnection *conn, gu
 	}
 
 	priv->reason = reason;
+
+	g_cancellable_cancel (priv->read_cancellable);
+	g_clear_object (&priv->read_cancellable);
 
 	result = g_simple_async_result_new(G_OBJECT(conn), callback, user_data, idle_server_connection_disconnect_full_async);
 	g_io_stream_close_async(priv->io_stream, G_PRIORITY_DEFAULT, cancellable, _close_ready, result);
