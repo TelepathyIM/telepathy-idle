@@ -107,10 +107,10 @@ static void idle_server_connection_dispose(GObject *obj) {
 	IdleServerConnection *conn = IDLE_SERVER_CONNECTION(obj);
 	IdleServerConnectionPrivate *priv = IDLE_SERVER_CONNECTION_GET_PRIVATE(conn);
 
-	if (priv->socket_client != NULL) {
-		g_object_unref(priv->socket_client);
-		priv->socket_client = NULL;
-	}
+        g_clear_object (&priv->socket_client);
+        g_clear_object (&priv->io_stream);
+        g_clear_object (&priv->tls_manager);
+        g_clear_object (&priv->read_cancellable);
 }
 
 static void idle_server_connection_finalize(GObject *obj) {
