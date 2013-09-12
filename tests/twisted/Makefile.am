@@ -68,6 +68,7 @@ endif
 
 EXTRA_DIST = \
 	     $(TWISTED_TESTS) \
+	     run-test.sh.in \
 	     servicetest.py \
 	     idletest.py \
 	     constants.py \
