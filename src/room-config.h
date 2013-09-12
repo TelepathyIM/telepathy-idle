@@ -21,7 +21,7 @@
 #define IDLE_ROOM_CONFIG_H
 
 #include <glib-object.h>
-#include <telepathy-glib/base-room-config.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 typedef struct _IdleRoomConfig IdleRoomConfig;
 typedef struct _IdleRoomConfigClass IdleRoomConfigClass;

@@ -28,16 +28,6 @@
 
 #include <dbus/dbus-glib.h>
 
-#include <telepathy-glib/dbus.h>
-#include <telepathy-glib/enums.h>
-#include <telepathy-glib/errors.h>
-#include <telepathy-glib/interfaces.h>
-#include <telepathy-glib/simple-password-manager.h>
-#include <telepathy-glib/svc-connection.h>
-#include <telepathy-glib/channel-manager.h>
-#include <telepathy-glib/gtypes.h>
-#include <telepathy-glib/util.h>
-
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_CONNECTION
 #include "idle-contact-info.h"
 #include "idle-ctcp.h"

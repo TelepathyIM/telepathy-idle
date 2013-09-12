@@ -24,8 +24,6 @@
 #include <time.h>
 #include <string.h>
 
-#include <telepathy-glib/dbus.h>
-
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_TEXT
 #include "idle-ctcp.h"
 #include "idle-debug.h"

@@ -21,8 +21,7 @@
 #include "idle-debug.h"
 
 #include <stdarg.h>
-#include <telepathy-glib/debug.h>
-#include <telepathy-glib/debug-sender.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 static IdleDebugFlags _flags = 0;
 

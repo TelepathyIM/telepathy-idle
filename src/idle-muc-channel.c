@@ -29,14 +29,7 @@
 
 #include <dbus/dbus-glib.h>
 
-#include <telepathy-glib/channel-iface.h>
-#include <telepathy-glib/dbus.h>
-#include <telepathy-glib/enums.h>
-#include <telepathy-glib/errors.h>
-#include <telepathy-glib/gtypes.h>
-#include <telepathy-glib/interfaces.h>
-#include <telepathy-glib/handle.h>
-#include <telepathy-glib/svc-channel.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_MUC
 #include "idle-connection.h"

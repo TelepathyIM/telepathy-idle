@@ -25,8 +25,7 @@
 #include <ctype.h>
 #include <string.h>
 
-#include <telepathy-glib/errors.h>
-#include <telepathy-glib/handle-repo-dynamic.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_PARSER
 #include "idle-debug.h"

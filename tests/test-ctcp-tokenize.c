@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <telepathy-glib/util.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 int
 main (void)

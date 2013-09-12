@@ -22,7 +22,7 @@
 #define __IDLE_HANDLES_H__
 
 #include <glib.h>
-#include <telepathy-glib/handle-repo.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 G_BEGIN_DECLS
 

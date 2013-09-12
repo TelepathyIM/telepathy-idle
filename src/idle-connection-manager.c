@@ -23,7 +23,6 @@
 #include "idle-connection-manager.h"
 
 #include <dbus/dbus-protocol.h>
-#include <telepathy-glib/enums.h>
 
 #include "idle-connection.h"
 #include "idle-handles.h" /* to check for valid nick */

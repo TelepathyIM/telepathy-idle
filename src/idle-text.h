@@ -25,7 +25,7 @@
 
 #include <dbus/dbus-glib.h>
 
-#include <telepathy-glib/message-mixin.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 #include "idle-connection.h"
 

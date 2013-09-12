@@ -23,8 +23,6 @@
 
 #include <dbus/dbus-glib.h>
 #include <dbus/dbus-protocol.h>
-#include <telepathy-glib/base-connection-manager.h>
-#include <telepathy-glib/telepathy-glib.h>
 
 #include "idle-connection.h"
 #include "idle-handles.h"

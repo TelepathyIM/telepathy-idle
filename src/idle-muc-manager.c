@@ -24,9 +24,7 @@
 
 #include <time.h>
 
-#include <telepathy-glib/channel-manager.h>
-#include <telepathy-glib/dbus.h>
-#include <telepathy-glib/interfaces.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_MUC
 #include "idle-connection.h"

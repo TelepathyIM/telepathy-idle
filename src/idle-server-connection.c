@@ -27,7 +27,7 @@
 #include <netinet/tcp.h>
 #include <sys/socket.h>
 
-#include <telepathy-glib/errors.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_NETWORK
 #include "idle-connection.h"

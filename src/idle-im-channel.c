@@ -24,8 +24,6 @@
 
 #include <dbus/dbus-glib.h>
 
-#include <telepathy-glib/interfaces.h>
-
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_IM
 #include "idle-connection.h"
 #include "idle-debug.h"

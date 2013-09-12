@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <telepathy-glib/util.h>
+#include <telepathy-glib/telepathy-glib.h>
 
 #include <idle-text.h>
 #include <idle-connection.h>
