@@ -210,6 +210,9 @@ struct _IdleConnectionPrivate {
 
 	/* TLS channel */
 	IdleServerTLSManager *tls_manager;
+
+	/* TpHandle -> owned gchar * */
+	GHashTable *aliases;
 };
 
 static void _iface_create_handle_repos(TpBaseConnection *self, TpHandleRepoIface **repos);
@@ -255,6 +258,7 @@ static void idle_connection_init(IdleConnection *obj) {
 	obj->priv = priv;
 	priv->sconn_connected = FALSE;
 	priv->msg_queue = g_queue_new();
+	priv->aliases = g_hash_table_new_full (NULL, NULL, NULL, g_free);
 
 	tp_contacts_mixin_init ((GObject *) obj, G_STRUCT_OFFSET (IdleConnection, contacts));
 	tp_base_connection_register_with_contacts_mixin ((TpBaseConnection *) obj);
@@ -420,6 +424,8 @@ static void idle_connection_dispose (GObject *object) {
 		g_ptr_array_free(priv->queued_aliases, TRUE);
 
 	g_object_unref(self->parser);
+
+	tp_clear_pointer (&priv->aliases, g_hash_table_unref);
 
 	if (G_OBJECT_CLASS(idle_connection_parent_class)->dispose)
 		G_OBJECT_CLASS(idle_connection_parent_class)->dispose (object);
@@ -1270,19 +1276,9 @@ _queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *alias) 
 			G_TYPE_INVALID));
 }
 
-static GQuark
-_canon_nick_quark (void) {
-	static GQuark quark = 0;
-
-	if (!quark)
-		quark = g_quark_from_static_string("canon-nick");
-
-	return quark;
-}
-
 void idle_connection_canon_nick_receive(IdleConnection *conn, TpHandle handle, const gchar *canon_nick) {
 	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT);
-	const gchar *old_alias = tp_handle_get_qdata(handles, handle, _canon_nick_quark());
+	const gchar *old_alias = g_hash_table_lookup (conn->priv->aliases, GUINT_TO_POINTER (handle));
 
 	if (!old_alias)
 		old_alias = tp_handle_inspect(handles, handle);
@@ -1290,7 +1286,7 @@ void idle_connection_canon_nick_receive(IdleConnection *conn, TpHandle handle, c
 	if (!strcmp(old_alias, canon_nick))
 		return;
 
-	tp_handle_set_qdata(handles, handle, _canon_nick_quark(), g_strdup(canon_nick), g_free);
+	g_hash_table_insert (conn->priv->aliases, GUINT_TO_POINTER (handle), g_strdup (canon_nick));
 
 	_queue_alias_changed(conn, handle, canon_nick);
 }
@@ -1316,11 +1312,12 @@ static void idle_connection_get_alias_flags(TpSvcConnectionInterfaceAliasing *if
 }
 
 static const gchar *
-gimme_an_alias (
+gimme_an_alias (IdleConnection *self,
     TpHandleRepoIface *repo,
     TpHandle handle)
 {
-  const gchar *alias = tp_handle_get_qdata (repo, handle, _canon_nick_quark());
+  const gchar *alias = g_hash_table_lookup (self->priv->aliases,
+      GUINT_TO_POINTER (handle));
 
   if (alias != NULL)
     return alias;
@@ -1342,7 +1339,7 @@ conn_aliasing_fill_contact_attributes (
   for (i = 0; i < contacts->len; i++)
     {
       TpHandle handle = g_array_index (contacts, TpHandle, i);
-      const gchar *alias = gimme_an_alias (repo, handle);
+      const gchar *alias = gimme_an_alias (self, repo, handle);
 
       g_assert (alias != NULL);
 
@@ -1358,6 +1355,7 @@ idle_connection_get_aliases (
     const GArray *handles,
     DBusGMethodInvocation *context)
 {
+  IdleConnection *self = IDLE_CONNECTION (iface);
   TpHandleRepoIface *repo = tp_base_connection_get_handles (
       TP_BASE_CONNECTION (iface), TP_HANDLE_TYPE_CONTACT);
   GError *error = NULL;
@@ -1377,7 +1375,7 @@ idle_connection_get_aliases (
       TpHandle handle = g_array_index (handles, TpHandle, i);
 
       g_hash_table_insert (aliases, GUINT_TO_POINTER (handle),
-          (gpointer) gimme_an_alias (repo, handle));
+          (gpointer) gimme_an_alias (self, repo, handle));
     }
 
   tp_svc_connection_interface_aliasing_return_from_get_aliases (context,
@@ -1386,6 +1384,7 @@ idle_connection_get_aliases (
 }
 
 static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing *iface, const GArray *handles, DBusGMethodInvocation *context) {
+	IdleConnection *self = IDLE_CONNECTION (iface);
 	TpHandleRepoIface *repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(iface), TP_HANDLE_TYPE_CONTACT);
 	GError *error = NULL;
 	const gchar **aliases;
@@ -1400,7 +1399,7 @@ static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing *if
 	for (guint i = 0; i < handles->len; i++) {
 		TpHandle handle = g_array_index(handles, TpHandle, i);
 
-		aliases[i] = gimme_an_alias (repo, handle);
+		aliases[i] = gimme_an_alias (self, repo, handle);
 	}
 
 	tp_svc_connection_interface_aliasing_return_from_request_aliases(context, aliases);
