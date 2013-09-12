@@ -34,35 +34,49 @@ TWISTED_TESTS = \
 		messages/room-config.py \
 		$(NULL)
 
-TESTS =
-
-TESTS_ENVIRONMENT = \
-	PYTHONPATH=@abs_top_srcdir@/tests/twisted:@abs_top_builddir@/tests/twisted \
-	IDLE_SSL_KEY=@abs_top_srcdir@/tests/twisted/tools/idletest.key \
-	IDLE_SSL_CERT=@abs_top_srcdir@/tests/twisted/tools/idletest.cert
+config.py: Makefile
+	$(AM_V_GEN) { \
+		echo "PACKAGE_STRING = \"$(PACKAGE_STRING)\""; \
+	} > $@
 
 if WANT_TWISTED_TESTS
 
 check-local: check-twisted
 
-check-twisted:
+CHECK_TWISTED_SLEEP=0
+
+check-twisted: $(BUILT_SOURCES)
 	$(MAKE) -C tools
-	rm -f tools/core
-	rm -f tools/idle-testing.log
-	failed=0; \
-	sh $(srcdir)/tools/with-session-bus.sh \
-		--config-file=tools/tmp-session-bus.conf \
-		-- $(MAKE) check-TESTS \
-		TESTS="$(TWISTED_TESTS)" \
-		TESTS_ENVIRONMENT="$(TESTS_ENVIRONMENT) $(TEST_PYTHON) -u" || \
-		failed=1; \
-	if test -e tools/core; then\
-		echo -e "\033[0;31;1mCore dump exists: tools/core\033[0m";\
-		exit 1;\
+	if test "x$(CHECK_TWISTED_SLEEP)" = x0; then \
+		idle_test_sleep= ; \
+	else \
+		idle_test_sleep=--sleep=$(CHECK_TWISTED_SLEEP); \
 	fi; \
-	if test $$failed = 1; then\
-		exit 1;\
-	fi;
+	IDLE_TEST_UNINSTALLED=1 \
+	  IDLE_ABS_TOP_SRCDIR=@abs_top_srcdir@ \
+	  IDLE_ABS_TOP_BUILDDIR=@abs_top_builddir@ \
+	  IDLE_TEST_SLEEP=$$idle_test_sleep \
+	  ./run-test.sh "$(TWISTED_TESTS)"
+
+idle-twisted-tests.list: Makefile
+	$(AM_V_GEN)echo $(TWISTED_TESTS) > $@
+
+BUILT_SOURCES = \
+	config.py \
+	idle-twisted-tests.list \
+	run-test.sh \
+	$(NULL)
+
+# We don't really use idletestsdir yet - we only support uninstalled testing
+# so far - but I'm substituting it to keep the script more similar to Gabble's.
+# ${pkglibexecdir}/tests is what GNOME's InstalledTests goal recommends.
+run-test.sh: run-test.sh.in Makefile
+	$(AM_V_GEN)sed \
+			-e 's![@]idletestsdir[@]!${pkglibexecdir}/tests!' \
+			-e 's![@]TEST_PYTHON[@]!$(TEST_PYTHON)!' \
+			< $< > $@.tmp && \
+		chmod +x $@.tmp && \
+		mv $@.tmp $@
 
 endif
 
@@ -74,6 +88,11 @@ EXTRA_DIST = \
 	     constants.py \
 	     $(NULL)
 
-CLEANFILES = idle-[1-9]*.log *.pyc */*.pyc
+CLEANFILES = \
+	$(BUILT_SOURCES) \
+	idle-[1-9]*.log \
+	*.pyc \
+	*/*.pyc \
+	$(NULL)
 
 SUBDIRS = tools
