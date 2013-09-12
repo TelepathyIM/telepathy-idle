@@ -61,10 +61,16 @@ tests/test-ctcp-tokenize
 tests/test-text-encode-and-split
 tests/test-tokenize-leading-space
 tests/test-tokenize-leading-space.c
+tests/*.log
+tests/*.trs
 
+tests/twisted/config.py
+tests/twisted/idle-twisted-tests.list
 tests/twisted/tools/exec-with-log.sh
 tests/twisted/tools/idle-testing.log
 tests/twisted/tools/org.freedesktop.Telepathy.ConnectionManager.idle.service
+tests/twisted/run-test.sh
+tests/twisted/test-suite.log
 tests/twisted/tools/tmp-session-bus.conf
 
 tests/twisted/with-session-bus*.dbus-monitor-logs
