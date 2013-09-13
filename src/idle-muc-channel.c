@@ -205,6 +205,7 @@ idle_muc_channel_constructed (GObject *obj)
 			"text/plain",
 			NULL
 	};
+	TpHandle self_handle = tp_base_connection_get_self_handle (conn);
 
 	G_OBJECT_CLASS (idle_muc_channel_parent_class)->constructed (obj);
 
@@ -213,7 +214,7 @@ idle_muc_channel_constructed (GObject *obj)
 
 	tp_base_channel_register (base);
 
-	tp_group_mixin_init(obj, G_STRUCT_OFFSET(IdleMUCChannel, group), contact_handles, conn->self_handle);
+	tp_group_mixin_init(obj, G_STRUCT_OFFSET(IdleMUCChannel, group), contact_handles, self_handle);
 	tp_group_mixin_change_flags(obj, TP_CHANNEL_GROUP_FLAG_PROPERTIES, 0);
 
 	/* initialize message mixin */
@@ -229,7 +230,7 @@ idle_muc_channel_constructed (GObject *obj)
 		TpIntset *remote;
 		TpHandle initiator = tp_base_channel_get_initiator (base);
 
-		g_assert (initiator == conn->self_handle);
+		g_assert (initiator == self_handle);
 
 		remote = tp_intset_new_containing (initiator);
 		tp_group_mixin_change_members (obj, "", NULL, NULL, NULL, remote,
@@ -737,7 +738,7 @@ void idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner) {
 	set = tp_intset_new();
 	tp_intset_add(set, joiner);
 
-	if (joiner == base_conn->self_handle) {
+	if (joiner == tp_base_connection_get_self_handle (base_conn)) {
 		/* woot we managed to get into a channel, great */
 		change_state(chan, MUC_STATE_JOINED);
 		tp_group_mixin_change_members((GObject *)(chan), NULL, set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
@@ -768,7 +769,7 @@ static void _network_member_left(IdleMUCChannel *chan, TpHandle leaver, TpHandle
 	tp_intset_add(set, leaver);
 	tp_group_mixin_change_members((GObject *) chan, message, NULL, set, NULL, NULL, actor, reason);
 
-	if (leaver == base_conn->self_handle) {
+	if (leaver == tp_base_connection_get_self_handle (base_conn)) {
 		change_state(chan, MUC_STATE_PARTED);
 
 		if (!tp_base_channel_is_destroyed (base)) {
@@ -798,7 +799,7 @@ void idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter) {
 	TpIntset *local = tp_intset_new();
 
 	tp_intset_add(add, inviter);
-	tp_intset_add(local, base_conn->self_handle);
+	tp_intset_add(local, tp_base_connection_get_self_handle (base_conn));
 
 	tp_group_mixin_change_members((GObject *)(chan), NULL, add, NULL, local, NULL, inviter, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 
@@ -822,7 +823,7 @@ void idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
 		gchar modechar = g_value_get_char(g_value_array_get_nth(args, i + 1));
 #endif
 
-		if (handle == base_conn->self_handle) {
+		if (handle == tp_base_connection_get_self_handle (base_conn)) {
 			guint remove = MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_VOICE_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE;
 			guint add = 0;
 
@@ -908,7 +909,7 @@ void idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args) {
 					if ((i + 1) < args->n_values) {
 						TpHandle handle = tp_handle_ensure(handles, g_value_get_string(g_value_array_get_nth(args, ++i)), NULL, NULL);
 
-						if (handle == base_conn->self_handle) {
+						if (handle == tp_base_connection_get_self_handle (base_conn)) {
 							IDLE_DEBUG("got MODE '%c' concerning us", *modes);
 							mode_accum |= _modechar_to_modeflag(*modes);
 						}
@@ -1234,8 +1235,9 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 	IdleMUCChannelPrivate *priv = obj->priv;
 	TpBaseChannel *base = TP_BASE_CHANNEL (obj);
 	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
+	TpHandle self_handle = tp_base_connection_get_self_handle (base_conn);
 
-	if (handle == base_conn->self_handle) {
+	if (handle == self_handle) {
 		if (tp_handle_set_is_member(obj->group.members, handle) || tp_handle_set_is_member(obj->group.remote_pending, handle)) {
 			GError *e = g_error_new (TP_ERROR, TP_ERROR_NOT_AVAILABLE,
 				"we are already a member of or trying to join %s", priv->channel_name);
@@ -1275,7 +1277,7 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 
 			tp_intset_add(add_set, handle);
 
-			tp_group_mixin_change_members(gobj, NULL, NULL, NULL, NULL, add_set, base_conn->self_handle, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
+			tp_group_mixin_change_members(gobj, NULL, NULL, NULL, NULL, add_set, self_handle, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 		}
 	}
 
@@ -1305,7 +1307,7 @@ static gboolean remove_member(GObject *gobj, TpHandle handle, const gchar *messa
 	TpBaseChannel *base = TP_BASE_CHANNEL (obj);
 	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 
-	if (handle == base_conn->self_handle) {
+	if (handle == tp_base_connection_get_self_handle (base_conn)) {
 		part_from_channel(obj, message);
 		return TRUE;
 	}

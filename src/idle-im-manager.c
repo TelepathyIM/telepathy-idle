@@ -347,7 +347,7 @@ _im_manager_requestotron (IdleIMManager *self,
 	}
 
 	/* Don't support opening a channel to our self handle */
-	if (handle == base_conn->self_handle)
+	if (handle == tp_base_connection_get_self_handle (base_conn))
 	{
 		g_set_error (&error, TP_ERROR, TP_ERROR_NOT_IMPLEMENTED,
 					 "Can't open a text channel to yourself");
@@ -358,7 +358,7 @@ _im_manager_requestotron (IdleIMManager *self,
 
 	if (channel == NULL)
 	{
-		_im_manager_new_channel (self, handle, base_conn->self_handle, request_token);
+		_im_manager_new_channel (self, handle, tp_base_connection_get_self_handle (base_conn), request_token);
 		return TRUE;
 	}
 

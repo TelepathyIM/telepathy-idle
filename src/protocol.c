@@ -178,10 +178,15 @@ identify_account (TpBaseProtocol *self G_GNUC_UNUSED,
   return nick_at_server;
 }
 
-static GStrv
-get_interfaces (TpBaseProtocol *self)
+static GPtrArray *
+get_interfaces_array (TpBaseProtocol *self)
 {
-  return g_new0 (gchar *, 1);
+  GPtrArray *interfaces;
+
+  interfaces = TP_BASE_PROTOCOL_CLASS (
+      idle_protocol_parent_class)->get_interfaces_array (self);
+
+  return interfaces;
 }
 
 static void
@@ -244,7 +249,7 @@ idle_protocol_class_init (IdleProtocolClass *klass)
   base_class->new_connection = new_connection;
   base_class->normalize_contact = normalize_contact;
   base_class->identify_account = identify_account;
-  base_class->get_interfaces = get_interfaces;
+  base_class->get_interfaces_array = get_interfaces_array;
   base_class->get_connection_details = get_connection_details;
   base_class->dup_authentication_types = dup_authentication_types;
 }

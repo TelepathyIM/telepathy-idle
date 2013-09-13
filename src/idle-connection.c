@@ -459,6 +459,21 @@ const gchar * const *idle_connection_get_implemented_interfaces (void) {
 	return interfaces_always_present;
 }
 
+static GPtrArray *
+get_interfaces_always_present (TpBaseConnection *base)
+{
+	GPtrArray *interfaces;
+	const gchar **iter;
+
+	interfaces = TP_BASE_CONNECTION_CLASS (
+		idle_connection_parent_class)->get_interfaces_always_present (base);
+
+	for (iter = interfaces_always_present; *iter != NULL; iter++)
+		g_ptr_array_add (interfaces, (gchar *) *iter);
+
+	return interfaces;
+}
+
 static void idle_connection_class_init(IdleConnectionClass *klass) {
 	GObjectClass *object_class = G_OBJECT_CLASS(klass);
 	TpBaseConnectionClass *parent_class = TP_BASE_CONNECTION_CLASS(klass);
@@ -481,7 +496,7 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 	parent_class->disconnected = _iface_disconnected;
 	parent_class->shut_down = _iface_shut_down;
 	parent_class->start_connecting = _iface_start_connecting;
-	parent_class->interfaces_always_present = interfaces_always_present;
+	parent_class->get_interfaces_always_present = get_interfaces_always_present;
 
 	param_spec = g_param_spec_string("nickname", "IRC nickname", "The nickname to be visible to others in IRC.", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property(object_class, PROP_NICKNAME, param_spec);
@@ -630,7 +645,7 @@ static void _iface_shut_down(TpBaseConnection *base) {
 }
 
 static void _connection_disconnect_with_gerror(IdleConnection *conn, TpConnectionStatusReason reason, const gchar *key, const GError *error) {
-	if (TP_BASE_CONNECTION (conn)->status == TP_CONNECTION_STATUS_DISCONNECTED) {
+	if (tp_base_connection_get_status (TP_BASE_CONNECTION (conn)) == TP_CONNECTION_STATUS_DISCONNECTED) {
 		IDLE_DEBUG ("Already disconnected; refusing to report error %s", error->message);
 	} else {
 		GHashTable *details = tp_asv_new(key, G_TYPE_STRING, error->message, NULL);
@@ -666,7 +681,7 @@ static void _password_prompt_cb(GObject *source, GAsyncResult *result, gpointer 
 	if (error != NULL) {
 		IDLE_DEBUG("Simple password manager failed: %s", error->message);
 
-		if (base_conn->status != TP_CONNECTION_STATUS_DISCONNECTED)
+		if (tp_base_connection_get_status (base_conn) != TP_CONNECTION_STATUS_DISCONNECTED)
 			_connection_disconnect_with_gerror(conn,
 							   TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED,
 							   "debug-message",
@@ -1004,7 +1019,7 @@ idle_connection_get_max_message_length(IdleConnection *conn)
 
 static IdleParserHandlerResult _error_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
-	TpConnectionStatus status = conn->parent.status;
+	TpConnectionStatus status = tp_base_connection_get_status (TP_BASE_CONNECTION (conn));
 	TpConnectionStatusReason reason;
 	const gchar *msg;
 	const gchar *begin;
@@ -1049,7 +1064,7 @@ static IdleParserHandlerResult _error_handler(IdleParser *parser, IdleParserMess
 static IdleParserHandlerResult _erroneous_nickname_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 
-	if (conn->parent.status == TP_CONNECTION_STATUS_CONNECTING)
+	if (tp_base_connection_get_status (TP_BASE_CONNECTION (conn)) == TP_CONNECTION_STATUS_CONNECTING)
 		connection_connect_cb(conn, FALSE, TP_CONNECTION_STATUS_REASON_AUTHENTICATION_FAILED);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
@@ -1063,7 +1078,7 @@ static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessa
 	if (old_handle == new_handle)
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 
-	if (old_handle == conn->parent.self_handle) {
+	if (old_handle == tp_base_connection_get_self_handle (TP_BASE_CONNECTION (conn))) {
 		IDLE_DEBUG("Self renamed: handle was %d, now %d", old_handle, new_handle);
 		tp_base_connection_set_self_handle(TP_BASE_CONNECTION(conn), new_handle);
 	}
@@ -1078,7 +1093,7 @@ static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessa
 static IdleParserHandlerResult _nickname_in_use_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 
-	if (conn->parent.status == TP_CONNECTION_STATUS_CONNECTING)
+	if (tp_base_connection_get_status (TP_BASE_CONNECTION (conn)) == TP_CONNECTION_STATUS_CONNECTING)
 		connection_connect_cb(conn, FALSE, TP_CONNECTION_STATUS_REASON_NAME_IN_USE);
 
 	return IDLE_PARSER_HANDLER_RESULT_HANDLED;
@@ -1237,7 +1252,7 @@ static void connection_connect_cb(IdleConnection *conn, gboolean success, TpConn
 static void connection_disconnect_cb(IdleConnection *conn, TpConnectionStatusReason reason) {
 	TpBaseConnection *base = TP_BASE_CONNECTION(conn);
 
-	if (base->status == TP_CONNECTION_STATUS_DISCONNECTED)
+	if (tp_base_connection_get_status (base) == TP_CONNECTION_STATUS_DISCONNECTED)
 		g_idle_add(_finish_shutdown_idle_func, base);
 	else
 		tp_base_connection_change_status(base, TP_CONNECTION_STATUS_DISCONNECTED, reason);
@@ -1425,7 +1440,7 @@ static void idle_connection_request_rename(IdleSvcConnectionInterfaceRenaming *i
 
 static void idle_connection_set_aliases(TpSvcConnectionInterfaceAliasing *iface, GHashTable *aliases, DBusGMethodInvocation *context) {
 	IdleConnection *conn = IDLE_CONNECTION(iface);
-	const gchar *requested_alias = g_hash_table_lookup(aliases, GUINT_TO_POINTER(conn->parent.self_handle));
+	const gchar *requested_alias = g_hash_table_lookup(aliases, GUINT_TO_POINTER(tp_base_connection_get_self_handle (TP_BASE_CONNECTION (conn))));
 
 	if ((g_hash_table_size(aliases) != 1) || !requested_alias) {
 		GError error = {TP_ERROR, TP_ERROR_NOT_AVAILABLE, "You can only set your own alias in IRC"};

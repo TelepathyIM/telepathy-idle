@@ -270,7 +270,7 @@ static IdleParserHandlerResult _invite_handler(IdleParser *parser, IdleParserMes
 	TpHandle room_handle = g_value_get_uint(g_value_array_get_nth(args, 2));
 	IdleMUCChannel *chan;
 
-	if (invited_handle != priv->conn->parent.self_handle)
+	if (invited_handle != tp_base_connection_get_self_handle (TP_BASE_CONNECTION (priv->conn)))
 		return IDLE_PARSER_HANDLER_RESULT_HANDLED;
 
 	if (!priv->channels) {
@@ -830,7 +830,8 @@ _muc_manager_request (
     }
   else
     {
-      channel = _muc_manager_new_channel (self, handle, base_conn->self_handle, TRUE);
+      channel = _muc_manager_new_channel (self, handle,
+          tp_base_connection_get_self_handle (base_conn), TRUE);
       idle_muc_channel_join_attempt (channel);
     }
 
