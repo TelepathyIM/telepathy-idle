@@ -1,7 +1,25 @@
-telepathy-idle 0.1.17 (UNRELEASED)
+telepathy-idle 0.1.17 (2013-09-18)
 ==================================
 
-...
+This is a release candidate for telepathy-idle 0.2, recommended for
+use with GNOME 3.10.
+
+Dependencies:
+
+• GLib ≥ 2.32
+• telepathy-glib ≥ 0.21
+
+Fixes:
+
+• Don't crash when a channel with multiple requests fails (Sjoerd)
+
+• Add handle-name to RoomList properties (fd.o #65614, Xavier)
+
+• kill async read when disconnecting (fd.o #64923, Lionel Landwerlin)
+
+• Fix tests with automake 1.13 (fd.o #69258, Guillaume)
+
+• Stop using deprecated telepathy-glib API (fd.o #64122 and #69311, Guillaume)
 
 telepathy-idle 0.1.16 (2013-05-01)
 ==================================
