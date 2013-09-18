@@ -38,7 +38,9 @@ else
 fi
 
 IDLE_SSL_KEY=${IDLE_ABS_TOP_SRCDIR}/tests/twisted/tools/idletest.key
+export IDLE_SSL_KEY
 IDLE_SSL_CERT=${IDLE_ABS_TOP_SRCDIR}/tests/twisted/tools/idletest.cert
+export IDLE_SSL_CERT
 
 if [ -n "$1" ] ; then
   list="$1"
