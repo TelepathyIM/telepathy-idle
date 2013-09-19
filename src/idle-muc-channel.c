@@ -189,6 +189,32 @@ static void idle_muc_channel_dispose (GObject *object);
 static void idle_muc_channel_finalize (GObject *object);
 
 static void
+change_members (GObject *obj,
+    const gchar *message,
+    const TpIntset *add,
+    const TpIntset *del,
+    const TpIntset *add_local_pending,
+    const TpIntset *add_remote_pending,
+    TpHandle actor,
+    TpChannelGroupChangeReason reason)
+{
+  GHashTable *details;
+
+  details = tp_asv_new (
+      "actor", G_TYPE_UINT, actor,
+      "change-reason", G_TYPE_UINT, reason,
+      NULL);
+
+  if (message != NULL)
+    tp_asv_set_string (details, "message", message);
+
+  tp_group_mixin_change_members (obj,
+      add, del, add_local_pending, add_remote_pending, details);
+
+  g_hash_table_unref (details);
+}
+
+static void
 idle_muc_channel_constructed (GObject *obj)
 {
 	IdleMUCChannel *self = IDLE_MUC_CHANNEL (obj);
@@ -234,7 +260,7 @@ idle_muc_channel_constructed (GObject *obj)
 		g_assert (initiator == self_handle);
 
 		remote = tp_intset_new_containing (initiator);
-		tp_group_mixin_change_members (obj, "", NULL, NULL, NULL, remote,
+		change_members (obj, "", NULL, NULL, NULL, remote,
 			initiator, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 		tp_intset_destroy (remote);
 	}
@@ -742,7 +768,7 @@ void idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner) {
 	if (joiner == tp_base_connection_get_self_handle (base_conn)) {
 		/* woot we managed to get into a channel, great */
 		change_state(chan, MUC_STATE_JOINED);
-		tp_group_mixin_change_members((GObject *)(chan), NULL, set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+		change_members((GObject *)(chan), NULL, set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 		tp_group_mixin_change_flags((GObject *)(chan),
 			TP_CHANNEL_GROUP_FLAG_CAN_ADD |
 			TP_CHANNEL_GROUP_FLAG_MESSAGE_DEPART,
@@ -754,7 +780,7 @@ void idle_muc_channel_join(IdleMUCChannel *chan, TpHandle joiner) {
 			/* according to IRC specs, PLUS channels do not support channel modes and alway have only +t set, so we work with that. */
 			change_mode_state(chan, MODE_FLAG_TOPIC_ONLY_SETTABLE_BY_OPS, 0);
 	} else {
-		tp_group_mixin_change_members((GObject *)(chan), NULL, set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+		change_members((GObject *)(chan), NULL, set, NULL, NULL, NULL, joiner, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 	}
 
 	IDLE_DEBUG("member joined with handle %u", joiner);
@@ -768,7 +794,7 @@ static void _network_member_left(IdleMUCChannel *chan, TpHandle leaver, TpHandle
 	TpIntset *set = tp_intset_new();
 
 	tp_intset_add(set, leaver);
-	tp_group_mixin_change_members((GObject *) chan, message, NULL, set, NULL, NULL, actor, reason);
+	change_members((GObject *) chan, message, NULL, set, NULL, NULL, actor, reason);
 
 	if (leaver == tp_base_connection_get_self_handle (base_conn)) {
 		change_state(chan, MUC_STATE_PARTED);
@@ -802,7 +828,7 @@ void idle_muc_channel_invited(IdleMUCChannel *chan, TpHandle inviter) {
 	tp_intset_add(add, inviter);
 	tp_intset_add(local, tp_base_connection_get_self_handle (base_conn));
 
-	tp_group_mixin_change_members((GObject *)(chan), NULL, add, NULL, local, NULL, inviter, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
+	change_members((GObject *)(chan), NULL, add, NULL, local, NULL, inviter, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 
 	tp_intset_destroy(add);
 	tp_intset_destroy(local);
@@ -865,7 +891,7 @@ void idle_muc_channel_namereply_end(IdleMUCChannel *chan) {
 
 	idle_connection_emit_queued_aliases_changed(IDLE_CONNECTION (base_conn));
 
-	tp_group_mixin_change_members((GObject *) chan, NULL, tp_handle_set_peek(priv->namereply_set), NULL, NULL, NULL, 0, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+	change_members((GObject *) chan, NULL, tp_handle_set_peek(priv->namereply_set), NULL, NULL, NULL, 0, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 
 	tp_handle_set_destroy(priv->namereply_set);
 	priv->namereply_set = NULL;
@@ -1140,7 +1166,7 @@ void idle_muc_channel_rename(IdleMUCChannel *chan, TpHandle old_handle, TpHandle
 	else
 		goto cleanup;
 
-	tp_group_mixin_change_members((GObject *) chan, NULL, add, remove, local, remote, new_handle, TP_CHANNEL_GROUP_CHANGE_REASON_RENAMED);
+	change_members((GObject *) chan, NULL, add, remove, local, remote, new_handle, TP_CHANNEL_GROUP_CHANGE_REASON_RENAMED);
 
 cleanup:
 
@@ -1254,7 +1280,7 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 
 			tp_intset_add(add_set, handle);
 
-			tp_group_mixin_change_members(gobj, message, NULL, NULL, NULL, add_set, handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
+			change_members(gobj, message, NULL, NULL, NULL, add_set, handle, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 		}
 	} else {
 		if (tp_handle_set_is_member(obj->group.members, handle) || tp_handle_set_is_member(obj->group.remote_pending, handle)) {
@@ -1278,7 +1304,7 @@ static gboolean add_member(GObject *gobj, TpHandle handle, const gchar *message,
 
 			tp_intset_add(add_set, handle);
 
-			tp_group_mixin_change_members(gobj, NULL, NULL, NULL, NULL, add_set, self_handle, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
+			change_members(gobj, NULL, NULL, NULL, NULL, add_set, self_handle, TP_CHANNEL_GROUP_CHANGE_REASON_INVITED);
 		}
 	}
 
