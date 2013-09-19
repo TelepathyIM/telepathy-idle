@@ -1,7 +1,7 @@
 [ConnectionManager]
 Name = idle
-BusName = org.freedesktop.Telepathy.ConnectionManager.idle
-ObjectPath = /org/freedesktop/Telepathy/ConnectionManager/idle
+BusName = im.telepathy1.ConnectionManager.idle
+ObjectPath = /im/telepathy1/ConnectionManager/idle
 
 [Protocol irc]
 param-account = s required
