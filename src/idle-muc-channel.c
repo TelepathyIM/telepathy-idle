@@ -240,7 +240,6 @@ idle_muc_channel_constructed (GObject *obj)
 	tp_base_channel_register (base);
 
 	tp_group_mixin_init(obj, G_STRUCT_OFFSET(IdleMUCChannel, group), contact_handles, self_handle);
-	tp_group_mixin_change_flags(obj, TP_CHANNEL_GROUP_FLAG_PROPERTIES, 0);
 
 	/* initialize message mixin */
 	tp_message_mixin_init (obj, G_STRUCT_OFFSET (IdleMUCChannel, message_mixin),
