@@ -44,7 +44,7 @@ Makefile.in
 *-bindings.[ch]
 *-gen.h
 
-data/org.freedesktop.Telepathy.ConnectionManager.idle.service
+data/im.telepathy1.ConnectionManager.idle.service
 
 extensions/_gen
 extensions/extensions.html
@@ -68,7 +68,7 @@ tests/twisted/config.py
 tests/twisted/idle-twisted-tests.list
 tests/twisted/tools/exec-with-log.sh
 tests/twisted/tools/idle-testing.log
-tests/twisted/tools/org.freedesktop.Telepathy.ConnectionManager.idle.service
+tests/twisted/tools/im.telepathy1.ConnectionManager.idle.service
 tests/twisted/run-test.sh
 tests/twisted/test-suite.log
 tests/twisted/tools/tmp-session-bus.conf
