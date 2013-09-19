@@ -20,6 +20,8 @@
 #include "config.h"
 #include "idle-contact-info.h"
 
+#include <telepathy-glib/telepathy-glib-dbus.h>
+
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_CONNECTION
 #include "idle-debug.h"
 #include "idle-muc-channel.h"

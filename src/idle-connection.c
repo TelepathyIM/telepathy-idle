@@ -27,6 +27,7 @@
 #include <time.h>
 
 #include <dbus/dbus-glib.h>
+#include <telepathy-glib/telepathy-glib-dbus.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_CONNECTION
 #include "idle-contact-info.h"

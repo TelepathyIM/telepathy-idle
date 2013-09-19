@@ -24,6 +24,7 @@
 #include "idle-roomlist-manager.h"
 
 #include <telepathy-glib/telepathy-glib.h>
+#include <telepathy-glib/telepathy-glib-dbus.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_ROOMLIST
 #include "idle-connection.h"

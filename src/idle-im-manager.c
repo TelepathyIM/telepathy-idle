@@ -23,6 +23,7 @@
 #include "idle-im-manager.h"
 
 #include <telepathy-glib/telepathy-glib.h>
+#include <telepathy-glib/telepathy-glib-dbus.h>
 
 #define IDLE_DEBUG_FLAG IDLE_DEBUG_IM
 #include "idle-connection.h"
