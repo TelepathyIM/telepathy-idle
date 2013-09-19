@@ -48,8 +48,7 @@ static void idle_muc_channel_close (TpBaseChannel *base);
 G_DEFINE_TYPE_WITH_CODE(IdleMUCChannel, idle_muc_channel, TP_TYPE_BASE_CHANNEL,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_GROUP, tp_group_mixin_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_PASSWORD, _password_iface_init);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, tp_message_mixin_text_iface_init);
-		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_MESSAGES, tp_message_mixin_messages_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, tp_message_mixin_iface_init);
 		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_ROOM, NULL);
 		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_SUBJECT, subject_iface_init);
 		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_ROOM_CONFIG,
@@ -123,7 +122,6 @@ typedef struct {
 static const gchar *muc_channel_interfaces[] = {
 	TP_IFACE_CHANNEL_INTERFACE_PASSWORD,
 	TP_IFACE_CHANNEL_INTERFACE_GROUP,
-	TP_IFACE_CHANNEL_INTERFACE_MESSAGES,
 	TP_IFACE_CHANNEL_INTERFACE_ROOM,
 	TP_IFACE_CHANNEL_INTERFACE_SUBJECT,
 	TP_IFACE_CHANNEL_INTERFACE_ROOM_CONFIG,
@@ -324,10 +322,10 @@ idle_muc_channel_fill_immutable_properties (
 
   tp_dbus_properties_mixin_fill_properties_hash (
       G_OBJECT (chan), properties,
-      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessagePartSupportFlags",
-      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "DeliveryReportingSupport",
-      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "SupportedContentTypes",
-      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessageTypes",
+      TP_IFACE_CHANNEL_TYPE_TEXT, "MessagePartSupportFlags",
+      TP_IFACE_CHANNEL_TYPE_TEXT, "DeliveryReportingSupport",
+      TP_IFACE_CHANNEL_TYPE_TEXT, "SupportedContentTypes",
+      TP_IFACE_CHANNEL_TYPE_TEXT, "MessageTypes",
       TP_IFACE_CHANNEL_INTERFACE_ROOM, "RoomName",
       TP_IFACE_CHANNEL_INTERFACE_ROOM, "Server",
       NULL);

@@ -38,8 +38,7 @@ static void idle_im_channel_send (GObject *obj, TpMessage *message, TpMessageSen
 static void idle_im_channel_finalize (GObject *object);
 
 G_DEFINE_TYPE_WITH_CODE(IdleIMChannel, idle_im_channel, TP_TYPE_BASE_CHANNEL,
-    G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, tp_message_mixin_text_iface_init);
-    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_MESSAGES, tp_message_mixin_messages_iface_init);
+    G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, tp_message_mixin_iface_init);
     G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE, _destroyable_iface_init);
     )
 
@@ -90,10 +89,10 @@ idle_im_channel_fill_properties (
 
   tp_dbus_properties_mixin_fill_properties_hash (
       G_OBJECT (chan), properties,
-      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessagePartSupportFlags",
-      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "DeliveryReportingSupport",
-      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "SupportedContentTypes",
-      TP_IFACE_CHANNEL_INTERFACE_MESSAGES, "MessageTypes",
+      TP_IFACE_CHANNEL_TYPE_TEXT, "MessagePartSupportFlags",
+      TP_IFACE_CHANNEL_TYPE_TEXT, "DeliveryReportingSupport",
+      TP_IFACE_CHANNEL_TYPE_TEXT, "SupportedContentTypes",
+      TP_IFACE_CHANNEL_TYPE_TEXT, "MessageTypes",
       NULL);
 }
 
@@ -174,7 +173,6 @@ idle_im_channel_get_interfaces (TpBaseChannel *channel)
       TP_BASE_CHANNEL_CLASS (idle_im_channel_parent_class)->get_interfaces (
           channel);
 
-  g_ptr_array_add (interfaces, TP_IFACE_CHANNEL_INTERFACE_MESSAGES);
   g_ptr_array_add (interfaces, TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE);
 
   return interfaces;
