@@ -1434,7 +1434,7 @@ static void idle_muc_channel_provide_password (TpSvcChannelInterfacePassword *if
  * idle_muc_channel_send
  *
  * Indirectly implements (via TpMessageMixin) D-Bus method Send on interface
- * org.freedesktop.Telepathy.Channel.Type.Text and D-Bus method SendMessage on
+ * im.telepathy1.Channel.Type.Text and D-Bus method SendMessage on
  * Channel.Interface.Messages
  */
 static void

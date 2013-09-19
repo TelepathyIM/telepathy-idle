@@ -222,7 +222,7 @@ idle_roomlist_channel_close (TpBaseChannel *channel)
  * idle_roomlist_channel_get_listing_rooms
  *
  * Implements D-Bus method GetListingRooms
- * on interface org.freedesktop.Telepathy.Channel.Type.RoomList
+ * on interface im.telepathy1.Channel.Type.RoomList
  */
 static void
 idle_roomlist_channel_get_listing_rooms (TpSvcChannelTypeRoomList *iface,
@@ -240,7 +240,7 @@ idle_roomlist_channel_get_listing_rooms (TpSvcChannelTypeRoomList *iface,
  * idle_roomlist_channel_list_rooms
  *
  * Implements D-Bus method ListRooms
- * on interface org.freedesktop.Telepathy.Channel.Type.RoomList
+ * on interface im.telepathy1.Channel.Type.RoomList
  */
 static void
 idle_roomlist_channel_list_rooms (TpSvcChannelTypeRoomList *iface,
@@ -261,7 +261,7 @@ idle_roomlist_channel_list_rooms (TpSvcChannelTypeRoomList *iface,
  * idle_roomlist_channel_stop_listing
  *
  * Implements D-Bus method StopListing
- * on interface org.freedesktop.Telepathy.Channel.Type.RoomList
+ * on interface im.telepathy1.Channel.Type.RoomList
  */
 static void
 idle_roomlist_channel_stop_listing (TpSvcChannelTypeRoomList *iface,
