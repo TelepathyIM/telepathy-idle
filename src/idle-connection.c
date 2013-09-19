@@ -490,7 +490,6 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 
 	parent_class->create_handle_repos = _iface_create_handle_repos;
 	parent_class->get_unique_connection_name = _iface_get_unique_connection_name;
-	parent_class->create_channel_factories = NULL;
 	parent_class->create_channel_managers = _iface_create_channel_managers;
 	parent_class->connecting = NULL;
 	parent_class->connected = NULL;
