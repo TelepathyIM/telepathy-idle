@@ -49,7 +49,7 @@ _gen/svc.c: _gen/all.xml \
 	$(tools_dir)/glib-ginterface-gen.py
 	$(AM_V_GEN)$(PYTHON) $(tools_dir)/glib-ginterface-gen.py \
 		--filename=_gen/svc --signal-marshal-prefix=_idle_ext \
-		--include='<telepathy-glib/dbus.h>' \
+		--include='<telepathy-glib/telepathy-glib.h>' \
 		--not-implemented-func='tp_dbus_g_method_return_not_implemented' \
 		--allow-unstable \
 		$< Idle_Svc_
