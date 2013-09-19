@@ -566,7 +566,7 @@ static GPtrArray *_iface_create_channel_managers(TpBaseConnection *base) {
 }
 
 static void _iface_create_handle_repos(TpBaseConnection *self, TpHandleRepoIface **repos) {
-	for (int i = 0; i < NUM_TP_HANDLE_TYPES; i++)
+	for (int i = 0; i < TP_NUM_HANDLE_TYPES; i++)
 		repos[i] = NULL;
 
 	idle_handle_repos_init(repos);

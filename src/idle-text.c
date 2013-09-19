@@ -179,7 +179,7 @@ void idle_text_send(GObject *obj, TpMessage *message, TpMessageSendingFlags flag
 	if (!result)
 		INVALID_ARGUMENT ("message-type must be a 32-bit unsigned integer");
 
-	if (type >= NUM_TP_CHANNEL_TEXT_MESSAGE_TYPES)
+	if (type >= TP_NUM_CHANNEL_TEXT_MESSAGE_TYPES)
 		INVALID_ARGUMENT ("invalid message type: %u", type);
 
 	n_parts = tp_message_count_parts (message);
