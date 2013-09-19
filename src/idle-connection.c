@@ -58,11 +58,6 @@ static gboolean flush_queue_faster = FALSE;
 #define SERVER_CMD_NORMAL_PRIORITY G_MAXUINT/2
 #define SERVER_CMD_MAX_PRIORITY G_MAXUINT
 
-static void _free_alias_pair(gpointer data, gpointer user_data)
-{
-	g_boxed_free(TP_STRUCT_TYPE_ALIAS_PAIR, data);
-}
-
 static void _aliasing_iface_init(gpointer, gpointer);
 static void _renaming_iface_init(gpointer, gpointer);
 
@@ -189,8 +184,8 @@ struct _IdleConnectionPrivate {
 	gboolean quitting;
 	guint force_disconnect_id;
 
-	/* AliasChanged aggregation */
-	GPtrArray *queued_aliases;
+	/* AliasChanged aggregation. TpHandle -> owned (gchar *) */
+	GHashTable *queued_aliases;
 	TpHandleSet *queued_aliases_owners;
 
 	/* if idle_connection_dispose has already run once */
@@ -411,8 +406,7 @@ static void idle_connection_dispose (GObject *object) {
 	if (priv->queued_aliases_owners)
 		tp_handle_set_destroy(priv->queued_aliases_owners);
 
-	if (priv->queued_aliases)
-		g_ptr_array_free(priv->queued_aliases, TRUE);
+	g_clear_pointer (&priv->queued_aliases, g_hash_table_unref);
 
 	g_object_unref(self->parser);
 
@@ -1272,13 +1266,10 @@ _queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *alias) 
 	tp_handle_set_add(priv->queued_aliases_owners, handle);
 
 	if (!priv->queued_aliases)
-		priv->queued_aliases = g_ptr_array_new();
+		priv->queued_aliases = g_hash_table_new_full (NULL, NULL, NULL, g_free);
 
-	g_ptr_array_add(priv->queued_aliases,
-		tp_value_array_build (2,
-			G_TYPE_UINT, handle,
-			G_TYPE_STRING, alias,
-			G_TYPE_INVALID));
+	g_hash_table_insert (priv->queued_aliases, GUINT_TO_POINTER (handle),
+		g_strdup (alias));
 }
 
 void idle_connection_canon_nick_receive(IdleConnection *conn, TpHandle handle, const gchar *canon_nick) {
@@ -1304,16 +1295,11 @@ void idle_connection_emit_queued_aliases_changed(IdleConnection *conn) {
 
 	tp_svc_connection_interface_aliasing_emit_aliases_changed(conn, priv->queued_aliases);
 
-	g_ptr_array_foreach(priv->queued_aliases, _free_alias_pair, NULL);
-	g_ptr_array_free(priv->queued_aliases, TRUE);
+	g_hash_table_unref (priv->queued_aliases);
 	priv->queued_aliases = NULL;
 
 	tp_handle_set_destroy(priv->queued_aliases_owners);
 	priv->queued_aliases_owners = NULL;
-}
-
-static void idle_connection_get_alias_flags(TpSvcConnectionInterfaceAliasing *iface, DBusGMethodInvocation *context) {
-	tp_svc_connection_interface_aliasing_return_from_get_alias_flags(context, 0);
 }
 
 static const gchar *
@@ -1352,40 +1338,6 @@ conn_aliasing_fill_contact_attributes (
           handle, TP_IFACE_CONNECTION_INTERFACE_ALIASING"/alias",
           tp_g_value_slice_new_string (alias));
     }
-}
-
-static void
-idle_connection_get_aliases (
-    TpSvcConnectionInterfaceAliasing *iface,
-    const GArray *handles,
-    DBusGMethodInvocation *context)
-{
-  IdleConnection *self = IDLE_CONNECTION (iface);
-  TpHandleRepoIface *repo = tp_base_connection_get_handles (
-      TP_BASE_CONNECTION (iface), TP_HANDLE_TYPE_CONTACT);
-  GError *error = NULL;
-  GHashTable *aliases;
-
-  if (!tp_handles_are_valid (repo, handles, FALSE, &error))
-    {
-      dbus_g_method_return_error(context, error);
-      g_error_free(error);
-      return;
-    }
-
-  aliases = g_hash_table_new (NULL, NULL);
-
-  for (guint i = 0; i < handles->len; i++)
-    {
-      TpHandle handle = g_array_index (handles, TpHandle, i);
-
-      g_hash_table_insert (aliases, GUINT_TO_POINTER (handle),
-          (gpointer) gimme_an_alias (self, repo, handle));
-    }
-
-  tp_svc_connection_interface_aliasing_return_from_get_aliases (context,
-      aliases);
-  g_hash_table_unref (aliases);
 }
 
 static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing *iface, const GArray *handles, DBusGMethodInvocation *context) {
@@ -1553,8 +1505,6 @@ static void _aliasing_iface_init(gpointer g_iface, gpointer iface_data) {
 
 #define IMPLEMENT(x) tp_svc_connection_interface_aliasing_implement_##x (\
 		klass, idle_connection_##x)
-	IMPLEMENT(get_alias_flags);
-	IMPLEMENT(get_aliases);
 	IMPLEMENT(request_aliases);
 	IMPLEMENT(set_aliases);
 #undef IMPLEMENT
