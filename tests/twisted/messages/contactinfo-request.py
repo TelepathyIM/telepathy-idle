@@ -41,7 +41,7 @@ def test(q, bus, conn, stream):
         args=[1L])
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
 
-    self_handle = conn.GetSelfHandle()
+    self_handle = conn.Get(CONN, 'SelfHandle', dbus_interface=PROPERTIES_IFACE)
 
     for name in CHANNEL_NAMES:
         call_async(q, conn.Requests, 'CreateChannel',

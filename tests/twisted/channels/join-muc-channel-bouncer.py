@@ -37,7 +37,7 @@ def test(q, bus, conn, stream):
 
     CHANNEL_NAME = "#idletest"
 
-    self_handle = conn.GetSelfHandle()
+    self_handle = conn.Get(CONN, 'SelfHandle', dbus_interface=PROPERTIES_IFACE)
 
     # The bouncer initiates a JOIN.
     path = test_join_bouncer(q, conn, stream, CHANNEL_NAME)

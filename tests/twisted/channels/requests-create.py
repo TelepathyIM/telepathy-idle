@@ -53,7 +53,7 @@ def test(q, bus, conn, stream):
     assert emitted_props[cs.TARGET_HANDLE] == foo_handle
     assert emitted_props[cs.TARGET_ID] == nick
     assert emitted_props[cs.REQUESTED]
-    assert emitted_props[cs.INITIATOR_HANDLE] == conn.GetSelfHandle()
+    assert emitted_props[cs.INITIATOR_HANDLE] == props['SelfHandle']
     assert emitted_props[cs.INITIATOR_ID] == stream.nick
 
     assert len(new_sig.args) == 1
