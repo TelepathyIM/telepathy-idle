@@ -17,8 +17,8 @@ def test(q, bus, conn, stream):
     q.expect_many(
             EventPattern('dbus-signal', signal='StatusChanged', args=[1, 1]),
             EventPattern('irc-connected'))
-    q.expect('dbus-signal', signal='SelfHandleChanged',
-        args=[1L])
+    q.expect('dbus-signal', signal='SelfContactChanged',
+        args=[1L, 'test'])
 
     # request a roomlist channel
     call_async(q, conn, 'CreateChannel',

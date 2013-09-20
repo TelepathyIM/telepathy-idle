@@ -52,7 +52,7 @@ def test(q, bus, conn, stream, use_room=False):
     q.expect_many(
             EventPattern('dbus-signal', signal='StatusChanged', args=[1, 1]),
             EventPattern('irc-connected'))
-    q.expect('dbus-signal', signal='SelfHandleChanged')
+    q.expect('dbus-signal', signal='SelfContactChanged')
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
 
     self_handle = conn.Get(cs.CONN, 'SelfHandle', dbus_interface=cs.PROPERTIES_IFACE)

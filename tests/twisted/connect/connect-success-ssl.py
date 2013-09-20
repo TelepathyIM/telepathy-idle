@@ -20,8 +20,8 @@ def test(q, bus, conn, stream):
     cert = bus.get_object (conn.bus_name, props[cs.TLS_CERT_PATH])
     cert.Accept()
 
-    q.expect('dbus-signal', signal='SelfHandleChanged',
-        args=[1L])
+    q.expect('dbus-signal', signal='SelfContactChanged',
+        args=[1L, 'test'])
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
     call_async(q, conn, 'Disconnect')
     q.expect_many(
