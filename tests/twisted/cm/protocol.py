@@ -11,19 +11,12 @@ import constants as cs
 def test(q, bus, conn, server):
     cm = bus.get_object(cs.CM + '.idle',
         tp_path_prefix + '/ConnectionManager/idle')
-    cm_iface = dbus.Interface(cm, cs.CM)
     cm_prop_iface = dbus.Interface(cm, cs.PROPERTIES_IFACE)
 
     protocols = unwrap(cm_prop_iface.Get(cs.CM, 'Protocols'))
     assertEquals(set(['irc']), set(protocols.keys()))
 
-    protocol_names = unwrap(cm_iface.ListProtocols())
-    assertEquals(set(['irc']), set(protocol_names))
-
-    cm_params = cm_iface.GetParameters('irc')
     local_props = protocols['irc']
-    local_params = local_props[cs.PROTOCOL + '.Parameters']
-    assertEquals(cm_params, local_params)
 
     proto = bus.get_object(cm.bus_name, cm.object_path + '/irc')
     proto_iface = dbus.Interface(proto, cs.PROTOCOL)
