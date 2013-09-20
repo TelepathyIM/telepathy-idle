@@ -42,7 +42,7 @@ def test(q, bus, conn, stream):
 
     # We don't actually care about the message; the important bit is that her
     # alias changes.
-    q.expect('dbus-signal', signal='AliasesChanged', args=[[(brillana, bRiL)]])
+    q.expect('dbus-signal', signal='AliasesChanged', args=[{brillana: bRiL}])
     attrs = conn.Contacts.GetContactAttributes([brillana],
         [cs.CONN_IFACE_ALIASING])
     assertEquals(bRiL, attrs[brillana][cs.CONN_IFACE_ALIASING + "/alias"])
