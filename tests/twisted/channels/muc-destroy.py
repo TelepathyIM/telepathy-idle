@@ -17,7 +17,7 @@ def join(q, bus, conn):
     event = q.expect('dbus-return', method='CreateChannel')
     path, props = event.value
     return wrap_channel(bus.get_object(conn.bus_name, path), 'Text',
-        ['Destroyable', 'Messages'])
+        ['Destroyable1'])
 
 def test(q, bus, conn, stream):
     conn.Connect()
@@ -30,7 +30,7 @@ def test(q, bus, conn, stream):
     q.expect('dbus-signal', signal='MessageReceived')
 
     # Without acking the message, destroy the channel.
-    call_async(q, chan.Destroyable, "Destroy")
+    call_async(q, chan.Destroyable1, "Destroy")
     q.expect_many(
         EventPattern('stream-PART'),
         EventPattern('dbus-signal', signal='Closed', path=chan.object_path),
