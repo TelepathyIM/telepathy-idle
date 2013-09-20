@@ -39,10 +39,10 @@ def expect_and_check_can_set(q, channel, can_set):
     if can_set:
         # FIXME: this shouldn't return until the server gets back to us with
         # RPL_TOPIC
-        channel.Subject2.SetSubject('what up')
+        channel.Subject1.SetSubject('what up')
         e = q.expect('stream-TOPIC', data=[room, 'what up'])
     else:
-        call_async(q, channel.Subject2, 'SetSubject', 'boo hoo')
+        call_async(q, channel.Subject1, 'SetSubject', 'boo hoo')
         q.expect('dbus-error', method='SetSubject',
             name=PERMISSION_DENIED)
 
@@ -80,7 +80,7 @@ def test(q, bus, conn, stream):
     path = event.value[0]
 
     channel = wrap_channel(bus.get_object(conn.bus_name, path), 'Text',
-        ['Subject2'])
+        ['Subject1'])
 
     assertContains(CHANNEL_IFACE_SUBJECT,
         channel.Properties.Get(CHANNEL, 'Interfaces'))
@@ -178,7 +178,7 @@ def test(q, bus, conn, stream):
     # And back to normal again ?
     test_can_set(q, stream, channel)
 
-    channel.Subject2.SetSubject('')
+    channel.Subject1.SetSubject('')
     # Verify that we send an empty final parameter ("clear the topic") as
     # opposed to no final parameter ("what is the topic").
     q.expect('stream-TOPIC', data=[room, ''])
