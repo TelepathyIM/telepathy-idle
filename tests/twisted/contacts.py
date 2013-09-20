@@ -21,7 +21,7 @@ def test(q, bus, conn, stream):
     brillana, miriam = conn.get_contact_handles_sync(["brillana", "miriam"])
 
     # First up, check that contact-id is always present
-    attrs = conn.Contacts.GetContactAttributes([brillana], [], True)
+    attrs = conn.Contacts.GetContactAttributes([brillana], [])
     assertContains(brillana, attrs)
     brillana_attrs = attrs[brillana]
     assertContains(cs.CONN + "/contact-id", brillana_attrs)
@@ -30,7 +30,7 @@ def test(q, bus, conn, stream):
     # Test grabbing some aliases! Neither contact is known to have any
     # particular capitalization so they should be lowercase.
     attrs = conn.Contacts.GetContactAttributes([brillana, miriam],
-        [cs.CONN_IFACE_ALIASING], True)
+        [cs.CONN_IFACE_ALIASING])
     assertContains(cs.CONN_IFACE_ALIASING + "/alias", attrs[brillana])
     assertEquals("brillana", attrs[brillana][cs.CONN_IFACE_ALIASING + "/alias"])
     assertEquals("miriam", attrs[miriam][cs.CONN_IFACE_ALIASING + "/alias"])
@@ -44,7 +44,7 @@ def test(q, bus, conn, stream):
     # alias changes.
     q.expect('dbus-signal', signal='AliasesChanged', args=[[(brillana, bRiL)]])
     attrs = conn.Contacts.GetContactAttributes([brillana],
-        [cs.CONN_IFACE_ALIASING], True)
+        [cs.CONN_IFACE_ALIASING])
     assertEquals(bRiL, attrs[brillana][cs.CONN_IFACE_ALIASING + "/alias"])
 
 if __name__ == '__main__':

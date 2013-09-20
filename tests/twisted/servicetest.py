@@ -464,7 +464,7 @@ class ConnWrapper(ProxyWrapper):
         return self.inspect_contacts_sync([handle])[0]
 
     def inspect_contacts_sync(self, handles):
-        h2asv = self.Contacts.GetContactAttributes(handles, [], True)
+        h2asv = self.Contacts.GetContactAttributes(handles, [])
         ret = []
         for h in handles:
             ret.append(h2asv[h][cs.ATTR_CONTACT_ID])
