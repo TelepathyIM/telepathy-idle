@@ -98,7 +98,7 @@ def test(q, bus, conn, stream, use_room=False):
     assert props[cs.REQUESTED]
     assert props[cs.INITIATOR_HANDLE] == self_handle
     assert props[cs.INITIATOR_ID] == \
-        conn.InspectHandles(cs.HT_CONTACT, [self_handle])[0]
+            conn.inspect_contacts_sync([self_handle])[0]
 
     ec_yours, ec_path, ec_props = ec.value
     assert not ec_yours
