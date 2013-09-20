@@ -157,7 +157,7 @@ def test(q, bus, conn, stream, use_room=False):
     sync_stream(q, stream)
     q.unforbid_events(patterns)
 
-    chan.RemoveMembers([self_handle], "bye bye cruel\r\nworld",
+    chan.RemoveMembers([self_handle], "bye bye cruel\r\nworld", cs.GC_REASON_NONE,
         dbus_interface=cs.CHANNEL_IFACE_GROUP)
 
     part_event = q.expect('stream-PART')

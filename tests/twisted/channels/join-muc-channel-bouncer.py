@@ -44,7 +44,7 @@ def test(q, bus, conn, stream):
 
     # We PART.
     chan = make_channel_proxy(conn, path, 'Channel')
-    chan.RemoveMembers([self_handle], "bye bye cruel world",
+    chan.RemoveMembers([self_handle], "bye bye cruel world", GC_REASON_NONE,
         dbus_interface=CHANNEL_IFACE_GROUP)
     q.expect('dbus-signal', signal='MembersChanged')
 
