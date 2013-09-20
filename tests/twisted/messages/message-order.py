@@ -29,7 +29,12 @@ def test(q, bus, conn, stream):
     # in the proper order
     NUM_MESSAGES = 4
     for i in range(NUM_MESSAGES):
-        call_async(q, text_chan, 'Send', 0, str(i))
+        message = [
+            {'message-type': MT_NORMAL },
+            {'content-type': 'text/plain',
+             'content': str(i) }]
+
+        call_async(q, text_chan, 'SendMessage', message, 0)
 
     for i in range(NUM_MESSAGES):
         message = q.expect('stream-PRIVMSG')

@@ -85,7 +85,6 @@ def test(q, bus, conn, stream, use_room=False):
     assertSameSets(
         [cs.CHANNEL_IFACE_GROUP,
          cs.CHANNEL_IFACE_PASSWORD,
-         cs.CHANNEL_IFACE_MESSAGES,
          cs.CHANNEL_IFACE_ROOM,
          cs.CHANNEL_IFACE_SUBJECT,
          cs.CHANNEL_IFACE_ROOM_CONFIG,
@@ -144,7 +143,7 @@ def test(q, bus, conn, stream, use_room=False):
     assert not props[cs.REQUESTED]
 
     # The unacknowledged message should still be there and be marked as rescued.
-    messages = chan.Properties.Get(cs.CHANNEL_IFACE_MESSAGES, 'PendingMessages')
+    messages = chan.Properties.Get(cs.CHANNEL_TYPE_TEXT, 'PendingMessages')
     assertLength(1, messages)
     assert messages[0][0]['rescued'], messages[0]
 

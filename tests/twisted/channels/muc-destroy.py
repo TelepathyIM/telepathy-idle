@@ -43,7 +43,7 @@ def test(q, bus, conn, stream):
     chan = join(q, bus, conn)
 
     # The message should be gone.
-    messages = chan.Properties.Get(cs.CHANNEL_IFACE_MESSAGES, 'PendingMessages')
+    messages = chan.Properties.Get(cs.CHANNEL_TYPE_TEXT, 'PendingMessages')
     assertLength(0, messages)
 
 

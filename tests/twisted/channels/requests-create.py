@@ -69,7 +69,7 @@ def test(q, bus, conn, stream):
     chan = make_channel_proxy(conn, path, 'Channel')
 
     stream.sendMessage('PRIVMSG', stream.nick, ":oh hai", prefix=nick)
-    q.expect('dbus-signal', signal='Received')
+    q.expect('dbus-signal', signal='MessageReceived')
 
     # Without acknowledging the message, we close the channel:
     chan.Close()
@@ -92,9 +92,10 @@ def test(q, bus, conn, stream):
     assert new_props[cs.INITIATOR_ID] == nick
 
     # ...and it's got some messages in it!
-    ms = chan.ListPendingMessages(False, dbus_interface=cs.CHANNEL_TYPE_TEXT)
+    ms = chan.Get(cs.CHANNEL_TYPE_TEXT, 'PendingMessages',
+            dbus_interface=cs.PROPERTIES_IFACE)
     assert len(ms) == 1
-    assert ms[0][5] == 'oh hai'
+    assert ms[0][1]['content'] == 'oh hai'
 
     # Without acknowledging the message, we destroy the channel:
     assertContains(cs.CHANNEL_IFACE_DESTROYABLE,

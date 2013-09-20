@@ -6,7 +6,7 @@ recently fixed
 """
 
 from idletest import exec_test, BaseIRCServer
-from servicetest import EventPattern, call_async
+from servicetest import EventPattern, call_async, assertEquals
 from constants import *
 import dbus
 
@@ -20,9 +20,9 @@ def test(q, bus, conn, stream):
     stream.sendMessage('PRIVMSG', stream.nick,
             ':%s' % MESSAGE_WITH_LEADING_SPACE, prefix='remoteuser')
     # If telepathy-idle parses this message correctly, it should emit a
-    # 'Received' signal
-    q.expect('dbus-signal', signal='Received',
-            predicate=lambda x: x.args[5]==MESSAGE_WITH_LEADING_SPACE)
+    # 'MessageReceived' signal
+    e = q.expect('dbus-signal', signal='MessageReceived')
+    assertEquals(MESSAGE_WITH_LEADING_SPACE, e.args[0][1]['content'])
 
     call_async(q, conn, 'Disconnect')
     return True

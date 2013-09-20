@@ -40,7 +40,7 @@ def test(q, bus, conn, stream):
 
     stream.sendMessage('PRIVMSG', NICK, ':PRIVATE', prefix=REMOTEUSER)
 
-    event = q.expect('dbus-signal', signal='Received')
+    event = q.expect('dbus-signal', signal='MessageReceived')
     # this seems a bit fragile, but I'm not entirely sure how else to ensure
     # that the message is not delivered to the MUC channel
     assert event.path not in muc_path

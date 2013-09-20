@@ -46,19 +46,26 @@ def test(q, bus, conn, stream):
 
     text_chan = dbus.Interface(chan, CHANNEL_TYPE_TEXT)
     # send a whole bunch of messages in a row
-    call_async(q, text_chan, 'Send', 0, LONG_MESSAGE)
+    message = [
+        {'message-type': MT_NORMAL },
+        {'content-type': 'text/plain',
+         'content': LONG_MESSAGE }]
 
-    # apparently we only emit one 'Sent' signal even if we split a message up
+    call_async(q, text_chan, 'SendMessage', message, 0)
+
+    # apparently we only emit one 'MessageSent' signal even if we split a message up
     # and send it in multiple messages
-    q.expect('dbus-signal', signal='Sent')
+    q.expect('dbus-signal', signal='MessageSent')
 
-    part1 = q.expect('dbus-signal', signal='Received')
-    n = len(part1.args[5])
+    part1 = q.expect('dbus-signal', signal='MessageReceived')
+    content1 = part1.args[0][1]['content']
+    n = len(content1)
     assert n <= 512, "Message exceeds IRC maximum: %d" % n
-    part2 = q.expect('dbus-signal', signal='Received')
-    n = len(part2.args[5])
+    part2 = q.expect('dbus-signal', signal='MessageReceived')
+    content2 = part2.args[0][1]['content']
+    n = len(content2)
     assert n <= 512, "Message exceeds IRC maximum: %d" % n
-    received_msg = part1.args[5] + part2.args[5]
+    received_msg = content1 + content2
 
     assert received_msg == LONG_MESSAGE, received_msg
 

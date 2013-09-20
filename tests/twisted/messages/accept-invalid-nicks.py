@@ -13,14 +13,14 @@ def test(q, bus, conn, stream):
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
 
     stream.sendMessage('PRIVMSG', stream.nick, ':testing testing', prefix='-bip')
-    q.expect('dbus-signal', signal='Received')
+    q.expect('dbus-signal', signal='MessageReceived')
     # FIXME: we should be lenient and accept unicode nicks that we recieve
     # from remote servers, but twisted can't seem to send unicode text so I
     # don't seem to be able to test this :(
     #stream.sendMessage('PRIVMSG', stream.nick, ':testing testing', prefix=u'김정은')
-    #q.expect('dbus-signal', signal='Received')
+    #q.expect('dbus-signal', signal='MessageReceived')
     stream.sendMessage('PRIVMSG', stream.nick, ':testing testing', prefix='12foo')
-    q.expect('dbus-signal', signal='Received')
+    q.expect('dbus-signal', signal='MessageReceived')
 
     call_async(q, conn, 'Disconnect')
     return True
