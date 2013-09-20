@@ -21,15 +21,9 @@ def test_join_bouncer(q, conn, stream, room):
     assertEquals(HT_ROOM, props[TARGET_HANDLE_TYPE])
     assertEquals(CHANNEL_TYPE_TEXT, props[CHANNEL_TYPE])
 
-    new_channel = EventPattern('dbus-signal', signal='NewChannel')
-    event = q.expect_many(new_channel)[0]
-    q.forbid_events([new_channel])
-    assertEquals(CHANNEL_TYPE_TEXT, event.args[1])
-    assertEquals(HT_ROOM, event.args[2])
-
     q.expect('dbus-signal', signal='MembersChanged')
 
-    q.unforbid_events([new_channels, new_channel])
+    q.unforbid_events([new_channels])
     return path
 
 def test(q, bus, conn, stream):
