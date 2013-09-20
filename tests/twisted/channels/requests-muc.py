@@ -95,8 +95,6 @@ def test(q, bus, conn, stream, use_room=False):
     assert props[cs.TARGET_ID] == '#idletest'
     assertEquals('#idletest', props[cs.ROOM_NAME])
     assertEquals('', props[cs.ROOM_SERVER])
-    assert props[cs.TARGET_HANDLE] == \
-        conn.RequestHandles(cs.HT_ROOM, ['#idletest'])[0]
     assert props[cs.REQUESTED]
     assert props[cs.INITIATOR_HANDLE] == self_handle
     assert props[cs.INITIATOR_ID] == \

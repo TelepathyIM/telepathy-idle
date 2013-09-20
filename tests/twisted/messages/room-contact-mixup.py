@@ -25,11 +25,13 @@ def test(q, bus, conn, stream):
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
 
     # join a chat room with the same name as our nick
-    room_handles = conn.RequestHandles(HT_ROOM, [CHANNEL])
-    call_async(q, conn, 'RequestChannel', CHANNEL_TYPE_TEXT, HT_ROOM,
-            room_handles[0], True)
+    call_async(q, conn.Requests,'CreateChannel',
+            { CHANNEL_TYPE: CHANNEL_TYPE_TEXT,
+              TARGET_HANDLE_TYPE: HT_ROOM,
+              TARGET_ID: CHANNEL })
+
     # wait for the join to finish
-    ret = q.expect('dbus-return', method='RequestChannel')
+    ret = q.expect('dbus-return', method='CreateChannel')
     muc_path = ret.value
     chan = bus.get_object(conn.bus_name, ret.value[0])
     group_text_chan = dbus.Interface(chan, CHANNEL_TYPE_TEXT)

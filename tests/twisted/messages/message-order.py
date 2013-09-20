@@ -14,11 +14,12 @@ def test(q, bus, conn, stream):
     conn.Connect()
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
     CHANNEL_NAME = '#idletest'
-    room_handles = conn.RequestHandles(HT_ROOM, [CHANNEL_NAME])
-    call_async(q, conn, 'RequestChannel', CHANNEL_TYPE_TEXT, HT_ROOM,
-            room_handles[0], True)
+    call_async(q, conn.Requests, 'CreateChannel',
+            { CHANNEL_TYPE: CHANNEL_TYPE_TEXT,
+              TARGET_HANDLE_TYPE: HT_ROOM,
+              TARGET_ID: CHANNEL_NAME })
 
-    ret = q.expect('dbus-return', method='RequestChannel')
+    ret = q.expect('dbus-return', method='CreateChannel')
     q.expect('dbus-signal', signal='MembersChanged')
     chan = bus.get_object(conn.bus_name, ret.value[0])
 

@@ -10,7 +10,6 @@ from servicetest import (
 from constants import *
 
 def test_join_bouncer(q, conn, stream, room):
-    room_handles = conn.RequestHandles(HT_ROOM, [room])
     stream.sendJoin(room)
 
     new_channels = EventPattern('dbus-signal', signal='NewChannels')
@@ -20,7 +19,6 @@ def test_join_bouncer(q, conn, stream, room):
     assertEquals(1, len(channel_details))
     path, props = channel_details[0]
     assertEquals(HT_ROOM, props[TARGET_HANDLE_TYPE])
-    assertEquals(room_handles[0], props[TARGET_HANDLE])
     assertEquals(CHANNEL_TYPE_TEXT, props[CHANNEL_TYPE])
 
     new_channel = EventPattern('dbus-signal', signal='NewChannel')
@@ -28,7 +26,6 @@ def test_join_bouncer(q, conn, stream, room):
     q.forbid_events([new_channel])
     assertEquals(CHANNEL_TYPE_TEXT, event.args[1])
     assertEquals(HT_ROOM, event.args[2])
-    assertEquals(room_handles[0], event.args[3])
 
     q.expect('dbus-signal', signal='MembersChanged')
 

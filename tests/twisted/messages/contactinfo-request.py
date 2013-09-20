@@ -43,10 +43,13 @@ def test(q, bus, conn, stream):
 
     self_handle = conn.GetSelfHandle()
 
-    room_handles = conn.RequestHandles(HT_ROOM, CHANNEL_NAMES)
-    for room_handle in room_handles:
-        call_async(q, conn, 'RequestChannel', CHANNEL_TYPE_TEXT, HT_ROOM, room_handle, True)
-        q.expect('dbus-return', method='RequestChannel')
+    for name in CHANNEL_NAMES:
+        call_async(q, conn.Requests, 'CreateChannel',
+                { CHANNEL_TYPE: CHANNEL_TYPE_TEXT,
+                   TARGET_HANDLE_TYPE: HT_ROOM,
+                   TARGET_ID: name })
+
+        q.expect('dbus-return', method='CreateChannel')
         q.expect('dbus-signal', signal='NewChannels')
 
     contact_info = dbus.Interface(conn, CONN_IFACE_CONTACT_INFO)
