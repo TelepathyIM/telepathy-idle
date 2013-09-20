@@ -15,9 +15,9 @@ def test(q, bus, conn, stream):
     conn.Connect()
     q.expect('dbus-signal', signal='StatusChanged', args=[0,1])
 
-    ifs = conn.GetInterfaces()
+    props = conn.GetAll(cs.CONN, dbus_interface=cs.PROPERTIES_IFACE)
 
-    assert cs.CONN_IFACE_REQUESTS in ifs
+    assertContains(cs.CONN_IFACE_REQUESTS, props['Interfaces'])
 
     nick = 'foo'
     call_async(q, conn, 'RequestHandles', cs.HT_CONTACT, [nick])
