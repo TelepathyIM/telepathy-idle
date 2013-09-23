@@ -7,6 +7,7 @@ import os
 import sys
 import dbus
 import servicetest
+from servicetest import (unwrap, Event)
 import twisted
 from twisted.words.protocols import irc
 from twisted.internet import reactor, ssl
@@ -237,6 +238,22 @@ def exec_test_deferred (funs, params, protocol=None, timeout=None):
     bus = dbus.SessionBus()
     # conn = make_connection(bus, queue.append, params)
     (server, port) = start_server(queue.append, protocol=protocol)
+
+    bus.add_signal_receiver(
+        lambda *args, **kw:
+            queue.append(
+                Event('dbus-signal',
+                    path=unwrap(kw['path']),
+                    signal=kw['member'], args=map(unwrap, args),
+                    interface=kw['interface'])),
+        None,       # signal name
+        None,       # interface
+        None,
+        path_keyword='path',
+        member_keyword='member',
+        interface_keyword='interface',
+        byte_arrays=True
+        )
 
     error = None
 
