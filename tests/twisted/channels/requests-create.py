@@ -20,9 +20,7 @@ def test(q, bus, conn, stream):
     assertContains(cs.CONN_IFACE_REQUESTS, props['Interfaces'])
 
     nick = 'foo'
-    call_async(q, conn, 'RequestHandles', cs.HT_CONTACT, [nick])
-    event = q.expect('dbus-return', method='RequestHandles')
-    foo_handle = event.value[0][0]
+    foo_handle = conn.get_contact_handle_sync(nick)
 
     properties = conn.GetAll(cs.CONN_IFACE_REQUESTS,
             dbus_interface=cs.PROPERTIES_IFACE)

@@ -68,7 +68,7 @@ def test(q, bus, conn, stream):
 
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
 
-    alice_handle, bob_handle = conn.RequestHandles(HT_CONTACT, ['alice', 'bob'])
+    alice_handle, bob_handle = conn.get_contact_handles_sync(['alice', 'bob'])
 
     call_async(q, conn.Requests, 'CreateChannel',
             { CHANNEL_TYPE: CHANNEL_TYPE_TEXT,
