@@ -13,11 +13,6 @@ def test(q, bus, conn, stream):
     interfaces = conn.Properties.Get(cs.CONN, "Interfaces")
     assertContains(cs.CONN_IFACE_CONTACTS, interfaces)
 
-    attr_ifaces = conn.Properties.Get(cs.CONN_IFACE_CONTACTS,
-        "ContactAttributeInterfaces")
-    assertContains(cs.CONN_IFACE_ALIASING, attr_ifaces)
-    assertContains(cs.CONN_IFACE_CONTACT_INFO, attr_ifaces)
-
     brillana, miriam = conn.get_contact_handles_sync(["brillana", "miriam"])
 
     # First up, check that contact-id is always present
