@@ -7,6 +7,8 @@ from twisted.internet import glib2reactor
 from twisted.internet.protocol import Protocol, Factory, ClientFactory
 glib2reactor.install()
 import sys
+import time
+import os
 
 import pprint
 import unittest
@@ -19,18 +21,41 @@ from twisted.internet import reactor
 
 import constants as cs
 
-tp_name_prefix = 'org.freedesktop.Telepathy'
-tp_path_prefix = '/org/freedesktop/Telepathy'
+tp_name_prefix = cs.PREFIX
+tp_path_prefix = '/' + cs.PREFIX.replace('.', '/')
 
-class Event:
+class DictionarySupersetOf (object):
+    """Utility class for expecting "a dictionary with at least these keys"."""
+    def __init__(self, dictionary):
+        self._dictionary = dictionary
+    def __repr__(self):
+        return "DictionarySupersetOf(%s)" % self._dictionary
+    def __eq__(self, other):
+        """would like to just do:
+        return set(other.items()).issuperset(self._dictionary.items())
+        but it turns out that this doesn't work if you have another dict
+        nested in the values of your dicts"""
+        try:
+            for k,v in self._dictionary.items():
+                if k not in other or other[k] != v:
+                    return False
+            return True
+        except TypeError: # other is not iterable
+            return False
+
+class Event(object):
     def __init__(self, type, **kw):
         self.__dict__.update(kw)
         self.type = type
+        (self.subqueue, self.subtype) = type.split ("-", 1)
+
+    def __str__(self):
+        return '\n'.join([ str(type(self)) ] + format_event(self))
 
 def format_event(event):
     ret = ['- type %s' % event.type]
 
-    for key in dir(event):
+    for key in sorted(dir(event)):
         if key != 'type' and not key.startswith('_'):
             ret.append('- %s: %s' % (
                 key, pprint.pformat(getattr(event, key))))
@@ -48,6 +73,7 @@ class EventPattern:
             self.predicate = properties['predicate']
             del properties['predicate']
         self.properties = properties
+        (self.subqueue, self.subtype) = type.split ("-", 1)
 
     def __repr__(self):
         properties = dict(self.properties)
@@ -78,6 +104,14 @@ class EventPattern:
 class TimeoutError(Exception):
     pass
 
+class ForbiddenEventOccurred(Exception):
+    def __init__(self, event):
+        Exception.__init__(self)
+        self.event = event
+
+    def __str__(self):
+        return '\n' + '\n'.join(format_event(self.event))
+
 class BaseEventQueue:
     """Abstract event queue base class.
 
@@ -87,6 +121,7 @@ class BaseEventQueue:
     def __init__(self, timeout=None):
         self.verbose = False
         self.forbidden_events = set()
+        self.event_queues = {}
 
         if timeout is None:
             self.timeout = 5
@@ -97,12 +132,14 @@ class BaseEventQueue:
         if self.verbose:
             print s
 
-    def log_event(self, event):
-        if self.verbose:
-            self.log('got event:')
+    def log_queues(self, queues):
+        self.log ("Waiting for event on: %s" % ", ".join(queues))
 
-            if self.verbose:
-                map(self.log, format_event(event))
+    def log_event(self, event):
+        self.log('got event:')
+
+        if self.verbose:
+            map(self.log, format_event(event))
 
     def forbid_events(self, patterns):
         """
@@ -120,13 +157,16 @@ class BaseEventQueue:
         """
         self.forbidden_events.difference_update(set(patterns))
 
+    def unforbid_all(self):
+        """
+        Remove all patterns from the set of forbidden events.
+        """
+        self.forbidden_events.clear()
+
     def _check_forbidden(self, event):
         for e in self.forbidden_events:
             if e.match(event):
-                print "forbidden event occurred:"
-                for x in format_event(event):
-                    print x
-                assert False
+                raise ForbiddenEventOccurred(event)
 
     def expect(self, type, **kw):
         """
@@ -136,14 +176,15 @@ class BaseEventQueue:
             e = q.expect('dbus-signal', signal='Badgers', args=["foo", 42])
         """
         pattern = EventPattern(type, **kw)
+        t = time.time()
 
         while True:
-            event = self.wait()
-            self.log_event(event)
+            event = self.wait([pattern.subqueue])
             self._check_forbidden(event)
 
             if pattern.match(event):
-                self.log('handled')
+                self.log('handled, took %0.3f ms'
+                    % ((time.time() - t) * 1000.0) )
                 self.log('')
                 return event
 
@@ -180,10 +221,15 @@ class BaseEventQueue:
             )
         """
         ret = [None] * len(patterns)
+        t = time.time()
 
         while None in ret:
             try:
-                event = self.wait()
+                queues = set()
+                for i, pattern in enumerate(patterns):
+                    if ret[i] is None:
+                        queues.add(pattern.subqueue)
+                event = self.wait(queues)
             except TimeoutError:
                 self.log('timeout')
                 self.log('still expecting:')
@@ -191,12 +237,12 @@ class BaseEventQueue:
                     if ret[i] is None:
                         self.log(' - %r' % pattern)
                 raise
-            self.log_event(event)
             self._check_forbidden(event)
 
             for i, pattern in enumerate(patterns):
                 if ret[i] is None and pattern.match(event):
-                    self.log('handled')
+                    self.log('handled, took %0.3f ms'
+                        % ((time.time() - t) * 1000.0) )
                     self.log('')
                     ret[i] = event
                     break
@@ -209,8 +255,7 @@ class BaseEventQueue:
     def demand(self, type, **kw):
         pattern = EventPattern(type, **kw)
 
-        event = self.wait()
-        self.log_event(event)
+        event = self.wait([pattern.subqueue])
 
         if pattern.match(event):
             self.log('handled')
@@ -220,14 +265,34 @@ class BaseEventQueue:
         self.log('not handled')
         raise RuntimeError('expected %r, got %r' % (pattern, event))
 
+    def queues_available(self, queues):
+        if queues == None:
+            return self.event_queues.keys()
+        else:
+            available = self.event_queues.keys()
+            return filter(lambda x: x in available, queues)
+
+
+    def pop_next(self, queue):
+        events = self.event_queues[queue]
+        e = events.pop(0)
+        if not events:
+           self.event_queues.pop (queue)
+        return e
+
+    def append(self, event):
+        self.log ("Adding to queue")
+        self.log_event (event)
+        self.event_queues[event.subqueue] = \
+            self.event_queues.get(event.subqueue, []) + [event]
+
 class IteratingEventQueue(BaseEventQueue):
     """Event queue that works by iterating the Twisted reactor."""
 
     def __init__(self, timeout=None):
         BaseEventQueue.__init__(self, timeout)
-        self.events = []
 
-    def wait(self):
+    def wait(self, queues=None):
         stop = [False]
 
         def later():
@@ -235,68 +300,92 @@ class IteratingEventQueue(BaseEventQueue):
 
         delayed_call = reactor.callLater(self.timeout, later)
 
-        while (not self.events) and (not stop[0]):
-            reactor.iterate(0.1)
+        self.log_queues(queues)
 
-        if self.events:
+        qa = self.queues_available(queues)
+        while not qa and (not stop[0]):
+            reactor.iterate(0.01)
+            qa = self.queues_available(queues)
+
+        if qa:
             delayed_call.cancel()
-            return self.events.pop(0)
+            e = self.pop_next (qa[0])
+            self.log_event (e)
+            return e
         else:
             raise TimeoutError
-
-    def append(self, event):
-        self.events.append(event)
-
-    # compatibility
-    handle_event = append
 
 class TestEventQueue(BaseEventQueue):
     def __init__(self, events):
         BaseEventQueue.__init__(self)
-        self.events = events
+        for e in events:
+            self.append (e)
 
-    def wait(self):
-        if self.events:
-            return self.events.pop(0)
+    def wait(self, queues = None):
+        qa = self.queues_available(queues)
+
+        if qa:
+            return self.pop_next (qa[0])
         else:
             raise TimeoutError
 
 class EventQueueTest(unittest.TestCase):
     def test_expect(self):
-        queue = TestEventQueue([Event('foo'), Event('bar')])
-        assert queue.expect('foo').type == 'foo'
-        assert queue.expect('bar').type == 'bar'
+        queue = TestEventQueue([Event('test-foo'), Event('test-bar')])
+        assert queue.expect('test-foo').type == 'test-foo'
+        assert queue.expect('test-bar').type == 'test-bar'
 
     def test_expect_many(self):
-        queue = TestEventQueue([Event('foo'), Event('bar')])
+        queue = TestEventQueue([Event('test-foo'),
+            Event('test-bar')])
         bar, foo = queue.expect_many(
-            EventPattern('bar'),
-            EventPattern('foo'))
-        assert bar.type == 'bar'
-        assert foo.type == 'foo'
+            EventPattern('test-bar'),
+            EventPattern('test-foo'))
+        assert bar.type == 'test-bar'
+        assert foo.type == 'test-foo'
 
     def test_expect_many2(self):
         # Test that events are only matched against patterns that haven't yet
         # been matched. This tests a regression.
-        queue = TestEventQueue([Event('foo', x=1), Event('foo', x=2)])
+        queue = TestEventQueue([Event('test-foo', x=1), Event('test-foo', x=2)])
         foo1, foo2 = queue.expect_many(
-            EventPattern('foo'),
-            EventPattern('foo'))
-        assert foo1.type == 'foo' and foo1.x == 1
-        assert foo2.type == 'foo' and foo2.x == 2
+            EventPattern('test-foo'),
+            EventPattern('test-foo'))
+        assert foo1.type == 'test-foo' and foo1.x == 1
+        assert foo2.type == 'test-foo' and foo2.x == 2
+
+    def test_expect_queueing(self):
+        queue = TestEventQueue([Event('foo-test', x=1),
+            Event('foo-test', x=2)])
+
+        queue.append(Event('bar-test', x=1))
+        queue.append(Event('bar-test', x=2))
+
+        queue.append(Event('baz-test', x=1))
+        queue.append(Event('baz-test', x=2))
+
+        for x in xrange(1,2):
+            e = queue.expect ('baz-test')
+            assertEquals (x, e.x)
+
+            e = queue.expect ('bar-test')
+            assertEquals (x, e.x)
+
+            e = queue.expect ('foo-test')
+            assertEquals (x, e.x)
 
     def test_timeout(self):
         queue = TestEventQueue([])
-        self.assertRaises(TimeoutError, queue.expect, 'foo')
+        self.assertRaises(TimeoutError, queue.expect, 'test-foo')
 
     def test_demand(self):
-        queue = TestEventQueue([Event('foo'), Event('bar')])
-        foo = queue.demand('foo')
-        assert foo.type == 'foo'
+        queue = TestEventQueue([Event('test-foo'), Event('test-bar')])
+        foo = queue.demand('test-foo')
+        assert foo.type == 'test-foo'
 
     def test_demand_fail(self):
-        queue = TestEventQueue([Event('foo'), Event('bar')])
-        self.assertRaises(RuntimeError, queue.demand, 'bar')
+        queue = TestEventQueue([Event('test-foo'), Event('test-bar')])
+        self.assertRaises(RuntimeError, queue.demand, 'test-bar')
 
 def unwrap(x):
     """Hack to unwrap D-Bus values, so that they're easier to read when
@@ -325,11 +414,11 @@ def call_async(test, proxy, method, *args, **kw):
     resulting method return/error."""
 
     def reply_func(*ret):
-        test.handle_event(Event('dbus-return', method=method,
+        test.append(Event('dbus-return', method=method,
             value=unwrap(ret)))
 
     def error_func(err):
-        test.handle_event(Event('dbus-error', method=method, error=err,
+        test.append(Event('dbus-error', method=method, error=err,
             name=err.get_dbus_name(), message=str(err)))
 
     method_proxy = getattr(proxy, method)
@@ -337,16 +426,21 @@ def call_async(test, proxy, method, *args, **kw):
     method_proxy(*args, **kw)
 
 def sync_dbus(bus, q, conn):
-    # Dummy D-Bus method call
+    # Dummy D-Bus method call. We can't use DBus.Peer.Ping() because libdbus
+    # replies to that message immediately, rather than handing it up to
+    # dbus-glib and thence Gabble, which means that Ping()ing Gabble doesn't
+    # ensure that it's processed all D-Bus messages prior to our ping.
+    #
     # This won't do the right thing unless the proxy has a unique name.
     assert conn.object.bus_name.startswith(':')
-    root_object = bus.get_object(conn.object.bus_name, '/')
-    call_async(
-        q, dbus.Interface(root_object, 'org.freedesktop.DBus.Peer'), 'Ping')
-    q.expect('dbus-return', method='Ping')
+    root_object = bus.get_object(conn.object.bus_name, '/', introspect=False)
+    call_async(q,
+        dbus.Interface(root_object, cs.PREFIX + '.Tests'),
+        'DummySyncDBus')
+    q.expect('dbus-error', method='DummySyncDBus')
 
 class ProxyWrapper:
-    def __init__(self, object, default, others):
+    def __init__(self, object, default, others={}):
         self.object = object
         self.default_interface = dbus.Interface(object, default)
         self.Properties = dbus.Interface(object, dbus.PROPERTIES_IFACE)
@@ -365,12 +459,29 @@ class ProxyWrapper:
 
         return getattr(self.default_interface, name)
 
+class ConnWrapper(ProxyWrapper):
+    def inspect_contact_sync(self, handle):
+        return self.inspect_contacts_sync([handle])[0]
+
+    def inspect_contacts_sync(self, handles):
+        h2asv = self.Contacts.GetContactAttributes(handles, [], True)
+        ret = []
+        for h in handles:
+            ret.append(h2asv[h][cs.ATTR_CONTACT_ID])
+        return ret
+
+    def get_contact_handle_sync(self, identifier):
+        return self.Contacts.GetContactByID(identifier, [])[0]
+
+    def get_contact_handles_sync(self, ids):
+        return [self.get_contact_handle_sync(i) for i in ids]
+
 def wrap_connection(conn):
-    return ProxyWrapper(conn, tp_name_prefix + '.Connection',
+    return ConnWrapper(conn, tp_name_prefix + '.Connection',
         dict([
             (name, tp_name_prefix + '.Connection.Interface.' + name)
             for name in ['Aliasing', 'Avatars', 'Capabilities', 'Contacts',
-              'Presence', 'SimplePresence', 'Requests']] +
+              'SimplePresence', 'Requests']] +
         [('Peer', 'org.freedesktop.DBus.Peer'),
          ('ContactCapabilities', cs.CONN_IFACE_CONTACT_CAPS),
          ('ContactInfo', cs.CONN_IFACE_CONTACT_INFO),
@@ -379,6 +490,8 @@ def wrap_connection(conn):
          ('MailNotification', cs.CONN_IFACE_MAIL_NOTIFICATION),
          ('ContactList', cs.CONN_IFACE_CONTACT_LIST),
          ('ContactGroups', cs.CONN_IFACE_CONTACT_GROUPS),
+         ('PowerSaving', cs.CONN_IFACE_POWER_SAVING),
+         ('Addressing', cs.CONN_IFACE_ADDRESSING),
         ]))
 
 def wrap_channel(chan, type_, extra=None):
@@ -394,14 +507,26 @@ def wrap_channel(chan, type_, extra=None):
 
     return ProxyWrapper(chan, tp_name_prefix + '.Channel', interfaces)
 
+
+def wrap_content(chan, extra=None):
+    interfaces = { }
+
+    if extra:
+        interfaces.update(dict([
+            (name, tp_name_prefix + '.Call1.Content.Interface.' + name)
+            for name in extra]))
+
+    return ProxyWrapper(chan, tp_name_prefix + '.Call1.Content', interfaces)
+
 def make_connection(bus, event_func, name, proto, params):
     cm = bus.get_object(
         tp_name_prefix + '.ConnectionManager.%s' % name,
-        tp_path_prefix + '/ConnectionManager/%s' % name)
+        tp_path_prefix + '/ConnectionManager/%s' % name,
+        introspect=False)
     cm_iface = dbus.Interface(cm, tp_name_prefix + '.ConnectionManager')
 
     connection_name, connection_path = cm_iface.RequestConnection(
-        proto, params)
+        proto, dbus.Dictionary(params, signature='sv'))
     conn = wrap_connection(bus.get_object(connection_name, connection_path))
 
     return conn
@@ -421,7 +546,7 @@ class EventProtocol(Protocol):
 
     def dataReceived(self, data):
         if self.queue is not None:
-            self.queue.handle_event(Event('socket-data', protocol=self,
+            self.queue.append(Event('socket-data', protocol=self,
                 data=data))
 
     def sendData(self, data):
@@ -433,7 +558,7 @@ class EventProtocol(Protocol):
 
     def connectionLost(self, reason=None):
         if self.queue is not None:
-            self.queue.handle_event(Event('socket-disconnected', protocol=self))
+            self.queue.append(Event('socket-disconnected', protocol=self))
 
 class EventProtocolFactory(Factory):
     def __init__(self, queue, block_reading=False):
@@ -445,7 +570,7 @@ class EventProtocolFactory(Factory):
 
     def buildProtocol(self, addr):
         proto = self._create_protocol()
-        self.queue.handle_event(Event('socket-connected', protocol=proto))
+        self.queue.append(Event('socket-connected', protocol=proto))
         return proto
 
 class EventProtocolClientFactory(EventProtocolFactory, ClientFactory):
@@ -453,7 +578,7 @@ class EventProtocolClientFactory(EventProtocolFactory, ClientFactory):
 
 def watch_tube_signals(q, tube):
     def got_signal_cb(*args, **kwargs):
-        q.handle_event(Event('tube-signal',
+        q.append(Event('tube-signal',
             path=kwargs['path'],
             signal=kwargs['member'],
             args=map(unwrap, args),
@@ -514,6 +639,12 @@ def assertFlagsUnset(flags, value):
             "expected none of flags %u, but %u are set in %u" % (
             flags, masked, value))
 
+def assertDBusError(name, error):
+    if error.get_dbus_name() != name:
+        raise AssertionError(
+            "expected DBus error named:\n  %s\ngot:\n  %s\n(with message: %s)"
+            % (name, error.get_dbus_name(), error.message))
+
 def install_colourer():
     def red(s):
         return '\x1b[31m%s\x1b[0m' % s
@@ -532,12 +663,26 @@ def install_colourer():
             self.patterns = patterns
 
         def write(self, s):
-            f = self.patterns.get(s, lambda x: x)
-            self.fh.write(f(s))
+            for p, f in self.patterns.items():
+                if s.startswith(p):
+                    self.fh.write(f(p) + s[len(p):])
+                    return
+
+            self.fh.write(s)
 
     sys.stdout = Colourer(sys.stdout, patterns)
     return sys.stdout
 
-if __name__ == '__main__':
-    unittest.main()
+# this is just to shut up unittest.
+class DummyStream(object):
+    def write(self, s):
+        if 'CHECK_TWISTED_VERBOSE' in os.environ:
+            print s,
 
+    def flush(self):
+        pass
+
+if __name__ == '__main__':
+    stream = DummyStream()
+    runner = unittest.TextTestRunner(stream=stream)
+    unittest.main(testRunner=runner)
