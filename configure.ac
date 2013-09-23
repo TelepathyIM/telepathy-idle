@@ -25,6 +25,7 @@ AC_INIT([telepathy-idle], [idle_version],
         [https://bugs.freedesktop.org/enter_bug.cgi?product=Telepathy&component=idle])
 
 AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_AUX_DIR([build-aux])
 
 # Enable silent build rules by default, requires at least
 # Automake-1.11. Disable by either passing --disable-silent-rules to
