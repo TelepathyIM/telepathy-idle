@@ -32,7 +32,7 @@ AC_CONFIG_AUX_DIR([build-aux])
 # configure or passing V=1 to make
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
-AM_INIT_AUTOMAKE([1.9 -Wno-portability])
+AM_INIT_AUTOMAKE([1.9 -Wno-portability subdir-objects])
 
 AM_PROG_LIBTOOL
 AM_CONFIG_HEADER(config.h)
