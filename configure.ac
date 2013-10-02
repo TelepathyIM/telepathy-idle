@@ -36,7 +36,7 @@ AM_INIT_AUTOMAKE([1.9 -Wno-portability subdir-objects])
 
 AM_PROG_LIBTOOL
 AM_CONFIG_HEADER(config.h)
-AM_PROG_MKDIR_P
+AC_PROG_MKDIR_P
 
 dnl check for tools
 AC_PROG_CC

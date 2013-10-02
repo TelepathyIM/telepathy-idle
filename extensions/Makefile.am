@@ -32,7 +32,7 @@ DROP_NAMESPACE = sed -e 's@xmlns:tp="http://telepathy\.freedesktop\.org/wiki/Dbu
 XSLTPROCFLAGS = --nonet --novalid
 
 _gen/all.xml: all.xml $(wildcard $(srcdir)/*.xml)
-	@$(mkdir_p) _gen
+	@$(MKDIR_P) _gen
 	$(AM_V_GEN)$(XSLTPROC) $(XSLTPROCFLAGS) \
 		--xinclude $(tools_dir)/identity.xsl \
 		$< > $@
