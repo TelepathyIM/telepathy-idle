@@ -62,8 +62,8 @@ static void _aliasing_iface_init(gpointer, gpointer);
 static void _renaming_iface_init(gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE(IdleConnection, idle_connection, TP_TYPE_BASE_CONNECTION,
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING, _aliasing_iface_init);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACT_INFO, idle_contact_info_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING1, _aliasing_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACT_INFO1, idle_contact_info_iface_init);
 		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SVC_CONNECTION_INTERFACE_RENAMING, _renaming_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACTS, tp_contacts_mixin_iface_init);
 );
@@ -258,7 +258,7 @@ idle_connection_constructed (GObject *object)
   self->parser = g_object_new (IDLE_TYPE_PARSER, "connection", self, NULL);
   idle_contact_info_init (self);
   tp_contacts_mixin_add_contact_attributes_iface (object,
-      TP_IFACE_CONNECTION_INTERFACE_ALIASING,
+      TP_IFACE_CONNECTION_INTERFACE_ALIASING1,
       conn_aliasing_fill_contact_attributes);
 }
 
@@ -442,8 +442,8 @@ static void idle_connection_finalize (GObject *object) {
 }
 
 static const gchar * interfaces_always_present[] = {
-	TP_IFACE_CONNECTION_INTERFACE_ALIASING,
-	TP_IFACE_CONNECTION_INTERFACE_CONTACT_INFO,
+	TP_IFACE_CONNECTION_INTERFACE_ALIASING1,
+	TP_IFACE_CONNECTION_INTERFACE_CONTACT_INFO1,
 	IDLE_IFACE_CONNECTION_INTERFACE_RENAMING,
 	TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
 	TP_IFACE_CONNECTION_INTERFACE_CONTACTS,
@@ -1293,7 +1293,7 @@ void idle_connection_emit_queued_aliases_changed(IdleConnection *conn) {
 	if (!priv->queued_aliases)
 		return;
 
-	tp_svc_connection_interface_aliasing_emit_aliases_changed(conn, priv->queued_aliases);
+	tp_svc_connection_interface_aliasing1_emit_aliases_changed(conn, priv->queued_aliases);
 
 	g_hash_table_unref (priv->queued_aliases);
 	priv->queued_aliases = NULL;
@@ -1335,12 +1335,12 @@ conn_aliasing_fill_contact_attributes (
       g_assert (alias != NULL);
 
       tp_contacts_mixin_set_contact_attribute (attributes_hash,
-          handle, TP_IFACE_CONNECTION_INTERFACE_ALIASING"/alias",
+          handle, TP_IFACE_CONNECTION_INTERFACE_ALIASING1"/alias",
           tp_g_value_slice_new_string (alias));
     }
 }
 
-static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing *iface, const GArray *handles, DBusGMethodInvocation *context) {
+static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing1 *iface, const GArray *handles, DBusGMethodInvocation *context) {
 	IdleConnection *self = IDLE_CONNECTION (iface);
 	TpHandleRepoIface *repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(iface), TP_HANDLE_TYPE_CONTACT);
 	GError *error = NULL;
@@ -1359,7 +1359,7 @@ static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing *if
 		aliases[i] = gimme_an_alias (self, repo, handle);
 	}
 
-	tp_svc_connection_interface_aliasing_return_from_request_aliases(context, aliases);
+	tp_svc_connection_interface_aliasing1_return_from_request_aliases(context, aliases);
 	g_free(aliases);
 }
 
@@ -1390,7 +1390,7 @@ static void idle_connection_request_rename(IdleSvcConnectionInterfaceRenaming *i
 		idle_svc_connection_interface_renaming_return_from_request_rename(context);
 }
 
-static void idle_connection_set_aliases(TpSvcConnectionInterfaceAliasing *iface, GHashTable *aliases, DBusGMethodInvocation *context) {
+static void idle_connection_set_aliases(TpSvcConnectionInterfaceAliasing1 *iface, GHashTable *aliases, DBusGMethodInvocation *context) {
 	IdleConnection *conn = IDLE_CONNECTION(iface);
 	const gchar *requested_alias = g_hash_table_lookup(aliases, GUINT_TO_POINTER(tp_base_connection_get_self_handle (TP_BASE_CONNECTION (conn))));
 
@@ -1402,7 +1402,7 @@ static void idle_connection_set_aliases(TpSvcConnectionInterfaceAliasing *iface,
 	}
 
 	if (_send_rename_request(conn, requested_alias, context))
-		tp_svc_connection_interface_aliasing_return_from_set_aliases(context);
+		tp_svc_connection_interface_aliasing1_return_from_set_aliases(context);
 }
 
 static gboolean idle_connection_hton(IdleConnection *obj, const gchar *input, gchar **output, GError **_error) {
@@ -1501,9 +1501,9 @@ idle_connection_ntoh(IdleConnection *obj, const gchar *input) {
 }
 
 static void _aliasing_iface_init(gpointer g_iface, gpointer iface_data) {
-	TpSvcConnectionInterfaceAliasingClass *klass = (TpSvcConnectionInterfaceAliasingClass *) g_iface;
+	TpSvcConnectionInterfaceAliasing1Class *klass = (TpSvcConnectionInterfaceAliasing1Class *) g_iface;
 
-#define IMPLEMENT(x) tp_svc_connection_interface_aliasing_implement_##x (\
+#define IMPLEMENT(x) tp_svc_connection_interface_aliasing1_implement_##x (\
 		klass, idle_connection_##x)
 	IMPLEMENT(request_aliases);
 	IMPLEMENT(set_aliases);

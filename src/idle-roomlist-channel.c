@@ -41,7 +41,7 @@ static IdleParserHandlerResult _rpl_listend_handler (IdleParser *parser, IdlePar
 
 G_DEFINE_TYPE_WITH_CODE (IdleRoomlistChannel, idle_roomlist_channel,
     TP_TYPE_BASE_CHANNEL,
-    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_ROOM_LIST, _roomlist_iface_init);
+    G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_TYPE_ROOM_LIST1, _roomlist_iface_init);
     )
 
 /* private structure */
@@ -109,7 +109,7 @@ idle_roomlist_channel_get_roomlist_property (
     GValue *value,
     gpointer getter_data)
 {
-  g_return_if_fail (iface == TP_IFACE_QUARK_CHANNEL_TYPE_ROOM_LIST);
+  g_return_if_fail (iface == TP_IFACE_QUARK_CHANNEL_TYPE_ROOM_LIST1);
   g_return_if_fail (name == g_quark_from_static_string ("Server"));
   g_return_if_fail (G_VALUE_HOLDS_STRING (value));
 
@@ -127,7 +127,7 @@ idle_roomlist_channel_fill_properties (
 
   tp_dbus_properties_mixin_fill_properties_hash (
       G_OBJECT (chan), properties,
-      TP_IFACE_CHANNEL_TYPE_ROOM_LIST, "Server",
+      TP_IFACE_CHANNEL_TYPE_ROOM_LIST1, "Server",
       NULL);
 }
 
@@ -148,14 +148,14 @@ idle_roomlist_channel_class_init (IdleRoomlistChannelClass *idle_roomlist_channe
   object_class->dispose = idle_roomlist_channel_dispose;
   object_class->finalize = idle_roomlist_channel_finalize;
 
-  base_channel_class->channel_type = TP_IFACE_CHANNEL_TYPE_ROOM_LIST;
+  base_channel_class->channel_type = TP_IFACE_CHANNEL_TYPE_ROOM_LIST1;
   base_channel_class->target_handle_type = TP_HANDLE_TYPE_NONE;
   base_channel_class->close = idle_roomlist_channel_close;
   base_channel_class->fill_immutable_properties = idle_roomlist_channel_fill_properties;
   base_channel_class->get_object_path_suffix = idle_roomlist_channel_get_path_suffix;
 
   tp_dbus_properties_mixin_implement_interface (object_class,
-      TP_IFACE_QUARK_CHANNEL_TYPE_ROOM_LIST,
+      TP_IFACE_QUARK_CHANNEL_TYPE_ROOM_LIST1,
       idle_roomlist_channel_get_roomlist_property,
       NULL,
       roomlist_props);
@@ -225,13 +225,13 @@ idle_roomlist_channel_close (TpBaseChannel *channel)
  * on interface im.telepathy1.Channel.Type.RoomList
  */
 static void
-idle_roomlist_channel_get_listing_rooms (TpSvcChannelTypeRoomList *iface,
+idle_roomlist_channel_get_listing_rooms (TpSvcChannelTypeRoomList1 *iface,
                                          DBusGMethodInvocation *context)
 {
   IdleRoomlistChannel *self = IDLE_ROOMLIST_CHANNEL (iface);
   IdleRoomlistChannelPrivate *priv = self->priv;;
 
-  tp_svc_channel_type_room_list_return_from_get_listing_rooms (
+  tp_svc_channel_type_room_list1_return_from_get_listing_rooms (
       context, priv->listing);
 }
 
@@ -243,18 +243,18 @@ idle_roomlist_channel_get_listing_rooms (TpSvcChannelTypeRoomList *iface,
  * on interface im.telepathy1.Channel.Type.RoomList
  */
 static void
-idle_roomlist_channel_list_rooms (TpSvcChannelTypeRoomList *iface,
+idle_roomlist_channel_list_rooms (TpSvcChannelTypeRoomList1 *iface,
                                   DBusGMethodInvocation *context)
 {
   IdleRoomlistChannel *self = IDLE_ROOMLIST_CHANNEL (iface);
   IdleRoomlistChannelPrivate *priv = self->priv;
 
   priv->listing = TRUE;
-  tp_svc_channel_type_room_list_emit_listing_rooms (iface, TRUE);
+  tp_svc_channel_type_room_list1_emit_listing_rooms (iface, TRUE);
 
   idle_connection_send(priv->connection, "LIST");
 
-  tp_svc_channel_type_room_list_return_from_list_rooms (context);
+  tp_svc_channel_type_room_list1_return_from_list_rooms (context);
 }
 
 /**
@@ -264,7 +264,7 @@ idle_roomlist_channel_list_rooms (TpSvcChannelTypeRoomList *iface,
  * on interface im.telepathy1.Channel.Type.RoomList
  */
 static void
-idle_roomlist_channel_stop_listing (TpSvcChannelTypeRoomList *iface,
+idle_roomlist_channel_stop_listing (TpSvcChannelTypeRoomList1 *iface,
                                     DBusGMethodInvocation *context)
 {
   IdleRoomlistChannel *self = IDLE_ROOMLIST_CHANNEL (iface);
@@ -289,10 +289,9 @@ static void
 _roomlist_iface_init (gpointer g_iface,
                   gpointer iface_data)
 {
-  TpSvcChannelTypeRoomListClass *klass =
-    (TpSvcChannelTypeRoomListClass *)(g_iface);
+  TpSvcChannelTypeRoomList1Class *klass = g_iface;
 
-#define IMPLEMENT(x) tp_svc_channel_type_room_list_implement_##x (\
+#define IMPLEMENT(x) tp_svc_channel_type_room_list1_implement_##x (\
     klass, idle_roomlist_channel_##x)
   IMPLEMENT (get_listing_rooms);
   IMPLEMENT (list_rooms);
@@ -363,8 +362,8 @@ emit_room_signal (IdleRoomlistChannel *self)
   if (priv->rooms->len == 0)
       return TRUE;
 
-  tp_svc_channel_type_room_list_emit_got_rooms (
-      (TpSvcChannelTypeRoomList *) self, priv->rooms);
+  tp_svc_channel_type_room_list1_emit_got_rooms (
+      (TpSvcChannelTypeRoomList1 *) self, priv->rooms);
 
   while (priv->rooms->len != 0)
     {
@@ -387,8 +386,8 @@ _rpl_listend_handler (IdleParser *parser,
   emit_room_signal (self);
 
   priv->listing = FALSE;
-  tp_svc_channel_type_room_list_emit_listing_rooms (
-      (TpSvcChannelTypeRoomList *) self, FALSE);
+  tp_svc_channel_type_room_list1_emit_listing_rooms (
+      (TpSvcChannelTypeRoomList1 *) self, FALSE);
 
   /*
   g_source_remove (priv->timer_source_id);

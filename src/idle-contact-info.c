@@ -118,12 +118,12 @@ static void _queue_request_contact_info(IdleConnection *conn, guint handle, cons
 static void _return_from_request_contact_info(IdleConnection *conn) {
 	ContactInfoRequest *request = g_queue_peek_head(conn->contact_info_requests);
 
-	tp_svc_connection_interface_contact_info_return_from_request_contact_info(request->context, request->contact_info);
-	tp_svc_connection_interface_contact_info_emit_contact_info_changed(conn, request->handle, request->contact_info);
+	tp_svc_connection_interface_contact_info1_return_from_request_contact_info(request->context, request->contact_info);
+	tp_svc_connection_interface_contact_info1_emit_contact_info_changed(conn, request->handle, request->contact_info);
 	_dequeue_request_contact_info(conn);
 }
 
-static void idle_connection_request_contact_info(TpSvcConnectionInterfaceContactInfo *iface, guint contact, DBusGMethodInvocation *context) {
+static void idle_connection_request_contact_info(TpSvcConnectionInterfaceContactInfo1 *iface, guint contact, DBusGMethodInvocation *context) {
 	IdleConnection *self = IDLE_CONNECTION(iface);
 	TpBaseConnection *base = TP_BASE_CONNECTION(self);
 	TpHandleRepoIface *contact_handles = tp_base_connection_get_handles(base, TP_HANDLE_TYPE_CONTACT);
@@ -487,7 +487,7 @@ void idle_contact_info_class_init (IdleConnectionClass *klass) {
 	};
 
 	tp_dbus_properties_mixin_implement_interface(object_class,
-		TP_IFACE_QUARK_CONNECTION_INTERFACE_CONTACT_INFO,
+		TP_IFACE_QUARK_CONNECTION_INTERFACE_CONTACT_INFO1,
 		idle_contact_info_properties_getter,
 		NULL,
 		props);
@@ -528,14 +528,14 @@ void idle_contact_info_init (IdleConnection *conn) {
 	idle_parser_add_handler(conn->parser, IDLE_PARSER_NUMERIC_TRYAGAIN, _try_again_handler, conn);
 
 	tp_contacts_mixin_add_contact_attributes_iface ((GObject *) conn,
-		TP_IFACE_CONNECTION_INTERFACE_CONTACT_INFO,
+		TP_IFACE_CONNECTION_INTERFACE_CONTACT_INFO1,
 		idle_contact_info_fill_contact_attributes);
 }
 
 void idle_contact_info_iface_init(gpointer g_iface, gpointer iface_data) {
-	TpSvcConnectionInterfaceContactInfoClass *klass = (TpSvcConnectionInterfaceContactInfoClass *) g_iface;
+	TpSvcConnectionInterfaceContactInfo1Class *klass = (TpSvcConnectionInterfaceContactInfo1Class *) g_iface;
 
-#define IMPLEMENT(x) tp_svc_connection_interface_contact_info_implement_##x (\
+#define IMPLEMENT(x) tp_svc_connection_interface_contact_info1_implement_##x (\
 		klass, idle_connection_##x)
 	IMPLEMENT(request_contact_info);
 #undef IMPLEMENT

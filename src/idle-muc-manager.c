@@ -102,14 +102,14 @@ static const gchar * const muc_channel_allowed_properties[] = {
 
 static const gchar * const muc_channel_allowed_room_properties[] = {
     TP_PROP_CHANNEL_TARGET_HANDLE_TYPE, /* But it must be None */
-    TP_PROP_CHANNEL_INTERFACE_ROOM_ROOM_NAME,
+    TP_PROP_CHANNEL_INTERFACE_ROOM1_ROOM_NAME,
     NULL
 };
 
 static const gchar * const muc_channel_all_allowed_properties[] = {
     TP_PROP_CHANNEL_TARGET_HANDLE,
     TP_PROP_CHANNEL_TARGET_ID,
-    TP_PROP_CHANNEL_INTERFACE_ROOM_ROOM_NAME,
+    TP_PROP_CHANNEL_INTERFACE_ROOM1_ROOM_NAME,
 };
 
 static GObject*
@@ -791,7 +791,7 @@ _muc_manager_request (
       case TP_HANDLE_TYPE_NONE:
       {
         const gchar *room_name = tp_asv_get_string (request_properties,
-            TP_PROP_CHANNEL_INTERFACE_ROOM_ROOM_NAME);
+            TP_PROP_CHANNEL_INTERFACE_ROOM1_ROOM_NAME);
 
         if (room_name == NULL)
           return FALSE;

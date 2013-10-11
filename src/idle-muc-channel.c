@@ -46,14 +46,14 @@ static void idle_muc_channel_send (GObject *obj, TpMessage *message, TpMessageSe
 static void idle_muc_channel_close (TpBaseChannel *base);
 
 G_DEFINE_TYPE_WITH_CODE(IdleMUCChannel, idle_muc_channel, TP_TYPE_BASE_CHANNEL,
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_GROUP, tp_group_mixin_iface_init);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_PASSWORD, _password_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_GROUP1, tp_group_mixin_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_PASSWORD1, _password_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, tp_message_mixin_iface_init);
-		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_ROOM, NULL);
-		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_SUBJECT, subject_iface_init);
-		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_ROOM_CONFIG,
+		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_ROOM1, NULL);
+		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_SUBJECT1, subject_iface_init);
+		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_ROOM_CONFIG1,
                                        tp_base_room_config_iface_init);
-		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE, destroyable_iface_init);
+		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE1, destroyable_iface_init);
 		)
 
 /* property enum */
@@ -120,12 +120,12 @@ typedef struct {
 } IRCChannelModeState;
 
 static const gchar *muc_channel_interfaces[] = {
-	TP_IFACE_CHANNEL_INTERFACE_PASSWORD,
-	TP_IFACE_CHANNEL_INTERFACE_GROUP,
-	TP_IFACE_CHANNEL_INTERFACE_ROOM,
-	TP_IFACE_CHANNEL_INTERFACE_SUBJECT,
-	TP_IFACE_CHANNEL_INTERFACE_ROOM_CONFIG,
-	TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE,
+	TP_IFACE_CHANNEL_INTERFACE_PASSWORD1,
+	TP_IFACE_CHANNEL_INTERFACE_GROUP1,
+	TP_IFACE_CHANNEL_INTERFACE_ROOM1,
+	TP_IFACE_CHANNEL_INTERFACE_SUBJECT1,
+	TP_IFACE_CHANNEL_INTERFACE_ROOM_CONFIG1,
+	TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE1,
 	NULL
 };
 
@@ -325,8 +325,8 @@ idle_muc_channel_fill_immutable_properties (
       TP_IFACE_CHANNEL_TYPE_TEXT, "DeliveryReportingSupport",
       TP_IFACE_CHANNEL_TYPE_TEXT, "SupportedContentTypes",
       TP_IFACE_CHANNEL_TYPE_TEXT, "MessageTypes",
-      TP_IFACE_CHANNEL_INTERFACE_ROOM, "RoomName",
-      TP_IFACE_CHANNEL_INTERFACE_ROOM, "Server",
+      TP_IFACE_CHANNEL_INTERFACE_ROOM1, "RoomName",
+      TP_IFACE_CHANNEL_INTERFACE_ROOM1, "Server",
       NULL);
 }
 
@@ -427,11 +427,11 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
         tp_base_room_config_register_class (base_channel_class);
 
 	tp_dbus_properties_mixin_implement_interface (object_class,
-		TP_IFACE_QUARK_CHANNEL_INTERFACE_ROOM,
+		TP_IFACE_QUARK_CHANNEL_INTERFACE_ROOM1,
 		tp_dbus_properties_mixin_getter_gobject_properties, NULL,
 		room_props);
 	tp_dbus_properties_mixin_implement_interface (object_class,
-		TP_IFACE_QUARK_CHANNEL_INTERFACE_SUBJECT,
+		TP_IFACE_QUARK_CHANNEL_INTERFACE_SUBJECT1,
 		tp_dbus_properties_mixin_getter_gobject_properties, NULL,
 		subject_props);
 }
@@ -493,7 +493,7 @@ static void provide_password_reply(IdleMUCChannel *chan, gboolean success) {
 	priv = chan->priv;
 
 	if (priv->passwd_ctx != NULL) {
-		tp_svc_channel_interface_password_return_from_provide_password(priv->passwd_ctx, success);
+		tp_svc_channel_interface_password1_return_from_provide_password(priv->passwd_ctx, success);
 		priv->passwd_ctx = NULL;
 	} else {
 		IDLE_DEBUG("don't have a ProvidePassword context to return with! (%s, aka %u)",
@@ -565,7 +565,7 @@ idle_muc_channel_update_can_set_topic (
 
   priv->can_set_topic = !!can_set_topic;
   tp_dbus_properties_mixin_emit_properties_changed (G_OBJECT (self),
-      TP_IFACE_CHANNEL_INTERFACE_SUBJECT, changed);
+      TP_IFACE_CHANNEL_INTERFACE_SUBJECT1, changed);
 }
 
 static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
@@ -718,7 +718,7 @@ static void change_password_flags(IdleMUCChannel *obj, guint flag, gboolean stat
 
 	if (add | remove) {
 		IDLE_DEBUG("emitting PASSWORD_FLAGS_CHANGED with %u %u", add, remove);
-		tp_svc_channel_interface_password_emit_password_flags_changed((TpSvcChannelInterfacePassword *)(obj), add, remove);
+		tp_svc_channel_interface_password1_emit_password_flags_changed((TpSvcChannelInterfacePassword1 *)(obj), add, remove);
 	}
 }
 
@@ -1112,7 +1112,7 @@ idle_muc_channel_topic_full (
     priv->mode_state.topic_toucher_id = "";
 
   tp_dbus_properties_mixin_emit_properties_changed (G_OBJECT (self),
-      TP_IFACE_CHANNEL_INTERFACE_SUBJECT, changed);
+      TP_IFACE_CHANNEL_INTERFACE_SUBJECT1, changed);
 }
 
 void
@@ -1373,7 +1373,7 @@ idle_muc_channel_close (
 
 static void
 idle_muc_channel_destroy (
-    TpSvcChannelInterfaceDestroyable *object,
+    TpSvcChannelInterfaceDestroyable1 *object,
     DBusGMethodInvocation *context)
 {
 	TpBaseChannel *base = TP_BASE_CHANNEL (object);
@@ -1389,11 +1389,11 @@ idle_muc_channel_destroy (
 	if (priv->state < MUC_STATE_JOINED)
 		tp_base_channel_destroyed (base);
 
-	tp_svc_channel_interface_destroyable_return_from_destroy (context);
+	tp_svc_channel_interface_destroyable1_return_from_destroy (context);
 }
 
 
-static void idle_muc_channel_get_password_flags (TpSvcChannelInterfacePassword *iface, DBusGMethodInvocation *context) {
+static void idle_muc_channel_get_password_flags (TpSvcChannelInterfacePassword1 *iface, DBusGMethodInvocation *context) {
 	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
 	IdleMUCChannelPrivate *priv;
 
@@ -1402,11 +1402,11 @@ static void idle_muc_channel_get_password_flags (TpSvcChannelInterfacePassword *
 
 	priv = obj->priv;
 
-	tp_svc_channel_interface_password_return_from_get_password_flags(context, priv->password_flags);
+	tp_svc_channel_interface_password1_return_from_get_password_flags(context, priv->password_flags);
 }
 
 
-static void idle_muc_channel_provide_password (TpSvcChannelInterfacePassword *iface, const gchar * password, DBusGMethodInvocation *context) {
+static void idle_muc_channel_provide_password (TpSvcChannelInterfacePassword1 *iface, const gchar * password, DBusGMethodInvocation *context) {
 	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
 	IdleMUCChannelPrivate *priv;
 
@@ -1458,7 +1458,7 @@ idle_muc_channel_send (GObject *obj, TpMessage *message, TpMessageSendingFlags f
 
 static void
 idle_muc_channel_set_subject (
-    TpSvcChannelInterfaceSubject *iface,
+    TpSvcChannelInterfaceSubject1 *iface,
     const gchar *subject,
     DBusGMethodInvocation *context)
 {
@@ -1487,7 +1487,7 @@ idle_muc_channel_set_subject (
           subject);
       send_command (self, cmd);
       /* FIXME: don't return till we get a reply */
-      tp_svc_channel_interface_subject_return_from_set_subject (context);
+      tp_svc_channel_interface_subject1_return_from_set_subject (context);
     }
 }
 
@@ -1538,9 +1538,9 @@ gboolean idle_muc_channel_is_typechar(gchar c)
 }
 
 static void _password_iface_init(gpointer g_iface, gpointer iface_data) {
-	TpSvcChannelInterfacePasswordClass *klass = (TpSvcChannelInterfacePasswordClass *)(g_iface);
+	TpSvcChannelInterfacePassword1Class *klass = (TpSvcChannelInterfacePassword1Class *)(g_iface);
 
-#define IMPLEMENT(x) tp_svc_channel_interface_password_implement_##x (\
+#define IMPLEMENT(x) tp_svc_channel_interface_password1_implement_##x (\
 		klass, idle_muc_channel_##x)
 	IMPLEMENT(get_password_flags);
 	IMPLEMENT(provide_password);
@@ -1552,10 +1552,10 @@ subject_iface_init (
     gpointer g_iface,
     gpointer iface_data G_GNUC_UNUSED)
 {
-  TpSvcChannelInterfaceSubjectClass *klass = g_iface;
+  TpSvcChannelInterfaceSubject1Class *klass = g_iface;
 
 #define IMPLEMENT(x) \
-  tp_svc_channel_interface_subject_implement_##x (klass, idle_muc_channel_##x)
+  tp_svc_channel_interface_subject1_implement_##x (klass, idle_muc_channel_##x)
   IMPLEMENT (set_subject);
 #undef IMPLEMENT
 }
@@ -1565,10 +1565,10 @@ destroyable_iface_init (
     gpointer g_iface,
     gpointer iface_data G_GNUC_UNUSED)
 {
-  TpSvcChannelInterfaceDestroyableClass *klass = g_iface;
+  TpSvcChannelInterfaceDestroyable1Class *klass = g_iface;
 
 #define IMPLEMENT(x) \
-  tp_svc_channel_interface_destroyable_implement_##x (klass, idle_muc_channel_##x)
+  tp_svc_channel_interface_destroyable1_implement_##x (klass, idle_muc_channel_##x)
   IMPLEMENT (destroy);
 #undef IMPLEMENT
 }

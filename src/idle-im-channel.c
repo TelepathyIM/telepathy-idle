@@ -39,7 +39,7 @@ static void idle_im_channel_finalize (GObject *object);
 
 G_DEFINE_TYPE_WITH_CODE(IdleIMChannel, idle_im_channel, TP_TYPE_BASE_CHANNEL,
     G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, tp_message_mixin_iface_init);
-    G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE, _destroyable_iface_init);
+    G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE1, _destroyable_iface_init);
     )
 
 /* private structure */
@@ -173,7 +173,7 @@ idle_im_channel_get_interfaces (TpBaseChannel *channel)
       TP_BASE_CHANNEL_CLASS (idle_im_channel_parent_class)->get_interfaces (
           channel);
 
-  g_ptr_array_add (interfaces, TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE);
+  g_ptr_array_add (interfaces, TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE1);
 
   return interfaces;
 }
@@ -202,7 +202,7 @@ idle_im_channel_send (
 
 static void
 idle_im_channel_destroy (
-    TpSvcChannelInterfaceDestroyable *iface,
+    TpSvcChannelInterfaceDestroyable1 *iface,
     DBusGMethodInvocation *context)
 {
   TpBaseChannel *chan = TP_BASE_CHANNEL (iface);
@@ -214,7 +214,7 @@ idle_im_channel_destroy (
   tp_message_mixin_clear (obj);
   tp_base_channel_destroyed (chan);
 
-  tp_svc_channel_interface_destroyable_return_from_destroy(context);
+  tp_svc_channel_interface_destroyable1_return_from_destroy(context);
 }
 
 static void
@@ -222,7 +222,7 @@ _destroyable_iface_init (
     gpointer klass,
     gpointer iface_data)
 {
-#define IMPLEMENT(x) tp_svc_channel_interface_destroyable_implement_##x (\
+#define IMPLEMENT(x) tp_svc_channel_interface_destroyable1_implement_##x (\
     klass, idle_im_channel_##x)
   IMPLEMENT (destroy);
 #undef IMPLEMENT

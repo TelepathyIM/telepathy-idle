@@ -241,7 +241,7 @@ _roomlist_manager_foreach_class (TpChannelManager *self,
 {
   GHashTable *table = tp_asv_new (
       roomlist_channel_fixed_properties[0], G_TYPE_STRING,
-          TP_IFACE_CHANNEL_TYPE_ROOM_LIST,
+          TP_IFACE_CHANNEL_TYPE_ROOM_LIST1,
       roomlist_channel_fixed_properties[1], G_TYPE_UINT,
           TP_HANDLE_TYPE_NONE,
       NULL);
@@ -300,7 +300,7 @@ _roomlist_manager_requestotron (IdleRoomlistManager *self,
   IDLE_DEBUG("requesting new room list channel");
 
   if (tp_strdiff (tp_asv_get_string (request_properties,
-          TP_IFACE_CHANNEL ".ChannelType"), TP_IFACE_CHANNEL_TYPE_ROOM_LIST))
+          TP_IFACE_CHANNEL ".ChannelType"), TP_IFACE_CHANNEL_TYPE_ROOM_LIST1))
     return FALSE;
 
   if (tp_asv_get_uint32 (request_properties,
