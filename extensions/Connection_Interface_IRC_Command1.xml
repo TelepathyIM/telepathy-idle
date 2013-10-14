@@ -29,6 +29,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.</
       </arg>
       <tp:docstring xmlns="http://www.w3.org/1999/xhtml">
         <p>Send an arbitrary IRC command to the server.</p>
+        <p>For example, an IRC client receiving <code>/bip blreset</code> from
+           the user might call this method with <code>BIP blreset</code> as
+           argument which will send <code>BIP blreset</code> to the server.</p>
       </tp:docstring>
       <tp:possible-errors>
         <tp:error name="org.freedesktop.Telepathy.Error.Disconnected"/>
