@@ -23,7 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA</p>
 </tp:license>
 
 <xi:include href="Connection_Interface_Renaming.xml"/>
-<xi:include href="Connection_Interface_Irc_Command.xml"/>
+<xi:include href="Connection_Interface_IRC_Command1.xml"/>
 
 <tp:generic-types>
   <tp:external-type name="Contact_Handle" type="u"

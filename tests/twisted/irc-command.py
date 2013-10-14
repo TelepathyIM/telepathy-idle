@@ -12,7 +12,7 @@ def test(q, bus, conn, stream):
     q.expect('dbus-signal', signal='StatusChanged',
         args=[cs.CONN_STATUS_CONNECTED, cs.CSR_REQUESTED])
 
-    irc_cmd = dbus.Interface(conn, cs.CONN + '.Interface.IrcCommand1')
+    irc_cmd = dbus.Interface(conn, cs.CONN + '.Interface.IRCCommand1')
 
     call_async(q, irc_cmd, 'Send', 'badger mushroom snake')
 

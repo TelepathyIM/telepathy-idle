@@ -72,7 +72,7 @@ G_DEFINE_TYPE_WITH_CODE(IdleConnection, idle_connection, TP_TYPE_BASE_CONNECTION
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACT_INFO, idle_contact_info_iface_init);
 		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SVC_CONNECTION_INTERFACE_RENAMING, _renaming_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACTS, tp_contacts_mixin_iface_init);
-		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SVC_CONNECTION_INTERFACE_IRC_COMMAND, irc_command_iface_init);
+		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SVC_CONNECTION_INTERFACE_IRC_COMMAND1, irc_command_iface_init);
 );
 
 typedef struct _IdleOutputPendingMsg IdleOutputPendingMsg;
@@ -1572,7 +1572,7 @@ static void _renaming_iface_init(gpointer g_iface, gpointer iface_data) {
 }
 
 static void
-idle_connection_irc_command_send (IdleSvcConnectionInterfaceIrcCommand *iface,
+idle_connection_irc_command_send (IdleSvcConnectionInterfaceIRCCommand1 *iface,
     const gchar *command,
     DBusGMethodInvocation *context)
 {
@@ -1586,9 +1586,9 @@ idle_connection_irc_command_send (IdleSvcConnectionInterfaceIrcCommand *iface,
 static void irc_command_iface_init(gpointer g_iface,
     gpointer iface_data)
 {
-  IdleSvcConnectionInterfaceIrcCommandClass *klass = (IdleSvcConnectionInterfaceIrcCommandClass *) g_iface;
+  IdleSvcConnectionInterfaceIRCCommand1Class *klass = g_iface;
 
-#define IMPLEMENT(x) idle_svc_connection_interface_irc_command_implement_##x (\
+#define IMPLEMENT(x) idle_svc_connection_interface_irc_command1_implement_##x (\
 		klass, idle_connection_irc_command_##x)
 	IMPLEMENT(send);
 #undef IMPLEMENT
