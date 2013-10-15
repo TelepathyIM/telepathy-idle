@@ -41,7 +41,7 @@
 #include "idle-server-connection.h"
 #include "server-tls-manager.h"
 
-#include "extensions/extensions.h"    /* Renaming */
+#include "extensions/extensions.h"    /* IRCCommand */
 
 #define DEFAULT_KEEPALIVE_INTERVAL 30 /* sec */
 #define MISSED_KEEPALIVES_BEFORE_DISCONNECTING 3
@@ -70,7 +70,7 @@ static void irc_command_iface_init(gpointer, gpointer);
 G_DEFINE_TYPE_WITH_CODE(IdleConnection, idle_connection, TP_TYPE_BASE_CONNECTION,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING, _aliasing_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACT_INFO, idle_contact_info_iface_init);
-		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SVC_CONNECTION_INTERFACE_RENAMING, _renaming_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_RENAMING, _renaming_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACTS, tp_contacts_mixin_iface_init);
 		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SVC_CONNECTION_INTERFACE_IRC_COMMAND1, irc_command_iface_init);
 );
@@ -452,7 +452,7 @@ static void idle_connection_finalize (GObject *object) {
 static const gchar * interfaces_always_present[] = {
 	TP_IFACE_CONNECTION_INTERFACE_ALIASING,
 	TP_IFACE_CONNECTION_INTERFACE_CONTACT_INFO,
-	IDLE_IFACE_CONNECTION_INTERFACE_RENAMING,
+	TP_IFACE_CONNECTION_INTERFACE_RENAMING,
 	TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
 	TP_IFACE_CONNECTION_INTERFACE_CONTACTS,
 	NULL};
@@ -1085,7 +1085,7 @@ static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessa
 		tp_base_connection_set_self_handle(TP_BASE_CONNECTION(conn), new_handle);
 	}
 
-	idle_svc_connection_interface_renaming_emit_renamed(IDLE_SVC_CONNECTION_INTERFACE_RENAMING(conn), old_handle, new_handle);
+	tp_svc_connection_interface_renaming_emit_renamed(conn, old_handle, new_handle);
 
 	idle_connection_emit_queued_aliases_changed(conn);
 
@@ -1433,11 +1433,15 @@ static gboolean _send_rename_request(IdleConnection *obj, const gchar *nick, DBu
 	return TRUE;
 }
 
-static void idle_connection_request_rename(IdleSvcConnectionInterfaceRenaming *iface, const gchar *nick, DBusGMethodInvocation *context) {
+static void
+idle_connection_request_rename (TpSvcConnectionInterfaceRenaming *iface,
+    const gchar *nick,
+    DBusGMethodInvocation *context)
+{
 	IdleConnection *conn = IDLE_CONNECTION(iface);
 
 	if (_send_rename_request(conn, nick, context))
-		idle_svc_connection_interface_renaming_return_from_request_rename(context);
+		tp_svc_connection_interface_renaming_return_from_request_rename(context);
 }
 
 static void idle_connection_set_aliases(TpSvcConnectionInterfaceAliasing *iface, GHashTable *aliases, DBusGMethodInvocation *context) {
@@ -1563,9 +1567,9 @@ static void _aliasing_iface_init(gpointer g_iface, gpointer iface_data) {
 }
 
 static void _renaming_iface_init(gpointer g_iface, gpointer iface_data) {
-	IdleSvcConnectionInterfaceRenamingClass *klass = (IdleSvcConnectionInterfaceRenamingClass *) g_iface;
+	TpSvcConnectionInterfaceRenamingClass *klass = g_iface;
 
-#define IMPLEMENT(x) idle_svc_connection_interface_renaming_implement_##x (\
+#define IMPLEMENT(x) tp_svc_connection_interface_renaming_implement_##x (\
 		klass, idle_connection_##x)
 	IMPLEMENT(request_rename);
 #undef IMPLEMENT

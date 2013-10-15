@@ -3,7 +3,6 @@ tools_dir = $(top_srcdir)/tools
 EXTRA_DIST = \
     all.xml \
     Connection_Interface_IRC_Command1.xml \
-    Connection_Interface_Renaming.xml \
     $(NULL)
 
 noinst_LTLIBRARIES = libidle-extensions.la
