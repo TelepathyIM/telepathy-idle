@@ -32,6 +32,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.</
         <p>For example, an IRC client receiving <code>/bip blreset</code> from
            the user might call this method with <code>BIP blreset</code> as
            argument which will send <code>BIP blreset</code> to the server.</p>
+        <p>The command is supplied in UTF-8 (because strings on D-Bus are
+           always UTF-8). It is transcoded into the connection's configured
+           character set, if different, before sending to the server.</p>
       </tp:docstring>
       <tp:possible-errors>
         <tp:error name="org.freedesktop.Telepathy.Error.Disconnected"/>
