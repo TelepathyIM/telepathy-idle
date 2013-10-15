@@ -20,6 +20,11 @@ def test(q, bus, conn, stream):
 
     q.expect('dbus-return', method='Send')
 
+    # We are not supposed to use this API to send messages
+    call_async(q, irc_cmd, 'Send', 'PRIVMSG badger :oh hi')
+
+    q.expect('dbus-error', method='Send', name=cs.INVALID_ARGUMENT)
+
     call_async(q, conn, 'Disconnect')
 
 if __name__ == '__main__':

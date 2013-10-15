@@ -1571,12 +1571,65 @@ static void _renaming_iface_init(gpointer g_iface, gpointer iface_data) {
 #undef IMPLEMENT
 }
 
+typedef struct
+{
+  const gchar *command;
+  const gchar *error_msg;
+} IrcCommandCheck;
+
+static const IrcCommandCheck commands[] = {
+    { "INVITE", "Use the Group API on room channels" },
+    { "JOIN", "Use the Group API on room channels" },
+    { "KICK", "Use the Group API on room channels" },
+    { "PART", "Use the Group API on room channels" },
+    { "PRIVMSG", "Use text channels" },
+    { "QUIT", "Disconnect the connection" },
+    { "TOPIC", "Use the Subject API on room channels" },
+    { NULL, NULL }
+};
+
+/* Return FALSE and set @error if @command is not meant to be used with
+ * IRC_Command.Send() as we have proper Telepathy API for it. */
+static gboolean
+check_irc_command (IdleConnection *self,
+    const gchar *full_command,
+    GError **error)
+{
+  gchar **splitted;
+  guint i;
+
+  splitted = g_strsplit (full_command, " ", 0);
+
+  for (i = 0; commands[i].command != NULL; i++)
+    {
+      if (g_ascii_strcasecmp (splitted[0], commands[i].command) == 0)
+        {
+          g_set_error_literal (error, TP_ERROR, TP_ERROR_INVALID_ARGUMENT,
+              commands[i].error_msg);
+
+          g_strfreev (splitted);
+          return FALSE;
+        }
+    }
+
+  g_strfreev (splitted);
+  return TRUE;
+}
+
 static void
 idle_connection_irc_command_send (IdleSvcConnectionInterfaceIRCCommand1 *iface,
     const gchar *command,
     DBusGMethodInvocation *context)
 {
   IdleConnection *self = IDLE_CONNECTION(iface);
+  GError *error = NULL;
+
+  if (!check_irc_command (self, command, &error))
+    {
+      dbus_g_method_return_error (context, error);
+      g_error_free (error);
+      return;
+    }
 
   _send_with_priority (self, command, SERVER_CMD_NORMAL_PRIORITY);
 
