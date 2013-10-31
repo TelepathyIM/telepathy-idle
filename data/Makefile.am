@@ -1,5 +1,5 @@
 # Telepathy manager file
-managerdir = $(datadir)/telepathy/managers
+managerdir = $(datadir)/telepathy-1/managers
 manager_DATA = idle.manager
 
 # Dbus service file
