@@ -1,7 +1,7 @@
 # correctly clean the generated source files
 CLEANFILES = $(BUILT_SOURCES) $(man_MANS)
 
-libexec_PROGRAMS=telepathy-idle
+libexec_PROGRAMS = telepathy-idle-1
 
 libidle_convenience_la_SOURCES = \
 	idle-connection.c \
@@ -52,10 +52,10 @@ nodist_libidle_convenience_la_SOURCES = \
 libidle_convenience_la_LIBADD = \
 	$(top_builddir)/extensions/libidle-extensions.la
 
-telepathy_idle_SOURCES = \
+telepathy_idle_1_SOURCES = \
 	idle.c
 
-telepathy_idle_LDADD = \
+telepathy_idle_1_LDADD = \
 	libidle-convenience.la \
 	$(ALL_LIBS)
 
@@ -79,9 +79,9 @@ ALL_LIBS = \
 	@GLIB_LIBS@ \
 	@TELEPATHY_LIBS@
 
-man_MANS = telepathy-idle.8
+man_MANS = telepathy-idle-1.8
 
-EXTRA_DIST = telepathy-idle.8.in
+EXTRA_DIST = telepathy-idle-1.8.in
 
 %.8: %.8.in Makefile
 	$(AM_V_GEN)sed -e 's,[@]libexecdir[@],@libexecdir@,' < $< > $@

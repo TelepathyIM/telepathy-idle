@@ -50,8 +50,8 @@ data/im.telepathy.v1.ConnectionManager.idle.service
 extensions/_gen
 extensions/extensions.html
 
-src/telepathy-idle
-src/telepathy-idle.8
+src/telepathy-idle-1
+src/telepathy-idle-1.8
 
 core
 cscope.out
