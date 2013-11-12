@@ -182,7 +182,7 @@ idle_im_channel_get_interfaces (TpBaseChannel *channel)
  * idle_im_channel_send
  *
  * Indirectly implements (via TpMessageMixin) D-Bus method Send on interface
- * im.telepathy1.Channel.Type.Text and D-Bus method SendMessage on
+ * im.telepathy.v1.Channel.Type.Text and D-Bus method SendMessage on
  * Channel.Interface.Messages
  */
 static void

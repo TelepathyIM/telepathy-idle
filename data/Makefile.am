@@ -6,7 +6,7 @@ manager_DATA = idle.manager
 BUILT_FILES = $(service_in_files:.service.in=.service)
 
 servicedir = $(DBUS_SERVICES_DIR)
-service_in_files = im.telepathy1.ConnectionManager.idle.service.in
+service_in_files = im.telepathy.v1.ConnectionManager.idle.service.in
 service_DATA = $(BUILT_FILES)
 CLEANFILES = $(BUILT_FILES)
 

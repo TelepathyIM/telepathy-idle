@@ -1,3 +1,3 @@
 [D-BUS Service]
-Name=im.telepathy1.ConnectionManager.idle
+Name=im.telepathy.v1.ConnectionManager.idle
 Exec=@libexecdir@/telepathy-idle
