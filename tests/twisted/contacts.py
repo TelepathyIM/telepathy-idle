@@ -11,7 +11,6 @@ def test(q, bus, conn, stream):
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
 
     interfaces = conn.Properties.Get(cs.CONN, "Interfaces")
-    assertContains(cs.CONN_IFACE_CONTACTS, interfaces)
 
     brillana, miriam = conn.get_contact_handles_sync(["brillana", "miriam"])
 

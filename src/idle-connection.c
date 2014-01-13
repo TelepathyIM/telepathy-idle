@@ -65,7 +65,6 @@ G_DEFINE_TYPE_WITH_CODE(IdleConnection, idle_connection, TP_TYPE_BASE_CONNECTION
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING1, _aliasing_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACT_INFO1, idle_contact_info_iface_init);
 		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SVC_CONNECTION_INTERFACE_RENAMING, _renaming_iface_init);
-		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACTS, tp_contacts_mixin_iface_init);
 );
 
 typedef struct _IdleOutputPendingMsg IdleOutputPendingMsg;
@@ -233,10 +232,6 @@ static void idle_connection_add_queue_timeout (IdleConnection *self);
 static void idle_connection_clear_queue_timeout (IdleConnection *self);
 
 static void _send_with_priority(IdleConnection *conn, const gchar *msg, guint priority);
-static void conn_aliasing_fill_contact_attributes (
-    GObject *obj,
-    const GArray *contacts,
-    GHashTable *attributes_hash);
 
 static void idle_connection_init(IdleConnection *obj) {
 	IdleConnectionPrivate *priv = G_TYPE_INSTANCE_GET_PRIVATE (obj, IDLE_TYPE_CONNECTION, IdleConnectionPrivate);
@@ -245,9 +240,6 @@ static void idle_connection_init(IdleConnection *obj) {
 	priv->sconn_connected = FALSE;
 	priv->msg_queue = g_queue_new();
 	priv->aliases = g_hash_table_new_full (NULL, NULL, NULL, g_free);
-
-	tp_contacts_mixin_init ((GObject *) obj, G_STRUCT_OFFSET (IdleConnection, contacts));
-	tp_base_connection_register_with_contacts_mixin ((TpBaseConnection *) obj);
 }
 
 static void
@@ -257,9 +249,6 @@ idle_connection_constructed (GObject *object)
 
   self->parser = g_object_new (IDLE_TYPE_PARSER, "connection", self, NULL);
   idle_contact_info_init (self);
-  tp_contacts_mixin_add_contact_attributes_iface (object,
-      TP_IFACE_CONNECTION_INTERFACE_ALIASING1,
-      conn_aliasing_fill_contact_attributes);
 }
 
 static void idle_connection_set_property(GObject *obj, guint prop_id, const GValue *value, GParamSpec *pspec) {
@@ -436,7 +425,6 @@ static void idle_connection_finalize (GObject *object) {
 		idle_output_pending_msg_free(msg);
 
 	g_queue_free(priv->msg_queue);
-	tp_contacts_mixin_finalize (object);
 
 	G_OBJECT_CLASS(idle_connection_parent_class)->finalize(object);
 }
@@ -445,8 +433,6 @@ static const gchar * interfaces_always_present[] = {
 	TP_IFACE_CONNECTION_INTERFACE_ALIASING1,
 	TP_IFACE_CONNECTION_INTERFACE_CONTACT_INFO1,
 	IDLE_IFACE_CONNECTION_INTERFACE_RENAMING,
-	TP_IFACE_CONNECTION_INTERFACE_REQUESTS,
-	TP_IFACE_CONNECTION_INTERFACE_CONTACTS,
 	NULL};
 
 const gchar * const *idle_connection_get_implemented_interfaces (void) {
@@ -468,6 +454,11 @@ get_interfaces_always_present (TpBaseConnection *base)
 
 	return interfaces;
 }
+
+static void idle_connection_fill_contact_attributes (TpBaseConnection *base,
+    const gchar *dbus_interface,
+    TpHandle handle,
+    TpContactAttributeMap *attributes);
 
 static void idle_connection_class_init(IdleConnectionClass *klass) {
 	GObjectClass *object_class = G_OBJECT_CLASS(klass);
@@ -491,6 +482,7 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 	parent_class->shut_down = _iface_shut_down;
 	parent_class->start_connecting = _iface_start_connecting;
 	parent_class->get_interfaces_always_present = get_interfaces_always_present;
+	parent_class->fill_contact_attributes = idle_connection_fill_contact_attributes;
 
 	param_spec = g_param_spec_string("nickname", "IRC nickname", "The nickname to be visible to others in IRC.", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 	g_object_class_install_property(object_class, PROP_NICKNAME, param_spec);
@@ -525,7 +517,6 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 	param_spec = g_param_spec_boolean("password-prompt", "Password prompt", "Whether the connection should pop up a SASL channel if no password is given", FALSE, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_CONSTRUCT);
 	g_object_class_install_property(object_class, PROP_PASSWORD_PROMPT, param_spec);
 
-	tp_contacts_mixin_class_init (object_class, G_STRUCT_OFFSET (IdleConnectionClass, contacts));
 	idle_contact_info_class_init(klass);
 
 	/* This is a hack to make the test suite run in finite time. */
@@ -1316,28 +1307,28 @@ gimme_an_alias (IdleConnection *self,
     return tp_handle_inspect (repo, handle);
 }
 
-static void
-conn_aliasing_fill_contact_attributes (
-    GObject *obj,
-    const GArray *contacts,
-    GHashTable *attributes_hash)
+static gboolean
+conn_aliasing_fill_contact_attributes (IdleConnection *self,
+    const gchar *dbus_interface,
+    TpHandle handle,
+    TpContactAttributeMap *attributes)
 {
-  IdleConnection *self = IDLE_CONNECTION (obj);
-  TpHandleRepoIface *repo = tp_base_connection_get_handles (
-      TP_BASE_CONNECTION (self), TP_HANDLE_TYPE_CONTACT);
-  guint i;
-
-  for (i = 0; i < contacts->len; i++)
+  if (!tp_strdiff (dbus_interface, TP_IFACE_CONNECTION_INTERFACE_ALIASING1))
     {
-      TpHandle handle = g_array_index (contacts, TpHandle, i);
+      TpHandleRepoIface *repo = tp_base_connection_get_handles (
+          TP_BASE_CONNECTION (self), TP_HANDLE_TYPE_CONTACT);
       const gchar *alias = gimme_an_alias (self, repo, handle);
 
       g_assert (alias != NULL);
 
-      tp_contacts_mixin_set_contact_attribute (attributes_hash,
+      tp_contact_attribute_map_take_sliced_gvalue (attributes,
           handle, TP_IFACE_CONNECTION_INTERFACE_ALIASING1"/alias",
           tp_g_value_slice_new_string (alias));
+
+      return TRUE;
     }
+
+  return FALSE;
 }
 
 static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing1 *iface, const GArray *handles, DBusGMethodInvocation *context) {
@@ -1519,3 +1510,25 @@ static void _renaming_iface_init(gpointer g_iface, gpointer iface_data) {
 #undef IMPLEMENT
 }
 
+static void
+idle_connection_fill_contact_attributes (TpBaseConnection *base,
+    const gchar *dbus_interface,
+    TpHandle handle,
+    TpContactAttributeMap *attributes)
+{
+  IdleConnection *self = IDLE_CONNECTION (base);
+
+  if (conn_aliasing_fill_contact_attributes (self,
+        dbus_interface, handle, attributes))
+    return;
+
+  /* We don't cache contact info, so we just never put /info into the
+   * attributes hash. This is spec-compliant: it says the attribute should be
+   * omitted if unknown. */
+  if (!tp_strdiff (dbus_interface,
+        TP_IFACE_CONNECTION_INTERFACE_CONTACT_INFO1))
+    return;
+
+  TP_BASE_CONNECTION_CLASS (idle_connection_parent_class)->
+    fill_contact_attributes (base, dbus_interface, handle, attributes);
+}

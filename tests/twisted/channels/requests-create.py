@@ -17,8 +17,6 @@ def test(q, bus, conn, stream):
 
     props = conn.GetAll(cs.CONN, dbus_interface=cs.PROPERTIES_IFACE)
 
-    assertContains(cs.CONN_IFACE_REQUESTS, props['Interfaces'])
-
     nick = 'foo'
     foo_handle = conn.get_contact_handle_sync(nick)
 

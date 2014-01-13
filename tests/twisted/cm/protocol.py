@@ -34,7 +34,6 @@ def test(q, bus, conn, server):
     assertEquals('im-irc', proto_props['Icon'])
 
     assertContains(cs.CONN_IFACE_ALIASING, proto_props['ConnectionInterfaces'])
-    assertContains(cs.CONN_IFACE_REQUESTS, proto_props['ConnectionInterfaces'])
 
     assertEquals('robot101', unwrap(proto_iface.NormalizeContact('Robot101')))
 

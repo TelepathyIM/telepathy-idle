@@ -36,12 +36,10 @@ typedef struct _IdleConnectionPrivate IdleConnectionPrivate;
 
 struct _IdleConnectionClass {
 	TpBaseConnectionClass parent_class;
-	TpContactsMixinClass contacts;
 };
 
 struct _IdleConnection {
 	TpBaseConnection parent;
-	TpContactsMixin contacts;
 	IdleParser *parser;
 	GQueue *contact_info_requests;
 	IdleConnectionPrivate *priv;
