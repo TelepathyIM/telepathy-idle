@@ -30,16 +30,13 @@ def test(q, bus, conn, stream):
 
     # verify that a new channel was created and signalled
     def looks_like_a_room_list(event):
-        channels, = event.args
-        if len(channels) != 1:
-            return False
-        path, props = channels[0]
+        path, props = event.args
 
         return props[cs.CHANNEL_TYPE] == cs.CHANNEL_TYPE_ROOM_LIST and \
             props[cs.TARGET_HANDLE_TYPE] == cs.HT_NONE and \
             props[cs.TARGET_ID] == ''
 
-    e = q.expect('dbus-signal', signal='NewChannels',
+    q.expect('dbus-signal', signal='NewChannel',
         predicate=looks_like_a_room_list)
 
     # FIXME: this is pretty questionable.

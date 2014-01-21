@@ -23,6 +23,9 @@ def test(q, bus, conn, stream):
     properties = conn.GetAll(cs.CONN_IFACE_REQUESTS,
             dbus_interface=cs.PROPERTIES_IFACE)
     assert properties.get('Channels') == [], properties['Channels']
+
+    properties = conn.GetAll(cs.CONN,
+            dbus_interface=cs.PROPERTIES_IFACE)
     assert ({cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_TEXT,
              cs.TARGET_HANDLE_TYPE: cs.HT_CONTACT,
             },
@@ -39,7 +42,7 @@ def test(q, bus, conn, stream):
 
     ret, new_sig = q.expect_many(
         EventPattern('dbus-return', method='CreateChannel'),
-        EventPattern('dbus-signal', signal='NewChannels'),
+        EventPattern('dbus-signal', signal='NewChannel'),
         )
 
     assert len(ret.value) == 2
@@ -52,17 +55,13 @@ def test(q, bus, conn, stream):
     assert emitted_props[cs.INITIATOR_HANDLE] == props['SelfHandle']
     assert emitted_props[cs.INITIATOR_ID] == stream.nick
 
-    assert len(new_sig.args) == 1
-    assert len(new_sig.args[0]) == 1        # one channel
-    assert len(new_sig.args[0][0]) == 2     # two struct members
-    assert new_sig.args[0][0][0] == ret.value[0]
-    assert new_sig.args[0][0][1] == ret.value[1]
+    assert new_sig.args[0] == ret.value[0]
+    assert new_sig.args[1] == ret.value[1]
 
     properties = conn.GetAll(cs.CONN_IFACE_REQUESTS,
             dbus_interface=cs.PROPERTIES_IFACE)
 
-    assert new_sig.args[0][0] in properties['Channels'], \
-            (new_sig.args[0][0], properties['Channels'])
+    assertContains((new_sig.args[0], new_sig.args[1]), properties['Channels'])
 
     chan = make_channel_proxy(conn, path, 'Channel')
 
@@ -74,9 +73,8 @@ def test(q, bus, conn, stream):
 
     # It should close and respawn!
     q.expect('dbus-signal', signal='ChannelClosed')
-    chans, = q.expect('dbus-signal', signal='NewChannels').args
-    assert len(chans) == 1
-    new_props = chans[0][1]
+    e = q.expect('dbus-signal', signal='NewChannel')
+    _, new_props = e.args
 
     # It should look pretty similar...
     assert new_props[cs.CHANNEL_TYPE] == cs.CHANNEL_TYPE_TEXT

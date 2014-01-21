@@ -25,12 +25,10 @@ def test(q, bus, conn, stream):
     event = q.expect('dbus-return', method='CreateChannel')
     obj_path = event.value[0]
 
-    pattern = EventPattern('dbus-signal', signal='NewChannels')
+    pattern = EventPattern('dbus-signal', signal='NewChannel')
     event = q.expect_many(pattern)[0]
     q.forbid_events([pattern])
-    channel_details = event.args[0]
-    assert len(channel_details) == 1
-    path, props = channel_details[0]
+    path, props = event.args
     assert path == obj_path
     assert props[TARGET_HANDLE_TYPE] == HT_ROOM
     assert props[CHANNEL_TYPE] == CHANNEL_TYPE_TEXT

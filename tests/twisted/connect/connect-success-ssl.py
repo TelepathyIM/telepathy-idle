@@ -13,9 +13,8 @@ def test(q, bus, conn, stream):
     q.expect_many(
             EventPattern('dbus-signal', signal='StatusChanged', args=[1, 1]),
             EventPattern('irc-connected'))
-    e = q.expect('dbus-signal', signal='NewChannels')
-    channels = e.args[0]
-    path, props = channels[0]
+    e = q.expect('dbus-signal', signal='NewChannel')
+    path, props = e.args
 
     cert = bus.get_object (conn.bus_name, props[cs.TLS_CERT_PATH])
     cert.Accept()

@@ -17,7 +17,7 @@ class DelayJoinServer(BaseIRCServer):
         return
 
 def build_request(conn, channel_name, use_room):
-    rccs = conn.Properties.Get(cs.CONN_IFACE_REQUESTS,
+    rccs = conn.Properties.Get(cs.CONN,
         'RequestableChannelClasses')
 
     if use_room:
@@ -77,7 +77,7 @@ def test(q, bus, conn, stream, use_room=False):
         EventPattern('dbus-return', method='CreateChannel'),
         EventPattern('dbus-return', method='EnsureChannel'),
         )
-    nc = q.expect('dbus-signal', signal='NewChannels')
+    nc = q.expect('dbus-signal', signal='NewChannel')
 
     path, props = cc.value
 
@@ -104,9 +104,7 @@ def test(q, bus, conn, stream, use_room=False):
     assert ec_path == path
     assert ec_props == props
 
-    channels = nc.args[0]
-    assert len(channels) == 1
-    nc_path, nc_props = channels[0]
+    nc_path, nc_props = nc.args
     assert nc_path == path
     assert nc_props == props
 
@@ -133,9 +131,9 @@ def test(q, bus, conn, stream, use_room=False):
     q.forbid_events(patterns)
     chan.Close()
     q.expect('dbus-signal', signal='Closed', path=chan.object_path)
-    e = q.expect('dbus-signal', signal='NewChannels')
+    e = q.expect('dbus-signal', signal='NewChannel')
 
-    path, props = e.args[0][0]
+    path, props = e.args
     assertEquals(chan.object_path, path)
     # We requested the channel originally, but we didn't request it popping
     # back up.

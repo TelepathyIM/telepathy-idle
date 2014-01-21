@@ -12,18 +12,16 @@ from constants import *
 def test_join_bouncer(q, conn, stream, room):
     stream.sendJoin(room)
 
-    new_channels = EventPattern('dbus-signal', signal='NewChannels')
-    event = q.expect_many(new_channels)[0]
-    q.forbid_events([new_channels])
-    channel_details = event.args[0]
-    assertEquals(1, len(channel_details))
-    path, props = channel_details[0]
+    new_channel = EventPattern('dbus-signal', signal='NewChannel')
+    event = q.expect_many(new_channel)[0]
+    q.forbid_events([new_channel])
+    path, props = event.args
     assertEquals(HT_ROOM, props[TARGET_HANDLE_TYPE])
     assertEquals(CHANNEL_TYPE_TEXT, props[CHANNEL_TYPE])
 
     q.expect('dbus-signal', signal='MembersChanged')
 
-    q.unforbid_events([new_channels])
+    q.unforbid_events([new_channel])
     return path
 
 def test(q, bus, conn, stream):

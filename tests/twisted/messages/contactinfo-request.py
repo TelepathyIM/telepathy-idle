@@ -50,7 +50,7 @@ def test(q, bus, conn, stream):
                    TARGET_ID: name })
 
         q.expect('dbus-return', method='CreateChannel')
-        q.expect('dbus-signal', signal='NewChannels')
+        q.expect('dbus-signal', signal='NewChannel')
 
     contact_info = dbus.Interface(conn, CONN_IFACE_CONTACT_INFO)
 

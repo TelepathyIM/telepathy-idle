@@ -12,7 +12,7 @@ def test(q, bus, conn, stream):
     q.expect_many(
             EventPattern('dbus-signal', signal='StatusChanged', args=[1, 1]),
             EventPattern('irc-connected'))
-    e = q.expect('dbus-signal', signal='NewChannels')
+    q.expect('dbus-signal', signal='NewChannel')
 
     conn.Disconnect()
     q.expect_many(
