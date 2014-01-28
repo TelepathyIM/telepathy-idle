@@ -285,7 +285,7 @@ static IdleParserHandlerResult _invite_handler(IdleParser *parser, IdleParserMes
 
 	if (!chan) {
 		chan = _muc_manager_new_channel(manager, room_handle, inviter_handle, FALSE);
-		tp_channel_manager_emit_new_channel(TP_CHANNEL_MANAGER(user_data), (TpExportableChannel *) chan, NULL);
+		tp_channel_manager_emit_new_channel(TP_CHANNEL_MANAGER (user_data), (TpExportableChannel *) chan, NULL);
 		idle_muc_channel_invited(chan, inviter_handle);
 	}
 
@@ -415,7 +415,7 @@ static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessa
 	if (old_handle == new_handle)
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 
-	tp_channel_manager_foreach_channel(mgr, _channel_rename_foreach, &data);
+	tp_channel_manager_foreach_channel (TP_CHANNEL_MANAGER (mgr), _channel_rename_foreach, &data);
 
 	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 }
@@ -498,7 +498,7 @@ static IdleParserHandlerResult _quit_handler(IdleParser *parser, IdleParserMessa
 	const gchar *message = (args->n_values == 2) ? g_value_get_string(g_value_array_get_nth(args, 1)) : NULL;
 	ChannelQuitForeachData data = {leaver_handle, message};
 
-	tp_channel_manager_foreach_channel(manager, _channel_quit_foreach, &data);
+	tp_channel_manager_foreach_channel (TP_CHANNEL_MANAGER (manager), _channel_quit_foreach, &data);
 
 	return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 }
@@ -682,14 +682,14 @@ static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data) {
 	 * didn't finish before we killed the channel.
 	 */
 	for (GSList *l = reqs; l != NULL; l = l->next) {
-		tp_channel_manager_emit_request_failed(manager, l->data, TP_ERROR,
+		tp_channel_manager_emit_request_failed (TP_CHANNEL_MANAGER (manager), l->data, TP_ERROR,
 			TP_ERROR_DISCONNECTED,
 			"Unable to complete this channel request, we're disconnecting!");
 	}
 
 	g_slist_free(reqs);
 
-	tp_channel_manager_emit_channel_closed_for_object (manager,
+	tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (manager),
 		TP_EXPORTABLE_CHANNEL (chan));
 
 	if (priv->channels) {
@@ -698,7 +698,7 @@ static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data) {
 		if (tp_base_channel_is_destroyed (base))
 			g_hash_table_remove(priv->channels, GUINT_TO_POINTER(handle));
 		else
-			tp_channel_manager_emit_new_channel (manager, TP_EXPORTABLE_CHANNEL (chan),
+			tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (manager), TP_EXPORTABLE_CHANNEL (chan),
 				NULL);
 	}
 }
@@ -713,7 +713,7 @@ static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer use
 	GSList *l;
 
 	if (err == MUC_CHANNEL_JOIN_ERROR_NONE) {
-		tp_channel_manager_emit_new_channel(manager, (TpExportableChannel *) chan, reqs);
+		tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (manager), (TpExportableChannel *) chan, reqs);
 		goto out;
 	}
 
@@ -741,7 +741,7 @@ static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer use
 	}
 
 	for (l = reqs; l != NULL; l = l->next) {
-		tp_channel_manager_emit_request_failed(manager, l->data, TP_ERROR, err_code, err_msg);
+		tp_channel_manager_emit_request_failed (TP_CHANNEL_MANAGER (manager), l->data, TP_ERROR, err_code, err_msg);
 	}
 
 	if (priv->channels)
@@ -754,7 +754,7 @@ out:
 static gboolean
 _muc_manager_request (
     IdleMUCManager *self,
-    gpointer request_token,
+    TpChannelManagerRequest *request,
     GHashTable *request_properties,
     gboolean require_new)
 {
@@ -824,8 +824,9 @@ _muc_manager_request (
         }
       else if (idle_muc_channel_is_ready (channel))
         {
-          tp_channel_manager_emit_request_already_satisfied (self,
-              request_token, TP_EXPORTABLE_CHANNEL (channel));
+          tp_channel_manager_emit_request_already_satisfied (
+              TP_CHANNEL_MANAGER (self),
+              request, TP_EXPORTABLE_CHANNEL (channel));
           return TRUE;
         }
     }
@@ -836,12 +837,12 @@ _muc_manager_request (
       idle_muc_channel_join_attempt (channel);
     }
 
-  associate_request (self, channel, request_token);
+  associate_request (self, channel, request);
 
   return TRUE;
 
 error:
-  tp_channel_manager_emit_request_failed (self, request_token,
+  tp_channel_manager_emit_request_failed (TP_CHANNEL_MANAGER (self), request,
       error->domain, error->code, error->message);
   g_error_free (error);
   return TRUE;
@@ -850,34 +851,23 @@ error:
 static gboolean
 _muc_manager_create_channel (
     TpChannelManager *manager,
-    gpointer request_token,
+    TpChannelManagerRequest *request,
     GHashTable *request_properties)
 {
   IdleMUCManager *self = IDLE_MUC_MANAGER (manager);
 
-  return _muc_manager_request (self, request_token, request_properties, TRUE);
-}
-
-static gboolean
-_muc_manager_request_channel (
-  TpChannelManager *manager,
-  gpointer request_token,
-  GHashTable *request_properties)
-{
-  IdleMUCManager *self = IDLE_MUC_MANAGER (manager);
-
-  return _muc_manager_request (self, request_token, request_properties, FALSE);
+  return _muc_manager_request (self, request, request_properties, TRUE);
 }
 
 static gboolean
 _muc_manager_ensure_channel (
     TpChannelManager *manager,
-    gpointer request_token,
+    TpChannelManagerRequest *request,
     GHashTable *request_properties)
 {
   IdleMUCManager *self = IDLE_MUC_MANAGER (manager);
 
-  return _muc_manager_request (self, request_token, request_properties, FALSE);
+  return _muc_manager_request (self, request, request_properties, FALSE);
 }
 
 static void
@@ -889,7 +879,6 @@ _muc_manager_iface_init (
 
   iface->foreach_channel = _muc_manager_foreach_channel;
   iface->type_foreach_channel_class = _muc_manager_type_foreach_channel_class;
-  iface->request_channel = _muc_manager_request_channel;
   iface->create_channel = _muc_manager_create_channel;
   iface->ensure_channel = _muc_manager_ensure_channel;
 }

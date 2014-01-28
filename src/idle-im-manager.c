@@ -78,10 +78,9 @@ static void _im_manager_type_foreach_class (GType type, TpChannelManagerTypeChan
 
 //static TpChannelManagerRequestStatus _iface_request(TpChannelFactoryIface *iface, const gchar *chan_type, TpHandleType handle_type, guint handle, gpointer request, TpChannelIface **new_chan, GError **error);
 
-static gboolean _im_manager_create_channel(TpChannelManager *manager, gpointer request_token, GHashTable *request_properties);
-static gboolean _im_manager_request_channel(TpChannelManager *manager, gpointer request_token, GHashTable *request_properties);
-static gboolean _im_manager_ensure_channel(TpChannelManager *manager, gpointer request_token, GHashTable *request_properties);
-static gboolean _im_manager_requestotron (IdleIMManager *self, gpointer request_token, GHashTable *request_properties, gboolean require_new);
+static gboolean _im_manager_create_channel(TpChannelManager *manager, TpChannelManagerRequest *request, GHashTable *request_properties);
+static gboolean _im_manager_ensure_channel(TpChannelManager *manager, TpChannelManagerRequest *request, GHashTable *request_properties);
+static gboolean _im_manager_requestotron (IdleIMManager *self, TpChannelManagerRequest *request, GHashTable *request_properties, gboolean require_new);
 static IdleIMChannel *_im_manager_new_channel (IdleIMManager *mgr, TpHandle handle, TpHandle initiator, gpointer request);
 
 static void _im_channel_closed_cb (IdleIMChannel *chan, gpointer user_data);
@@ -276,43 +275,30 @@ static void _im_manager_type_foreach_class (GType type,
 
 static gboolean
 _im_manager_create_channel(TpChannelManager *manager,
-						   gpointer request_token,
+						   TpChannelManagerRequest *request,
 						   GHashTable *request_properties)
 {
 	IdleIMManager *self = IDLE_IM_MANAGER (manager);
 
-	return _im_manager_requestotron (self, request_token, request_properties,
+	return _im_manager_requestotron (self, request, request_properties,
 									 TRUE);
 }
 
-
-static gboolean
-_im_manager_request_channel(TpChannelManager *manager,
-							gpointer request_token,
-							GHashTable *request_properties)
-{
-	IdleIMManager *self = IDLE_IM_MANAGER (manager);
-
-	return _im_manager_requestotron (self, request_token, request_properties,
-									 FALSE);
-}
-
-
 static gboolean
 _im_manager_ensure_channel(TpChannelManager *manager,
-						   gpointer request_token,
+						   TpChannelManagerRequest *request,
 						   GHashTable *request_properties)
 {
 	IdleIMManager *self = IDLE_IM_MANAGER (manager);
 
-	return _im_manager_requestotron (self, request_token, request_properties,
+	return _im_manager_requestotron (self, request, request_properties,
 									 FALSE);
 }
 
 
 static gboolean
 _im_manager_requestotron (IdleIMManager *self,
-						  gpointer request_token,
+						  TpChannelManagerRequest *request,
 						  GHashTable *request_properties,
 						  gboolean require_new)
 {
@@ -359,7 +345,7 @@ _im_manager_requestotron (IdleIMManager *self,
 
 	if (channel == NULL)
 	{
-		_im_manager_new_channel (self, handle, tp_base_connection_get_self_handle (base_conn), request_token);
+		_im_manager_new_channel (self, handle, tp_base_connection_get_self_handle (base_conn), request);
 		return TRUE;
 	}
 
@@ -370,12 +356,12 @@ _im_manager_requestotron (IdleIMManager *self,
 		goto error;
 	}
 
-	tp_channel_manager_emit_request_already_satisfied (self, request_token,
+	tp_channel_manager_emit_request_already_satisfied (TP_CHANNEL_MANAGER (self), request,
 													   channel);
 	return TRUE;
 
 error:
-	tp_channel_manager_emit_request_failed (self, request_token,
+	tp_channel_manager_emit_request_failed (TP_CHANNEL_MANAGER (self), request,
 											error->domain, error->code, error->message);
 	g_error_free (error);
 	return TRUE;
@@ -390,7 +376,7 @@ _im_channel_closed_cb (IdleIMChannel *chan,
 	IdleIMManagerPrivate *priv = IDLE_IM_MANAGER_GET_PRIVATE (self);
 	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
 
-	tp_channel_manager_emit_channel_closed_for_object (self,
+	tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (self),
 													   TP_EXPORTABLE_CHANNEL (chan));
 
 	if (priv->channels)
@@ -404,7 +390,7 @@ _im_channel_closed_cb (IdleIMChannel *chan,
 		} else {
 			IDLE_DEBUG ("reopening channel with handle %u due to pending messages",
 				handle);
-			tp_channel_manager_emit_new_channel (self,
+			tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (self),
 				(TpExportableChannel *) chan, NULL);
 		}
 	}
@@ -443,8 +429,8 @@ _im_manager_new_channel (IdleIMManager *mgr,
 	if (request != NULL)
 		requests = g_slist_prepend (requests, request);
 
-	tp_channel_manager_emit_new_channel (mgr, TP_EXPORTABLE_CHANNEL (chan),
-										 requests);
+	tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (mgr),
+      TP_EXPORTABLE_CHANNEL (chan), requests);
 
 	g_slist_free (requests);
 
@@ -458,7 +444,6 @@ static void _im_manager_iface_init(gpointer g_iface, gpointer iface_data) {
 
 	iface->foreach_channel = _im_manager_foreach;
 	iface->type_foreach_channel_class = _im_manager_type_foreach_class;
-	iface->request_channel = _im_manager_request_channel;
 	iface->create_channel = _im_manager_create_channel;
 	iface->ensure_channel = _im_manager_ensure_channel;
 }

@@ -69,11 +69,10 @@ static void connection_status_changed_cb (IdleConnection* conn, guint status, gu
 static void _roomlist_manager_foreach (TpChannelManager *self, TpExportableChannelFunc func, gpointer user_data);
 static void _roomlist_manager_foreach_class (TpChannelManager *self, TpChannelManagerChannelClassFunc func, gpointer user_data);
 
-static gboolean _roomlist_manager_create_channel (TpChannelManager *self, gpointer request_token, GHashTable *request_properties);
-static gboolean _roomlist_manager_request_channel (TpChannelManager *self, gpointer request_token, GHashTable *request_properties);
-static gboolean _roomlist_manager_ensure_channel (TpChannelManager *self, gpointer request_token, GHashTable *request_properties);
-static gboolean _roomlist_manager_requestotron (IdleRoomlistManager *self, gpointer request_token, GHashTable *request_properties, gboolean require_new);
-static IdleRoomlistChannel *_roomlist_manager_new_channel (IdleRoomlistManager *self, gpointer request);
+static gboolean _roomlist_manager_create_channel (TpChannelManager *self, TpChannelManagerRequest *request, GHashTable *request_properties);
+static gboolean _roomlist_manager_ensure_channel (TpChannelManager *self, TpChannelManagerRequest *request, GHashTable *request_properties);
+static gboolean _roomlist_manager_requestotron (IdleRoomlistManager *self, TpChannelManagerRequest *request, GHashTable *request_properties, gboolean require_new);
+static IdleRoomlistChannel *_roomlist_manager_new_channel (IdleRoomlistManager *self, TpChannelManagerRequest *request);
 
 static void _roomlist_channel_closed_cb (IdleRoomlistChannel *chan, gpointer user_data);
 
@@ -254,45 +253,32 @@ _roomlist_manager_foreach_class (TpChannelManager *self,
 
 static gboolean
 _roomlist_manager_create_channel (TpChannelManager *self,
-                                  gpointer request_token,
-                                  GHashTable *request_properties)
+    TpChannelManagerRequest *request,
+    GHashTable *request_properties)
 {
   IdleRoomlistManager *mgr = IDLE_ROOMLIST_MANAGER (self);
 
-  return _roomlist_manager_requestotron (mgr, request_token, request_properties,
+  return _roomlist_manager_requestotron (mgr, request, request_properties,
       TRUE);
 }
 
-
-static gboolean
-_roomlist_manager_request_channel (TpChannelManager *self,
-                                   gpointer request_token,
-                                   GHashTable *request_properties)
-{
-  IdleRoomlistManager *mgr = IDLE_ROOMLIST_MANAGER (self);
-
-  return _roomlist_manager_requestotron (mgr, request_token,
-      request_properties, FALSE);
-}
-
-
 static gboolean
 _roomlist_manager_ensure_channel (TpChannelManager *self,
-                                  gpointer request_token,
-                                  GHashTable *request_properties)
+    TpChannelManagerRequest *request,
+    GHashTable *request_properties)
 {
   IdleRoomlistManager *mgr = IDLE_ROOMLIST_MANAGER (self);
 
-  return _roomlist_manager_requestotron (mgr, request_token,
+  return _roomlist_manager_requestotron (mgr, request,
       request_properties, FALSE);
 }
 
 
 static gboolean
 _roomlist_manager_requestotron (IdleRoomlistManager *self,
-                                gpointer request_token,
-                                GHashTable *request_properties,
-                                gboolean require_new)
+    TpChannelManagerRequest *request,
+    GHashTable *request_properties,
+    gboolean require_new)
 {
   IdleRoomlistManagerPrivate *priv = self->priv;
   GError *error = NULL;
@@ -318,7 +304,7 @@ _roomlist_manager_requestotron (IdleRoomlistManager *self,
 
   if (priv->channel == NULL)
     {
-      _roomlist_manager_new_channel (self, request_token);
+      _roomlist_manager_new_channel (self, request);
       return TRUE;
     }
 
@@ -329,12 +315,12 @@ _roomlist_manager_requestotron (IdleRoomlistManager *self,
       goto error;
     }
 
-  tp_channel_manager_emit_request_already_satisfied (self, request_token,
-      TP_EXPORTABLE_CHANNEL (priv->channel));
+  tp_channel_manager_emit_request_already_satisfied (TP_CHANNEL_MANAGER (self),
+      request, TP_EXPORTABLE_CHANNEL (priv->channel));
   return TRUE;
 
 error:
-  tp_channel_manager_emit_request_failed (self, request_token,
+  tp_channel_manager_emit_request_failed (TP_CHANNEL_MANAGER (self), request,
       error->domain, error->code, error->message);
   g_error_free (error);
   return TRUE;
@@ -348,7 +334,7 @@ _roomlist_channel_closed_cb (IdleRoomlistChannel *chan,
   IdleRoomlistManager *self = IDLE_ROOMLIST_MANAGER (user_data);
   IdleRoomlistManagerPrivate *priv = self->priv;
 
-  tp_channel_manager_emit_channel_closed_for_object (self,
+  tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (self),
       TP_EXPORTABLE_CHANNEL (chan));
 
   if (priv->channel)
@@ -362,7 +348,7 @@ _roomlist_channel_closed_cb (IdleRoomlistChannel *chan,
 
 static IdleRoomlistChannel *
 _roomlist_manager_new_channel (IdleRoomlistManager *self,
-                               gpointer request)
+    TpChannelManagerRequest *request)
 {
   IdleRoomlistManagerPrivate *priv = self->priv;
   IdleRoomlistChannel *chan;
@@ -379,8 +365,8 @@ _roomlist_manager_new_channel (IdleRoomlistManager *self,
   if (request != NULL)
     requests = g_slist_prepend (requests, request);
 
-  tp_channel_manager_emit_new_channel (self, TP_EXPORTABLE_CHANNEL (chan),
-      requests);
+  tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (self),
+      TP_EXPORTABLE_CHANNEL (chan), requests);
 
   g_slist_free (requests);
 
@@ -399,7 +385,6 @@ _roomlist_manager_iface_init (gpointer g_iface,
 
     iface->foreach_channel = _roomlist_manager_foreach;
     iface->foreach_channel_class = _roomlist_manager_foreach_class;
-    iface->request_channel = _roomlist_manager_request_channel;
     iface->create_channel = _roomlist_manager_create_channel;
     iface->ensure_channel = _roomlist_manager_ensure_channel;
 }

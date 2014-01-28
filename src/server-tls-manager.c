@@ -183,7 +183,7 @@ server_tls_channel_closed_cb (IdleServerTLSChannel *channel,
           self->priv->completed_channels, l);
     }
 
-  tp_channel_manager_emit_channel_closed_for_object (self,
+  tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (self),
       TP_EXPORTABLE_CHANNEL (channel));
   g_object_unref (channel);
 }
@@ -274,7 +274,7 @@ idle_server_tls_manager_verify_async (IdleServerTLSManager *self,
       G_CALLBACK (tls_certificate_rejected_cb), self);
 
   /* emit NewChannel on the ChannelManager iface */
-  tp_channel_manager_emit_new_channel (self,
+  tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (self),
       (TpExportableChannel *) self->priv->channel, NULL);
 }
 
@@ -393,7 +393,6 @@ channel_manager_iface_init (gpointer g_iface,
   /* these channels are not requestable. */
   iface->ensure_channel = NULL;
   iface->create_channel = NULL;
-  iface->request_channel = NULL;
   iface->foreach_channel_class = NULL;
 }
 
