@@ -2,7 +2,8 @@ tools_dir = $(top_srcdir)/tools
 
 EXTRA_DIST = \
     all.xml \
-    Connection_Interface_Renaming.xml
+    Connection_Interface_IRC_Command1.xml \
+    $(NULL)
 
 noinst_LTLIBRARIES = libidle-extensions.la
 
@@ -32,7 +33,7 @@ DROP_NAMESPACE = sed -e 's@xmlns:tp="http://telepathy\.freedesktop\.org/wiki/Dbu
 XSLTPROCFLAGS = --nonet --novalid
 
 _gen/all.xml: all.xml $(wildcard $(srcdir)/*.xml)
-	@$(mkdir_p) _gen
+	@$(MKDIR_P) _gen
 	$(AM_V_GEN)$(XSLTPROC) $(XSLTPROCFLAGS) \
 		--xinclude $(tools_dir)/identity.xsl \
 		$< > $@

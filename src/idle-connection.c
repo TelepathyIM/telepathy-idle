@@ -41,7 +41,7 @@
 #include "idle-server-connection.h"
 #include "server-tls-manager.h"
 
-#include "extensions/extensions.h"    /* Renaming */
+#include "extensions/extensions.h"    /* IRCCommand */
 
 #define DEFAULT_KEEPALIVE_INTERVAL 30 /* sec */
 #define MISSED_KEEPALIVES_BEFORE_DISCONNECTING 3
@@ -60,11 +60,13 @@ static gboolean flush_queue_faster = FALSE;
 
 static void _aliasing_iface_init(gpointer, gpointer);
 static void _renaming_iface_init(gpointer, gpointer);
+static void irc_command_iface_init(gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE(IdleConnection, idle_connection, TP_TYPE_BASE_CONNECTION,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING1, _aliasing_iface_init);
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACT_INFO1, idle_contact_info_iface_init);
-		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SVC_CONNECTION_INTERFACE_RENAMING, _renaming_iface_init);
+		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CONNECTION_INTERFACE_RENAMING1, _renaming_iface_init);
+		G_IMPLEMENT_INTERFACE(IDLE_TYPE_SVC_CONNECTION_INTERFACE_IRC_COMMAND1, irc_command_iface_init);
 );
 
 typedef struct _IdleOutputPendingMsg IdleOutputPendingMsg;
@@ -432,7 +434,7 @@ static void idle_connection_finalize (GObject *object) {
 static const gchar * interfaces_always_present[] = {
 	TP_IFACE_CONNECTION_INTERFACE_ALIASING1,
 	TP_IFACE_CONNECTION_INTERFACE_CONTACT_INFO1,
-	IDLE_IFACE_CONNECTION_INTERFACE_RENAMING,
+	TP_IFACE_CONNECTION_INTERFACE_RENAMING1,
 	NULL};
 
 const gchar * const *idle_connection_get_implemented_interfaces (void) {
@@ -1068,7 +1070,9 @@ static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessa
 		tp_base_connection_set_self_handle(TP_BASE_CONNECTION(conn), new_handle);
 	}
 
-	idle_svc_connection_interface_renaming_emit_renamed(IDLE_SVC_CONNECTION_INTERFACE_RENAMING(conn), old_handle, new_handle);
+	tp_svc_connection_interface_renaming1_emit_renamed(conn, old_handle, new_handle,
+		tp_handle_inspect (tp_base_connection_get_handles (
+			TP_BASE_CONNECTION (conn), TP_HANDLE_TYPE_CONTACT), new_handle));
 
 	idle_connection_emit_queued_aliases_changed(conn);
 
@@ -1374,11 +1378,15 @@ static gboolean _send_rename_request(IdleConnection *obj, const gchar *nick, DBu
 	return TRUE;
 }
 
-static void idle_connection_request_rename(IdleSvcConnectionInterfaceRenaming *iface, const gchar *nick, DBusGMethodInvocation *context) {
+static void
+idle_connection_request_rename (TpSvcConnectionInterfaceRenaming1 *iface,
+    const gchar *nick,
+    DBusGMethodInvocation *context)
+{
 	IdleConnection *conn = IDLE_CONNECTION(iface);
 
 	if (_send_rename_request(conn, nick, context))
-		idle_svc_connection_interface_renaming_return_from_request_rename(context);
+		tp_svc_connection_interface_renaming1_return_from_request_rename(context);
 }
 
 static void idle_connection_set_aliases(TpSvcConnectionInterfaceAliasing1 *iface, GHashTable *aliases, DBusGMethodInvocation *context) {
@@ -1502,9 +1510,9 @@ static void _aliasing_iface_init(gpointer g_iface, gpointer iface_data) {
 }
 
 static void _renaming_iface_init(gpointer g_iface, gpointer iface_data) {
-	IdleSvcConnectionInterfaceRenamingClass *klass = (IdleSvcConnectionInterfaceRenamingClass *) g_iface;
+	TpSvcConnectionInterfaceRenaming1Class *klass = g_iface;
 
-#define IMPLEMENT(x) idle_svc_connection_interface_renaming_implement_##x (\
+#define IMPLEMENT(x) tp_svc_connection_interface_renaming1_implement_##x (\
 		klass, idle_connection_##x)
 	IMPLEMENT(request_rename);
 #undef IMPLEMENT
@@ -1531,4 +1539,80 @@ idle_connection_fill_contact_attributes (TpBaseConnection *base,
 
   TP_BASE_CONNECTION_CLASS (idle_connection_parent_class)->
     fill_contact_attributes (base, dbus_interface, handle, attributes);
+}
+
+typedef struct
+{
+  const gchar *command;
+  const gchar *error_msg;
+} IrcCommandCheck;
+
+static const IrcCommandCheck commands[] = {
+    { "INVITE", "Use the Group API on room channels" },
+    { "JOIN", "Use the Group API on room channels" },
+    { "KICK", "Use the Group API on room channels" },
+    { "PART", "Use the Group API on room channels" },
+    { "PRIVMSG", "Use text channels" },
+    { "QUIT", "Disconnect the connection" },
+    { "TOPIC", "Use the Subject API on room channels" },
+    { NULL, NULL }
+};
+
+/* Return FALSE and set @error if @command is not meant to be used with
+ * IRC_Command.Send() as we have proper Telepathy API for it. */
+static gboolean
+check_irc_command (IdleConnection *self,
+    const gchar *full_command,
+    GError **error)
+{
+  gchar **splitted;
+  guint i;
+
+  splitted = g_strsplit (full_command, " ", 0);
+
+  for (i = 0; commands[i].command != NULL; i++)
+    {
+      if (g_ascii_strcasecmp (splitted[0], commands[i].command) == 0)
+        {
+          g_set_error_literal (error, TP_ERROR, TP_ERROR_INVALID_ARGUMENT,
+              commands[i].error_msg);
+
+          g_strfreev (splitted);
+          return FALSE;
+        }
+    }
+
+  g_strfreev (splitted);
+  return TRUE;
+}
+
+static void
+idle_connection_irc_command_send (IdleSvcConnectionInterfaceIRCCommand1 *iface,
+    const gchar *command,
+    DBusGMethodInvocation *context)
+{
+  IdleConnection *self = IDLE_CONNECTION(iface);
+  GError *error = NULL;
+
+  if (!check_irc_command (self, command, &error))
+    {
+      dbus_g_method_return_error (context, error);
+      g_error_free (error);
+      return;
+    }
+
+  _send_with_priority (self, command, SERVER_CMD_NORMAL_PRIORITY);
+
+  dbus_g_method_return (context);
+}
+
+static void irc_command_iface_init(gpointer g_iface,
+    gpointer iface_data)
+{
+  IdleSvcConnectionInterfaceIRCCommand1Class *klass = g_iface;
+
+#define IMPLEMENT(x) idle_svc_connection_interface_irc_command1_implement_##x (\
+		klass, idle_connection_irc_command_##x)
+	IMPLEMENT(send);
+#undef IMPLEMENT
 }

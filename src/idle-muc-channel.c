@@ -841,11 +841,7 @@ void idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
 
 	for (guint i = 1; (i + 1) < args->n_values; i += 2) {
 		TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, i));
-#if GLIB_CHECK_VERSION(2, 31, 0)
 		gchar modechar = g_value_get_schar(g_value_array_get_nth(args, i + 1));
-#else
-		gchar modechar = g_value_get_char(g_value_array_get_nth(args, i + 1));
-#endif
 
 		if (handle == tp_base_connection_get_self_handle (base_conn)) {
 			guint remove = MODE_FLAG_OPERATOR_PRIVILEGE | MODE_FLAG_VOICE_PRIVILEGE | MODE_FLAG_HALFOP_PRIVILEGE;
