@@ -98,7 +98,7 @@ AC_DEFINE([TP_SEAL_ENABLE], [], [Prevent to use sealed variables])
 AC_DEFINE([TP_DISABLE_SINGLE_INCLUDE], [], [Disable single header include])
 AC_DEFINE(TP_VERSION_MIN_REQUIRED, TP_VERSION_1_0, [Ignore post 1.0 deprecations])
 AC_DEFINE(TP_VERSION_MAX_ALLOWED, TP_VERSION_1_0, [Prevent post 1.0 APIs])
-PKG_CHECK_MODULES([TELEPATHY], [telepathy-glib-1 >= 0.99.6, telepathy-glib-1-dbus >= 0.99.6])
+PKG_CHECK_MODULES([TELEPATHY], [telepathy-glib-1 >= 0.99.7, telepathy-glib-1-dbus >= 0.99.7])
 
 dnl Check for code generation tools
 XSLTPROC=
