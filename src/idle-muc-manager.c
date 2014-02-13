@@ -90,7 +90,7 @@ static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer use
 
 static const gchar * const muc_channel_fixed_properties[] = {
     TP_PROP_CHANNEL_CHANNEL_TYPE,
-    TP_PROP_CHANNEL_TARGET_HANDLE_TYPE,
+    TP_PROP_CHANNEL_TARGET_ENTITY_TYPE,
     NULL
 };
 
@@ -101,7 +101,7 @@ static const gchar * const muc_channel_allowed_properties[] = {
 };
 
 static const gchar * const muc_channel_allowed_room_properties[] = {
-    TP_PROP_CHANNEL_TARGET_HANDLE_TYPE, /* But it must be None */
+    TP_PROP_CHANNEL_TARGET_ENTITY_TYPE, /* But it must be None */
     TP_PROP_CHANNEL_INTERFACE_ROOM1_ROOM_NAME,
     NULL
 };
@@ -626,7 +626,7 @@ _muc_manager_type_foreach_channel_class (
     {
       handle_fixed = tp_asv_new (
           TP_PROP_CHANNEL_CHANNEL_TYPE, G_TYPE_STRING, TP_IFACE_CHANNEL_TYPE_TEXT,
-          TP_PROP_CHANNEL_TARGET_HANDLE_TYPE, G_TYPE_UINT, TP_HANDLE_TYPE_ROOM,
+          TP_PROP_CHANNEL_TARGET_ENTITY_TYPE, G_TYPE_UINT, TP_ENTITY_TYPE_ROOM,
           NULL);
       room_name_fixed = tp_asv_new (
           TP_PROP_CHANNEL_CHANNEL_TYPE, G_TYPE_STRING, TP_IFACE_CHANNEL_TYPE_TEXT,
@@ -761,9 +761,9 @@ _muc_manager_request (
   IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE (self);
   TpBaseConnection *base_conn = (TpBaseConnection *) priv->conn;
   TpHandleRepoIface *room_repo = tp_base_connection_get_handles (base_conn,
-      TP_HANDLE_TYPE_ROOM);
+      TP_ENTITY_TYPE_ROOM);
   GError *error = NULL;
-  TpHandleType handle_type;
+  TpEntityType handle_type;
   TpHandle handle;
   const gchar *channel_type;
   IdleMUCChannel *channel;
@@ -775,11 +775,11 @@ _muc_manager_request (
     return FALSE;
 
   handle_type = tp_asv_get_uint32 (request_properties,
-        TP_PROP_CHANNEL_TARGET_HANDLE_TYPE, NULL);
+        TP_PROP_CHANNEL_TARGET_ENTITY_TYPE, NULL);
 
   switch (handle_type)
     {
-      case TP_HANDLE_TYPE_ROOM:
+      case TP_ENTITY_TYPE_ROOM:
         handle = tp_asv_get_uint32 (request_properties,
             TP_PROP_CHANNEL_TARGET_HANDLE, NULL);
 
@@ -788,7 +788,7 @@ _muc_manager_request (
 
         break;
 
-      case TP_HANDLE_TYPE_NONE:
+      case TP_ENTITY_TYPE_NONE:
       {
         const gchar *room_name = tp_asv_get_string (request_properties,
             TP_PROP_CHANNEL_INTERFACE_ROOM1_ROOM_NAME);

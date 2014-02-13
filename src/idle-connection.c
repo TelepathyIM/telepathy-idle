@@ -553,7 +553,7 @@ static GPtrArray *_iface_create_channel_managers(TpBaseConnection *base) {
 }
 
 static void _iface_create_handle_repos(TpBaseConnection *self, TpHandleRepoIface **repos) {
-	for (int i = 0; i < TP_NUM_HANDLE_TYPES; i++)
+	for (int i = 0; i < TP_NUM_ENTITY_TYPES; i++)
 		repos[i] = NULL;
 
 	idle_handle_repos_init(repos);
@@ -1072,7 +1072,7 @@ static IdleParserHandlerResult _nick_handler(IdleParser *parser, IdleParserMessa
 
 	tp_svc_connection_interface_renaming1_emit_renamed(conn, old_handle, new_handle,
 		tp_handle_inspect (tp_base_connection_get_handles (
-			TP_BASE_CONNECTION (conn), TP_HANDLE_TYPE_CONTACT), new_handle));
+			TP_BASE_CONNECTION (conn), TP_ENTITY_TYPE_CONTACT), new_handle));
 
 	idle_connection_emit_queued_aliases_changed(conn);
 
@@ -1138,7 +1138,7 @@ static IdleParserHandlerResult _version_privmsg_handler(IdleParser *parser, Idle
 		return IDLE_PARSER_HANDLER_RESULT_NOT_HANDLED;
 
 	handle = g_value_get_uint(g_value_array_get_nth(args, 0));
-	nick = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT), handle);
+	nick = tp_handle_inspect(tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_ENTITY_TYPE_CONTACT), handle);
 	reply = g_strdup_printf("VERSION telepathy-idle %s Telepathy IM/VoIP Framework http://telepathy.freedesktop.org", VERSION);
 
 	idle_ctcp_notice(nick, reply, conn);
@@ -1254,7 +1254,7 @@ _queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *alias) 
 	IdleConnectionPrivate *priv = conn->priv;
 
 	if (!priv->queued_aliases_owners) {
-		TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT);
+		TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_ENTITY_TYPE_CONTACT);
 		priv->queued_aliases_owners = tp_handle_set_new(handles);
 	}
 
@@ -1268,7 +1268,7 @@ _queue_alias_changed(IdleConnection *conn, TpHandle handle, const gchar *alias) 
 }
 
 void idle_connection_canon_nick_receive(IdleConnection *conn, TpHandle handle, const gchar *canon_nick) {
-	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_HANDLE_TYPE_CONTACT);
+	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(conn), TP_ENTITY_TYPE_CONTACT);
 	const gchar *old_alias = g_hash_table_lookup (conn->priv->aliases, GUINT_TO_POINTER (handle));
 
 	if (!old_alias)
@@ -1320,7 +1320,7 @@ conn_aliasing_fill_contact_attributes (IdleConnection *self,
   if (!tp_strdiff (dbus_interface, TP_IFACE_CONNECTION_INTERFACE_ALIASING1))
     {
       TpHandleRepoIface *repo = tp_base_connection_get_handles (
-          TP_BASE_CONNECTION (self), TP_HANDLE_TYPE_CONTACT);
+          TP_BASE_CONNECTION (self), TP_ENTITY_TYPE_CONTACT);
       const gchar *alias = gimme_an_alias (self, repo, handle);
 
       g_assert (alias != NULL);
@@ -1337,7 +1337,7 @@ conn_aliasing_fill_contact_attributes (IdleConnection *self,
 
 static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing1 *iface, const GArray *handles, DBusGMethodInvocation *context) {
 	IdleConnection *self = IDLE_CONNECTION (iface);
-	TpHandleRepoIface *repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(iface), TP_HANDLE_TYPE_CONTACT);
+	TpHandleRepoIface *repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(iface), TP_ENTITY_TYPE_CONTACT);
 	GError *error = NULL;
 	const gchar **aliases;
 
@@ -1359,7 +1359,7 @@ static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing1 *i
 }
 
 static gboolean _send_rename_request(IdleConnection *obj, const gchar *nick, DBusGMethodInvocation *context) {
-	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(obj), TP_HANDLE_TYPE_CONTACT);
+	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(obj), TP_ENTITY_TYPE_CONTACT);
 	TpHandle handle = tp_handle_ensure(handles, nick, NULL, NULL);
 	gchar msg[IRC_MSG_MAXLEN + 1];
 

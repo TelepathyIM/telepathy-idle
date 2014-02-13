@@ -47,7 +47,7 @@ enum {
 
 static const gchar * const roomlist_channel_fixed_properties[] = {
     TP_IFACE_CHANNEL ".ChannelType",
-    TP_IFACE_CHANNEL ".TargetHandleType",
+    TP_IFACE_CHANNEL ".TargetEntityType",
     NULL
 };
 
@@ -242,7 +242,7 @@ _roomlist_manager_foreach_class (TpChannelManager *self,
       roomlist_channel_fixed_properties[0], G_TYPE_STRING,
           TP_IFACE_CHANNEL_TYPE_ROOM_LIST1,
       roomlist_channel_fixed_properties[1], G_TYPE_UINT,
-          TP_HANDLE_TYPE_NONE,
+          TP_ENTITY_TYPE_NONE,
       NULL);
 
   func (self, table, roomlist_channel_allowed_properties, user_data);
@@ -290,7 +290,7 @@ _roomlist_manager_requestotron (IdleRoomlistManager *self,
     return FALSE;
 
   if (tp_asv_get_uint32 (request_properties,
-        TP_IFACE_CHANNEL ".TargetHandleType", NULL) != 0)
+        TP_IFACE_CHANNEL ".TargetEntityType", NULL) != 0)
     return FALSE;
 
   /* Check if there are any other properties that we don't understand */

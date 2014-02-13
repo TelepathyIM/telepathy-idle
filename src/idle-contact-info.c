@@ -126,7 +126,7 @@ static void _return_from_request_contact_info(IdleConnection *conn) {
 static void idle_connection_request_contact_info(TpSvcConnectionInterfaceContactInfo1 *iface, guint contact, DBusGMethodInvocation *context) {
 	IdleConnection *self = IDLE_CONNECTION(iface);
 	TpBaseConnection *base = TP_BASE_CONNECTION(self);
-	TpHandleRepoIface *contact_handles = tp_base_connection_get_handles(base, TP_HANDLE_TYPE_CONTACT);
+	TpHandleRepoIface *contact_handles = tp_base_connection_get_handles(base, TP_ENTITY_TYPE_CONTACT);
 	const gchar *nick;
 	GError *error = NULL;
 
@@ -205,7 +205,7 @@ static IdleParserHandlerResult _end_of_whois_handler(IdleParser *parser, IdlePar
 static IdleParserHandlerResult _no_such_server_handler(IdleParser *parser, IdleParserMessageCode code, GValueArray *args, gpointer user_data) {
 	IdleConnection *conn = IDLE_CONNECTION(user_data);
 	TpBaseConnection *base = TP_BASE_CONNECTION(conn);
-	TpHandleRepoIface *contact_handles = tp_base_connection_get_handles(base, TP_HANDLE_TYPE_CONTACT);
+	TpHandleRepoIface *contact_handles = tp_base_connection_get_handles(base, TP_ENTITY_TYPE_CONTACT);
 	TpHandle handle;
 	ContactInfoRequest *request;
 	GValueArray *norm_args = g_value_array_copy(args);

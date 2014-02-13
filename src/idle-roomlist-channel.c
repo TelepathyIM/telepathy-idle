@@ -92,7 +92,7 @@ idle_roomlist_channel_constructed (GObject *obj)
 
   priv->rooms = g_ptr_array_new ();
   priv->handles = tp_handle_set_new(tp_base_connection_get_handles (
-     TP_BASE_CONNECTION(priv->connection), TP_HANDLE_TYPE_ROOM));
+     TP_BASE_CONNECTION(priv->connection), TP_ENTITY_TYPE_ROOM));
 }
 
 static gchar *
@@ -149,7 +149,7 @@ idle_roomlist_channel_class_init (IdleRoomlistChannelClass *idle_roomlist_channe
   object_class->finalize = idle_roomlist_channel_finalize;
 
   base_channel_class->channel_type = TP_IFACE_CHANNEL_TYPE_ROOM_LIST1;
-  base_channel_class->target_handle_type = TP_HANDLE_TYPE_NONE;
+  base_channel_class->target_entity_type = TP_ENTITY_TYPE_NONE;
   base_channel_class->close = idle_roomlist_channel_close;
   base_channel_class->fill_immutable_properties = idle_roomlist_channel_fill_properties;
   base_channel_class->get_object_path_suffix = idle_roomlist_channel_get_path_suffix;
@@ -314,7 +314,7 @@ _rpl_list_handler (IdleParser *parser,
   TpHandle room_handle = g_value_get_uint (g_value_array_get_nth (args, 0));
   TpHandleRepoIface *handl_repo =
     tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->connection),
-        TP_HANDLE_TYPE_ROOM);
+        TP_ENTITY_TYPE_ROOM);
   const gchar *room_name = tp_handle_inspect(handl_repo, room_handle);
   guint num_users = g_value_get_uint (g_value_array_get_nth (args, 1));
   /* topic is optional */

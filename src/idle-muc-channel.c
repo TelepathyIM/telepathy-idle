@@ -219,8 +219,8 @@ idle_muc_channel_constructed (GObject *obj)
 	TpBaseChannel *base = TP_BASE_CHANNEL (obj);
 	IdleMUCChannelPrivate *priv = self->priv;
 	TpBaseConnection *conn = tp_base_channel_get_connection (base);
-	TpHandleRepoIface *room_handles = tp_base_connection_get_handles(conn, TP_HANDLE_TYPE_ROOM);
-	TpHandleRepoIface *contact_handles = tp_base_connection_get_handles(conn, TP_HANDLE_TYPE_CONTACT);
+	TpHandleRepoIface *room_handles = tp_base_connection_get_handles(conn, TP_ENTITY_TYPE_ROOM);
+	TpHandleRepoIface *contact_handles = tp_base_connection_get_handles(conn, TP_ENTITY_TYPE_CONTACT);
 	TpChannelTextMessageType types[] = {
 			TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
 			TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION,
@@ -370,7 +370,7 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
 	object_class->finalize = idle_muc_channel_finalize;
 
 	base_channel_class->channel_type = TP_IFACE_CHANNEL_TYPE_TEXT;
-	base_channel_class->target_handle_type = TP_HANDLE_TYPE_ROOM;
+	base_channel_class->target_entity_type = TP_ENTITY_TYPE_ROOM;
 
 	base_channel_class->close = idle_muc_channel_close;
 	base_channel_class->fill_immutable_properties = idle_muc_channel_fill_immutable_properties;
@@ -837,7 +837,7 @@ void idle_muc_channel_namereply(IdleMUCChannel *chan, GValueArray *args) {
 	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
 
 	if (!priv->namereply_set)
-		priv->namereply_set = tp_handle_set_new(tp_base_connection_get_handles(base_conn, TP_HANDLE_TYPE_CONTACT));
+		priv->namereply_set = tp_handle_set_new(tp_base_connection_get_handles(base_conn, TP_ENTITY_TYPE_CONTACT));
 
 	for (guint i = 1; (i + 1) < args->n_values; i += 2) {
 		TpHandle handle = g_value_get_uint(g_value_array_get_nth(args, i));
@@ -907,7 +907,7 @@ void idle_muc_channel_mode(IdleMUCChannel *chan, GValueArray *args) {
 	IdleMUCChannelPrivate *priv = chan->priv;
 	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
 	TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
-	TpHandleRepoIface *handles = tp_base_connection_get_handles(base_conn, TP_HANDLE_TYPE_CONTACT);
+	TpHandleRepoIface *handles = tp_base_connection_get_handles(base_conn, TP_ENTITY_TYPE_CONTACT);
 
         tp_base_room_config_set_retrieved (priv->room_config);
 
@@ -1077,7 +1077,7 @@ idle_muc_channel_topic_full (
   TpBaseChannel *base = TP_BASE_CHANNEL (self);
   TpBaseConnection *base_conn = tp_base_channel_get_connection (base);
   TpHandleRepoIface *handles = tp_base_connection_get_handles (base_conn,
-      TP_HANDLE_TYPE_CONTACT);
+      TP_ENTITY_TYPE_CONTACT);
   guint i = 0;
   static const gchar *changed[] = { NULL, NULL, NULL, NULL, NULL };
 
@@ -1201,7 +1201,7 @@ static gboolean send_invite_request(IdleMUCChannel *obj, TpHandle handle, GError
 
 	priv = obj->priv;
 
-	nick = tp_handle_inspect(tp_base_connection_get_handles(base_conn, TP_HANDLE_TYPE_CONTACT), handle);
+	nick = tp_handle_inspect(tp_base_connection_get_handles(base_conn, TP_ENTITY_TYPE_CONTACT), handle);
 
 	if ((nick == NULL) || (nick[0] == '\0')) {
 		IDLE_DEBUG("invalid handle %u passed", handle);
@@ -1229,7 +1229,7 @@ static gboolean send_kick_request(IdleMUCChannel *obj, TpHandle handle, const gc
 
 	priv = obj->priv;
 
-	nick = tp_handle_inspect(tp_base_connection_get_handles(base_conn, TP_HANDLE_TYPE_CONTACT), handle);
+	nick = tp_handle_inspect(tp_base_connection_get_handles(base_conn, TP_ENTITY_TYPE_CONTACT), handle);
 
 	if ((nick == NULL) || (nick[0] == '\0')) {
 		IDLE_DEBUG("invalid handle %u passed", handle);

@@ -374,8 +374,8 @@ static void _parse_and_forward_one(IdleParser *parser, gchar **tokens, IdleParse
 	gboolean success = TRUE;
 	gchar **iter = tokens;
 	/* We keep a ref to each unique handle in a message so that we can unref them after calling all handlers */
-	TpHandleSet *contact_reffed = tp_handle_set_new(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_CONTACT));
-	TpHandleSet *room_reffed = tp_handle_set_new(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_ROOM));
+	TpHandleSet *contact_reffed = tp_handle_set_new(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_ENTITY_TYPE_CONTACT));
+	TpHandleSet *room_reffed = tp_handle_set_new(tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_ENTITY_TYPE_ROOM));
 
 	IDLE_DEBUG("message code %u", code);
 
@@ -482,8 +482,8 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
 	TpHandle handle;
 	GValue val = {0};
-	TpHandleRepoIface *contact_repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_CONTACT);
-	TpHandleRepoIface *room_repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_HANDLE_TYPE_ROOM);
+	TpHandleRepoIface *contact_repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_ENTITY_TYPE_CONTACT);
+	TpHandleRepoIface *room_repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(priv->conn), TP_ENTITY_TYPE_ROOM);
 
 	if (token[0] == ':')
 		token++;

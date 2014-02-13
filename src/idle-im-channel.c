@@ -115,7 +115,7 @@ idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_class)
   object_class->finalize = idle_im_channel_finalize;
 
   base_class->channel_type = TP_IFACE_CHANNEL_TYPE_TEXT;
-  base_class->target_handle_type = TP_HANDLE_TYPE_CONTACT;
+  base_class->target_entity_type = TP_ENTITY_TYPE_CONTACT;
   base_class->close = idle_im_channel_close;
   base_class->fill_immutable_properties = idle_im_channel_fill_properties;
   base_class->get_object_path_suffix = idle_im_channel_get_path_suffix;
@@ -194,7 +194,7 @@ idle_im_channel_send (
   TpBaseChannel *base = TP_BASE_CHANNEL (obj);
   TpBaseConnection *conn = tp_base_channel_get_connection (base);
   const gchar *recipient = tp_handle_inspect (
-      tp_base_connection_get_handles (conn, TP_HANDLE_TYPE_CONTACT),
+      tp_base_connection_get_handles (conn, TP_ENTITY_TYPE_CONTACT),
       tp_base_channel_get_target_handle (base));
 
   idle_text_send (obj, message, flags, recipient, IDLE_CONNECTION (conn));

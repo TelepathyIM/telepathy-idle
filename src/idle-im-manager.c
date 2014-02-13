@@ -48,7 +48,7 @@ enum {
 
 static const gchar * const im_channel_fixed_properties[] = {
     TP_IFACE_CHANNEL ".ChannelType",
-    TP_IFACE_CHANNEL ".TargetHandleType",
+    TP_IFACE_CHANNEL ".TargetEntityType",
     NULL
 };
 
@@ -76,7 +76,7 @@ static void connection_status_changed_cb (IdleConnection* conn, guint status, gu
 static void _im_manager_foreach(TpChannelManager *manager, TpExportableChannelFunc func, gpointer user_data);
 static void _im_manager_type_foreach_class (GType type, TpChannelManagerTypeChannelClassFunc func, gpointer user_data);
 
-//static TpChannelManagerRequestStatus _iface_request(TpChannelFactoryIface *iface, const gchar *chan_type, TpHandleType handle_type, guint handle, gpointer request, TpChannelIface **new_chan, GError **error);
+//static TpChannelManagerRequestStatus _iface_request(TpChannelFactoryIface *iface, const gchar *chan_type, TpEntityType handle_type, guint handle, gpointer request, TpChannelIface **new_chan, GError **error);
 
 static gboolean _im_manager_create_channel(TpChannelManager *manager, TpChannelManagerRequest *request, GHashTable *request_properties);
 static gboolean _im_manager_ensure_channel(TpChannelManager *manager, TpChannelManagerRequest *request, GHashTable *request_properties);
@@ -264,7 +264,7 @@ static void _im_manager_type_foreach_class (GType type,
 	g_hash_table_insert (table, (gpointer) im_channel_fixed_properties[0], value);
 
 	value = tp_g_value_slice_new (G_TYPE_UINT);
-	g_value_set_uint (value, TP_HANDLE_TYPE_CONTACT);
+	g_value_set_uint (value, TP_ENTITY_TYPE_CONTACT);
 	g_hash_table_insert (table, (gpointer) im_channel_fixed_properties[1], value);
 
 	func (type, table, im_channel_allowed_properties, user_data);
@@ -305,7 +305,7 @@ _im_manager_requestotron (IdleIMManager *self,
 	IdleIMManagerPrivate *priv = IDLE_IM_MANAGER_GET_PRIVATE (self);
 	TpBaseConnection *base_conn = (TpBaseConnection *) priv->conn;
 	TpHandleRepoIface *contact_repo =
-		tp_base_connection_get_handles (base_conn, TP_HANDLE_TYPE_CONTACT);
+		tp_base_connection_get_handles (base_conn, TP_ENTITY_TYPE_CONTACT);
 	TpHandle handle;
 	GError *error = NULL;
 	TpExportableChannel *channel;
@@ -315,7 +315,7 @@ _im_manager_requestotron (IdleIMManager *self,
 		return FALSE;
 
 	if (tp_asv_get_uint32 (request_properties,
-						   TP_IFACE_CHANNEL ".TargetHandleType", NULL) != TP_HANDLE_TYPE_CONTACT)
+						   TP_IFACE_CHANNEL ".TargetEntityType", NULL) != TP_ENTITY_TYPE_CONTACT)
 		return FALSE;
 
 	handle = tp_asv_get_uint32 (request_properties,
@@ -406,7 +406,7 @@ _im_manager_new_channel (IdleIMManager *mgr,
 	IdleIMManagerPrivate *priv = IDLE_IM_MANAGER_GET_PRIVATE (mgr);
 	TpBaseConnection *base_connection = TP_BASE_CONNECTION (priv->conn);
 	TpHandleRepoIface *handle_repo =
-		tp_base_connection_get_handles (base_connection, TP_HANDLE_TYPE_CONTACT);
+		tp_base_connection_get_handles (base_connection, TP_ENTITY_TYPE_CONTACT);
 	IdleIMChannel *chan;
 	const gchar *name;
 	GSList *requests = NULL;

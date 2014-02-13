@@ -21,7 +21,7 @@ def build_request(conn, channel_name, use_room):
         'RequestableChannelClasses')
 
     if use_room:
-        # We allow TargetHandleType in Room-flavoured requests, but it has to
+        # We allow TargetEntityType in Room-flavoured requests, but it has to
         # be None if specified.
         assertContains(
             ({ cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_TEXT },
