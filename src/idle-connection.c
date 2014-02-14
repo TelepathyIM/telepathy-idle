@@ -585,6 +585,7 @@ static gboolean _finish_shutdown_idle_func(gpointer data) {
 	IdleConnectionPrivate *priv = self->priv;
 	if (priv->force_disconnect_id != 0) {
 		g_source_remove(priv->force_disconnect_id);
+		priv->force_disconnect_id = 0;
 	}
 
 	tp_base_connection_finish_shutdown(conn);
