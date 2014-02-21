@@ -637,7 +637,8 @@ static void _connection_disconnect_with_gerror(IdleConnection *conn, TpConnectio
 	if (tp_base_connection_get_status (TP_BASE_CONNECTION (conn)) == TP_CONNECTION_STATUS_DISCONNECTED) {
 		IDLE_DEBUG ("Already disconnected; refusing to report error %s", error->message);
 	} else {
-		GHashTable *details = tp_asv_new(key, G_TYPE_STRING, error->message, NULL);
+		GVariant *details = g_variant_new_parsed (
+			"{ '%s': <%s> }", key, error->message);
 
 		g_assert(error->domain == TP_ERROR);
 
@@ -645,7 +646,6 @@ static void _connection_disconnect_with_gerror(IdleConnection *conn, TpConnectio
 							      tp_error_get_dbus_name(error->code),
 							      details,
 							      reason);
-		g_hash_table_unref(details);
 	}
 }
 
