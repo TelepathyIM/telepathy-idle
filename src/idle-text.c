@@ -151,10 +151,10 @@ idle_text_encode_and_split(TpChannelTextMessageType type,
 
 void idle_text_send(GObject *obj, TpMessage *message, TpMessageSendingFlags flags, const gchar *recipient, IdleConnection *conn) {
 	GError *error = NULL;
-	const GHashTable *part;
+	GVariant *part;
 	TpChannelTextMessageType type = TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL;
 	gboolean result = TRUE;
-	const gchar *content_type, *text;
+	const gchar *content_type = NULL, *text = NULL;
 	guint n_parts;
 	GStrv messages;
 	GStrv bodies;
@@ -171,10 +171,10 @@ void idle_text_send(GObject *obj, TpMessage *message, TpMessageSendingFlags flag
 
 	g_return_if_fail (recipient != NULL);
 
-	part = tp_message_peek (message, 0);
+	part = tp_message_dup_part (message, 0);
 
-	if (tp_asv_lookup (part, "message-type") != NULL)
-		type = tp_asv_get_uint32 (part, "message-type", &result);
+	if (tp_vardict_has_key (part, "message-type"))
+		type = tp_vardict_get_uint32 (part, "message-type", &result);
 
 	if (!result)
 		INVALID_ARGUMENT ("message-type must be a 32-bit unsigned integer");
@@ -187,9 +187,11 @@ void idle_text_send(GObject *obj, TpMessage *message, TpMessageSendingFlags flag
 	if (n_parts != 2)
 		INVALID_ARGUMENT ("message must contain exactly 1 part, not %u", (n_parts - 1));
 
-	part = tp_message_peek (message, 1);
-	content_type = tp_asv_get_string (part, "content-type");
-	text = tp_asv_get_string (part, "content");
+	g_variant_unref (part);
+
+	part = tp_message_dup_part (message, 1);
+	g_variant_lookup (part, "content-type", "&s", &content_type);
+	g_variant_lookup (part, "content", "&s", &text);
 
 	if (tp_strdiff (content_type, "text/plain"))
 		INVALID_ARGUMENT ("message must be text/plain");
@@ -201,6 +203,7 @@ void idle_text_send(GObject *obj, TpMessage *message, TpMessageSendingFlags flag
 
 	msg_len = idle_connection_get_max_message_length(conn);
 	messages = idle_text_encode_and_split(type, recipient, text, msg_len, &bodies, &error);
+	g_variant_unref (part);
 	if (messages == NULL)
 		goto failed;
 
