@@ -11,8 +11,8 @@ AC_PREREQ([2.59])
 
 m4_define([idle_major_version], [0])
 m4_define([idle_minor_version], [99])
-m4_define([idle_micro_version], [6])
-m4_define([idle_nano_version], [1])
+m4_define([idle_micro_version], [8])
+m4_define([idle_nano_version], [0])
 
 
 m4_define([idle_base_version],
@@ -98,7 +98,7 @@ AC_DEFINE([TP_SEAL_ENABLE], [], [Prevent to use sealed variables])
 AC_DEFINE([TP_DISABLE_SINGLE_INCLUDE], [], [Disable single header include])
 AC_DEFINE(TP_VERSION_MIN_REQUIRED, TP_VERSION_1_0, [Ignore post 1.0 deprecations])
 AC_DEFINE(TP_VERSION_MAX_ALLOWED, TP_VERSION_1_0, [Prevent post 1.0 APIs])
-PKG_CHECK_MODULES([TELEPATHY], [telepathy-glib-1 >= 0.99.7, telepathy-glib-1-dbus >= 0.99.7])
+PKG_CHECK_MODULES([TELEPATHY], [telepathy-glib-1 >= 0.99.8, telepathy-glib-1-dbus >= 0.99.8])
 
 dnl Check for code generation tools
 XSLTPROC=
