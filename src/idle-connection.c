@@ -1337,7 +1337,7 @@ conn_aliasing_fill_contact_attributes (IdleConnection *self,
   return FALSE;
 }
 
-static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing1 *iface, const GArray *handles, DBusGMethodInvocation *context) {
+static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing1 *iface, const GArray *handles, GDBusMethodInvocation *context) {
 	IdleConnection *self = IDLE_CONNECTION (iface);
 	TpHandleRepoIface *repo = tp_base_connection_get_handles(TP_BASE_CONNECTION(iface), TP_ENTITY_TYPE_CONTACT);
 	GError *error = NULL;
@@ -1360,7 +1360,7 @@ static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing1 *i
 	g_free(aliases);
 }
 
-static gboolean _send_rename_request(IdleConnection *obj, const gchar *nick, DBusGMethodInvocation *context) {
+static gboolean _send_rename_request(IdleConnection *obj, const gchar *nick, GDBusMethodInvocation *context) {
 	TpHandleRepoIface *handles = tp_base_connection_get_handles(TP_BASE_CONNECTION(obj), TP_ENTITY_TYPE_CONTACT);
 	TpHandle handle = tp_handle_ensure(handles, nick, NULL, NULL);
 	gchar msg[IRC_MSG_MAXLEN + 1];
@@ -1383,7 +1383,7 @@ static gboolean _send_rename_request(IdleConnection *obj, const gchar *nick, DBu
 static void
 idle_connection_request_rename (TpSvcConnectionInterfaceRenaming1 *iface,
     const gchar *nick,
-    DBusGMethodInvocation *context)
+    GDBusMethodInvocation *context)
 {
 	IdleConnection *conn = IDLE_CONNECTION(iface);
 
@@ -1391,7 +1391,7 @@ idle_connection_request_rename (TpSvcConnectionInterfaceRenaming1 *iface,
 		tp_svc_connection_interface_renaming1_return_from_request_rename(context);
 }
 
-static void idle_connection_set_aliases(TpSvcConnectionInterfaceAliasing1 *iface, GHashTable *aliases, DBusGMethodInvocation *context) {
+static void idle_connection_set_aliases(TpSvcConnectionInterfaceAliasing1 *iface, GHashTable *aliases, GDBusMethodInvocation *context) {
 	IdleConnection *conn = IDLE_CONNECTION(iface);
 	const gchar *requested_alias = g_hash_table_lookup(aliases, GUINT_TO_POINTER(tp_base_connection_get_self_handle (TP_BASE_CONNECTION (conn))));
 
@@ -1591,7 +1591,7 @@ check_irc_command (IdleConnection *self,
 static void
 idle_connection_irc_command_send (IdleSvcConnectionInterfaceIRCCommand1 *iface,
     const gchar *command,
-    DBusGMethodInvocation *context)
+    GDBusMethodInvocation *context)
 {
   IdleConnection *self = IDLE_CONNECTION(iface);
   GError *error = NULL;

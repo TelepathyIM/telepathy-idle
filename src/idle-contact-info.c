@@ -37,7 +37,7 @@ struct _ContactInfoRequest {
 	gboolean is_reg_nick;
 	gboolean is_secure;
 	GPtrArray *contact_info;
-	DBusGMethodInvocation *context;
+	GDBusMethodInvocation *context;
 };
 
 /*
@@ -96,7 +96,7 @@ static void _dequeue_request_contact_info(IdleConnection *conn) {
 	_send_request_contact_info(conn, request);
 }
 
-static void _queue_request_contact_info(IdleConnection *conn, guint handle, const gchar *nick, DBusGMethodInvocation *context) {
+static void _queue_request_contact_info(IdleConnection *conn, guint handle, const gchar *nick, GDBusMethodInvocation *context) {
 	ContactInfoRequest *request;
 
 	request = g_slice_new0(ContactInfoRequest);
@@ -123,7 +123,7 @@ static void _return_from_request_contact_info(IdleConnection *conn) {
 	_dequeue_request_contact_info(conn);
 }
 
-static void idle_connection_request_contact_info(TpSvcConnectionInterfaceContactInfo1 *iface, guint contact, DBusGMethodInvocation *context) {
+static void idle_connection_request_contact_info(TpSvcConnectionInterfaceContactInfo1 *iface, guint contact, GDBusMethodInvocation *context) {
 	IdleConnection *self = IDLE_CONNECTION(iface);
 	TpBaseConnection *base = TP_BASE_CONNECTION(self);
 	TpHandleRepoIface *contact_handles = tp_base_connection_get_handles(base, TP_ENTITY_TYPE_CONTACT);

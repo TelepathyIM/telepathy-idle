@@ -203,7 +203,7 @@ idle_im_channel_send (
 static void
 idle_im_channel_destroy (
     TpSvcChannelInterfaceDestroyable1 *iface,
-    DBusGMethodInvocation *context)
+    GDBusMethodInvocation *context)
 {
   TpBaseChannel *chan = TP_BASE_CHANNEL (iface);
   GObject *obj = (GObject *) chan;

@@ -256,7 +256,7 @@ idle_tls_certificate_class_init (IdleTLSCertificateClass *klass)
 
 static void
 idle_tls_certificate_accept (TpSvcAuthenticationTLSCertificate *cert,
-    DBusGMethodInvocation *context)
+    GDBusMethodInvocation *context)
 {
   IdleTLSCertificate *self = IDLE_TLS_CERTIFICATE (cert);
 
@@ -285,7 +285,7 @@ idle_tls_certificate_accept (TpSvcAuthenticationTLSCertificate *cert,
 static void
 idle_tls_certificate_reject (TpSvcAuthenticationTLSCertificate *cert,
     const GPtrArray *rejections,
-    DBusGMethodInvocation *context)
+    GDBusMethodInvocation *context)
 {
   IdleTLSCertificate *self = IDLE_TLS_CERTIFICATE (cert);
 

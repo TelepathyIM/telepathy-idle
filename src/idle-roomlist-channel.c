@@ -226,7 +226,7 @@ idle_roomlist_channel_close (TpBaseChannel *channel)
  */
 static void
 idle_roomlist_channel_get_listing_rooms (TpSvcChannelTypeRoomList1 *iface,
-                                         DBusGMethodInvocation *context)
+                                         GDBusMethodInvocation *context)
 {
   IdleRoomlistChannel *self = IDLE_ROOMLIST_CHANNEL (iface);
   IdleRoomlistChannelPrivate *priv = self->priv;;
@@ -244,7 +244,7 @@ idle_roomlist_channel_get_listing_rooms (TpSvcChannelTypeRoomList1 *iface,
  */
 static void
 idle_roomlist_channel_list_rooms (TpSvcChannelTypeRoomList1 *iface,
-                                  DBusGMethodInvocation *context)
+                                  GDBusMethodInvocation *context)
 {
   IdleRoomlistChannel *self = IDLE_ROOMLIST_CHANNEL (iface);
   IdleRoomlistChannelPrivate *priv = self->priv;
@@ -265,7 +265,7 @@ idle_roomlist_channel_list_rooms (TpSvcChannelTypeRoomList1 *iface,
  */
 static void
 idle_roomlist_channel_stop_listing (TpSvcChannelTypeRoomList1 *iface,
-                                    DBusGMethodInvocation *context)
+                                    GDBusMethodInvocation *context)
 {
   IdleRoomlistChannel *self = IDLE_ROOMLIST_CHANNEL (iface);
   GError error = { TP_ERROR, TP_ERROR_NOT_IMPLEMENTED, "Can't stop listing!" };

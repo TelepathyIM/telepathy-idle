@@ -155,7 +155,7 @@ struct _IdleMUCChannelPrivate {
 
 	guint password_flags;
 
-	DBusGMethodInvocation *passwd_ctx;
+	GDBusMethodInvocation *passwd_ctx;
 
 	/* NAMEREPLY MembersChanged aggregation */
 	TpHandleSet *namereply_set;
@@ -1370,7 +1370,7 @@ idle_muc_channel_close (
 static void
 idle_muc_channel_destroy (
     TpSvcChannelInterfaceDestroyable1 *object,
-    DBusGMethodInvocation *context)
+    GDBusMethodInvocation *context)
 {
 	TpBaseChannel *base = TP_BASE_CHANNEL (object);
 	IdleMUCChannel *self = IDLE_MUC_CHANNEL (object);
@@ -1389,7 +1389,7 @@ idle_muc_channel_destroy (
 }
 
 
-static void idle_muc_channel_get_password_flags (TpSvcChannelInterfacePassword1 *iface, DBusGMethodInvocation *context) {
+static void idle_muc_channel_get_password_flags (TpSvcChannelInterfacePassword1 *iface, GDBusMethodInvocation *context) {
 	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
 	IdleMUCChannelPrivate *priv;
 
@@ -1402,7 +1402,7 @@ static void idle_muc_channel_get_password_flags (TpSvcChannelInterfacePassword1 
 }
 
 
-static void idle_muc_channel_provide_password (TpSvcChannelInterfacePassword1 *iface, const gchar * password, DBusGMethodInvocation *context) {
+static void idle_muc_channel_provide_password (TpSvcChannelInterfacePassword1 *iface, const gchar * password, GDBusMethodInvocation *context) {
 	IdleMUCChannel *obj = IDLE_MUC_CHANNEL(iface);
 	IdleMUCChannelPrivate *priv;
 
@@ -1456,7 +1456,7 @@ static void
 idle_muc_channel_set_subject (
     TpSvcChannelInterfaceSubject1 *iface,
     const gchar *subject,
-    DBusGMethodInvocation *context)
+    GDBusMethodInvocation *context)
 {
   IdleMUCChannel *self = IDLE_MUC_CHANNEL (iface);
   IdleMUCChannelPrivate *priv = self->priv;
