@@ -17,7 +17,7 @@ def test(q, bus, conn, stream):
     path, props = e.args
 
     cert = bus.get_object (conn.bus_name, props[cs.TLS_CERT_PATH])
-    cert.Accept()
+    cert.Accept(dbus_interface=cs.AUTH_TLS_CERT)
 
     q.expect('dbus-signal', signal='SelfContactChanged',
         args=[1L, 'test'])

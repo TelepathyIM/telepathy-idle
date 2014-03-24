@@ -18,7 +18,7 @@ def test(q, bus, conn, stream):
 
     cert = bus.get_object (conn.bus_name, props[cs.TLS_CERT_PATH])
     cert.Reject([(cs.TLS_REJECT_REASON_UNTRUSTED, cs.CERT_UNTRUSTED, {})],
-        signature = 'a(usa{sv})')
+        signature = 'a(usa{sv})', dbus_interface=cs.AUTH_TLS_CERT)
 
     q.expect('dbus-signal', signal='StatusChanged', args=[2, 2])
     return True
