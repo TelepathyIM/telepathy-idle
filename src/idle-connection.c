@@ -1344,7 +1344,7 @@ static void idle_connection_request_aliases(TpSvcConnectionInterfaceAliasing1 *i
 	const gchar **aliases;
 
 	if (!tp_handles_are_valid(repo, handles, FALSE, &error)) {
-		dbus_g_method_return_error(context, error);
+		g_dbus_method_invocation_return_gerror(context, error);
 		g_error_free(error);
 		return;
 	}
@@ -1369,7 +1369,7 @@ static gboolean _send_rename_request(IdleConnection *obj, const gchar *nick, DBu
 		GError error = {TP_ERROR, TP_ERROR_NOT_AVAILABLE, "Invalid nickname requested"};
 
 		IDLE_DEBUG("failed to get handle for \"%s\"", nick);
-		dbus_g_method_return_error(context, &error);
+		g_dbus_method_invocation_return_gerror(context, &error);
 
 		return FALSE;
 	}
@@ -1397,7 +1397,7 @@ static void idle_connection_set_aliases(TpSvcConnectionInterfaceAliasing1 *iface
 
 	if ((g_hash_table_size(aliases) != 1) || !requested_alias) {
 		GError error = {TP_ERROR, TP_ERROR_NOT_AVAILABLE, "You can only set your own alias in IRC"};
-		dbus_g_method_return_error(context, &error);
+		g_dbus_method_invocation_return_gerror(context, &error);
 
 		return;
 	}
@@ -1598,7 +1598,7 @@ idle_connection_irc_command_send (IdleSvcConnectionInterfaceIRCCommand1 *iface,
 
   if (!check_irc_command (self, command, &error))
     {
-      dbus_g_method_return_error (context, error);
+      g_dbus_method_invocation_return_gerror (context, error);
       g_error_free (error);
       return;
     }

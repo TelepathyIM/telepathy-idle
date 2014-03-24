@@ -133,7 +133,7 @@ static void idle_connection_request_contact_info(TpSvcConnectionInterfaceContact
 	TP_BASE_CONNECTION_ERROR_IF_NOT_CONNECTED(base, context);
 
 	if (!tp_handle_is_valid(contact_handles, contact, &error)) {
-		dbus_g_method_return_error(context, error);
+		g_dbus_method_invocation_return_gerror(context, error);
 		g_error_free(error);
 		return;
 	}
@@ -234,7 +234,7 @@ static IdleParserHandlerResult _no_such_server_handler(IdleParser *parser, IdleP
 		goto cleanup;
 
 	error = g_error_new(TP_ERROR, TP_ERROR_DOES_NOT_EXIST, "User '%s' unknown; they may have disconnected", server);
-	dbus_g_method_return_error(request->context, error);
+	g_dbus_method_invocation_return_gerror(request->context, error);
 	g_error_free(error);
 
 	_dequeue_request_contact_info(conn);
@@ -268,7 +268,7 @@ static IdleParserHandlerResult _try_again_handler(IdleParser *parser, IdleParser
 	msg = g_value_get_string(g_value_array_get_nth(args, 1));
 
 	error = g_error_new_literal(TP_ERROR, TP_ERROR_SERVICE_BUSY, msg);
-	dbus_g_method_return_error(request->context, error);
+	g_dbus_method_invocation_return_gerror(request->context, error);
 	g_error_free(error);
 
 	_dequeue_request_contact_info(conn);

@@ -272,7 +272,7 @@ idle_roomlist_channel_stop_listing (TpSvcChannelTypeRoomList1 *iface,
 
   g_assert (IDLE_IS_ROOMLIST_CHANNEL (self));
 
-  dbus_g_method_return_error (context, &error);
+  g_dbus_method_invocation_return_gerror (context, &error);
 
   /*
   priv->listing = FALSE;

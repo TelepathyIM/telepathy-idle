@@ -1416,7 +1416,7 @@ static void idle_muc_channel_provide_password (TpSvcChannelInterfacePassword1 *i
 			"don't need a password now or authentication already "
 			"in progress (%s)", priv->channel_name);
 		IDLE_DEBUG ("%s", error->message);
-		dbus_g_method_return_error(context, error);
+		g_dbus_method_invocation_return_gerror(context, error);
 		g_error_free(error);
 		return;
 	}
@@ -1466,14 +1466,14 @@ idle_muc_channel_set_subject (
       GError *error = g_error_new (TP_ERROR, TP_ERROR_NOT_AVAILABLE,
           "Can't set subject: not in the room (state=%s)",
           ascii_muc_states[priv->state]);
-      dbus_g_method_return_error (context, error);
+      g_dbus_method_invocation_return_gerror (context, error);
       g_clear_error (&error);
     }
   else if (!priv->can_set_topic)
     {
       GError error = { TP_ERROR, TP_ERROR_PERMISSION_DENIED,
           "The channel's +t and you're not an op" };
-      dbus_g_method_return_error (context, &error);
+      g_dbus_method_invocation_return_gerror (context, &error);
     }
   else
     {
