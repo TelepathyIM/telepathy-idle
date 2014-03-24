@@ -1605,7 +1605,7 @@ idle_connection_irc_command_send (IdleSvcConnectionInterfaceIRCCommand1 *iface,
 
   _send_with_priority (self, command, SERVER_CMD_NORMAL_PRIORITY);
 
-  dbus_g_method_return (context);
+  g_dbus_method_invocation_return_value (context, NULL);
 }
 
 static void irc_command_iface_init(gpointer g_iface,
