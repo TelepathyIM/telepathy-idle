@@ -190,8 +190,8 @@ idle_server_tls_channel_constructed (GObject *object)
       "object-path", cert_object_path,
       "certificate-chain-data", certificates,
       "certificate-type", "x509",
-      "dbus-daemon",
-        tp_base_connection_get_dbus_daemon (
+      "dbus-connection",
+        tp_base_connection_get_dbus_connection (
           tp_base_channel_get_connection (TP_BASE_CHANNEL (self))),
       NULL);
   self->priv->server_cert_path = cert_object_path;
