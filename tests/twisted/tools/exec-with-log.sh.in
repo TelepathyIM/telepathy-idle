@@ -2,11 +2,16 @@
 
 cd "@abs_top_builddir@/tests/twisted/tools"
 
+if test -z "$CHECK_TWISTED_LOG_DIR"; then
+        echo "CHECK_TWISTED_LOG_DIR must be set"
+        exit 1
+fi
+
 export IDLE_DEBUG=all
 G_MESSAGES_DEBUG=all
 export G_MESSAGES_DEBUG
 ulimit -c unlimited
-exec >> idle-testing.log 2>&1
+exec > "${CHECK_TWISTED_LOG_DIR}/idle-testing.log" 2>&1
 
 if test -n "$IDLE_TEST_VALGRIND"; then
         export G_DEBUG=${G_DEBUG:+"${G_DEBUG},"}gc-friendly
