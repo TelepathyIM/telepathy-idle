@@ -53,7 +53,7 @@ check-twisted: $(BUILT_SOURCES)
 	else \
 		idle_test_sleep=--sleep=$(CHECK_TWISTED_SLEEP); \
 	fi; \
-	IDLE_TEST_UNINSTALLED=1 \
+	CHECK_TWISTED_UNINSTALLED=1 \
 	  IDLE_ABS_TOP_SRCDIR=@abs_top_srcdir@ \
 	  IDLE_ABS_TOP_BUILDDIR=@abs_top_builddir@ \
 	  IDLE_TEST_SLEEP=$$idle_test_sleep \
