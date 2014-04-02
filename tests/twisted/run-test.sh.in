@@ -7,20 +7,13 @@ if test "x$CHECK_TWISTED_UNINSTALLED" = x; then
     exit 1
   fi
 
-  test_src="@idletestsdir@"
-  test_build="@idletestsdir@"
-  config_file="@idletestsdir@/twisted/tools/tmp-session-bus.conf"
+  G_TEST_SRCDIR="@idletestsdir@/twisted"
+  export G_TEST_SRCDIR
+  G_TEST_BUILDDIR="@idletestsdir@/twisted"
+  export G_TEST_BUILDDIR
 
-  PYTHONPATH="@idletestsdir@/twisted"
+  PYTHONPATH="${G_TEST_SRCDIR}"
   export PYTHONPATH
-
-  IDLE_TWISTED_PATH="@idletestsdir@/twisted"
-  export IDLE_TWISTED_PATH
-
-  IDLE_SSL_KEY=${IDLE_TWISTED_PATH}/tools/idletest.key
-  export IDLE_SSL_KEY
-  IDLE_SSL_CERT=${IDLE_TWISTED_PATH}/tools/idletest.cert
-  export IDLE_SSL_CERT
 else
   if test -z "$IDLE_ABS_TOP_SRCDIR"; then
     echo "IDLE_ABS_TOP_SRCDIR must be set" >&2
@@ -31,21 +24,20 @@ else
     exit 1
   fi
 
-  test_src="${IDLE_ABS_TOP_SRCDIR}/tests"
-  test_build="${IDLE_ABS_TOP_BUILDDIR}/tests"
-  config_file="${test_build}/twisted/tools/tmp-session-bus.conf"
+  G_TEST_SRCDIR="${IDLE_ABS_TOP_SRCDIR}/tests/twisted"
+  export G_TEST_SRCDIR
+  G_TEST_BUILDDIR="${IDLE_ABS_TOP_BUILDDIR}/tests/twisted"
+  export G_TEST_BUILDDIR
 
-  PYTHONPATH="${test_src}/twisted:${test_build}/twisted"
+  PYTHONPATH="${G_TEST_SRCDIR}:${G_TEST_BUILDDIR}"
   export PYTHONPATH
-
-  IDLE_TWISTED_PATH="${test_src}/twisted"
-  export IDLE_TWISTED_PATH
-
-  IDLE_SSL_KEY=${IDLE_ABS_TOP_SRCDIR}/tests/twisted/tools/idletest.key
-  export IDLE_SSL_KEY
-  IDLE_SSL_CERT=${IDLE_ABS_TOP_SRCDIR}/tests/twisted/tools/idletest.cert
-  export IDLE_SSL_CERT
 fi
+
+config_file="${G_TEST_BUILDDIR}/tools/tmp-session-bus.conf"
+IDLE_SSL_KEY=${G_TEST_SRCDIR}/tools/idletest.key
+export IDLE_SSL_KEY
+IDLE_SSL_CERT=${G_TEST_SRCDIR}/tools/idletest.cert
+export IDLE_SSL_CERT
 
 # Turn off anti-flooding to hurry the tests up (without this,
 # channels/join-muc-channel-bouncer.py will time out, and the rest
@@ -56,17 +48,17 @@ export IDLE_HTFU
 if [ -n "$1" ] ; then
   list="$1"
 else
-  list=$(cat "${test_build}"/twisted/idle-twisted-tests.list)
+  list=$(cat "${G_TEST_BUILDDIR}"/idle-twisted-tests.list)
 fi
 
 any_failed=0
 for i in $list ; do
   echo "Testing $i ..."
-  sh "${test_src}/twisted/tools/with-session-bus.sh" \
+  sh "${G_TEST_SRCDIR}/tools/with-session-bus.sh" \
     ${CHECK_TWISTED_SLEEP} \
     --config-file="${config_file}" \
     -- \
-    @TEST_PYTHON@ -u "${test_src}/twisted/$i"
+    @TEST_PYTHON@ -u "${G_TEST_SRCDIR}/$i"
   e=$?
   case "$e" in
     (0)
