@@ -56,7 +56,7 @@ check-twisted: $(BUILT_SOURCES)
 	CHECK_TWISTED_UNINSTALLED=1 \
 	  IDLE_ABS_TOP_SRCDIR=@abs_top_srcdir@ \
 	  IDLE_ABS_TOP_BUILDDIR=@abs_top_builddir@ \
-	  IDLE_TEST_SLEEP=$$idle_test_sleep \
+	  CHECK_TWISTED_SLEEP=$$idle_test_sleep \
 	  ./run-test.sh "$(TWISTED_TESTS)"
 
 endif
