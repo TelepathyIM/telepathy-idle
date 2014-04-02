@@ -2,7 +2,7 @@
 
 cd "@abs_top_builddir@/tests/twisted/tools"
 
-export IDLE_DEBUG=all IDLE_HTFU=seriously
+export IDLE_DEBUG=all
 G_MESSAGES_DEBUG=all
 export G_MESSAGES_DEBUG
 ulimit -c unlimited

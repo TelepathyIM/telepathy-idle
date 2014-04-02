@@ -47,6 +47,12 @@ else
   export IDLE_SSL_CERT
 fi
 
+# Turn off anti-flooding to hurry the tests up (without this,
+# channels/join-muc-channel-bouncer.py will time out, and the rest
+# will be really slow)
+IDLE_HTFU=seriously
+export IDLE_HTFU
+
 if [ -n "$1" ] ; then
   list="$1"
 else
