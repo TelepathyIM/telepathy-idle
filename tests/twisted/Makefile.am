@@ -59,35 +59,52 @@ check-twisted: $(BUILT_SOURCES)
 	  IDLE_TEST_SLEEP=$$idle_test_sleep \
 	  ./run-test.sh "$(TWISTED_TESTS)"
 
+endif
+
 idle-twisted-tests.list: Makefile
 	$(AM_V_GEN)echo $(TWISTED_TESTS) > $@
 
-BUILT_SOURCES = \
+built_test_data = \
 	config.py \
 	idle-twisted-tests.list \
+	$(NULL)
+
+built_test_scripts = \
 	run-test.sh \
 	$(NULL)
 
-# We don't really use idletestsdir yet - we only support uninstalled testing
-# so far - but I'm substituting it to keep the script more similar to Gabble's.
-# ${pkglibexecdir}/tests is what GNOME's InstalledTests goal recommends.
+BUILT_SOURCES = \
+	$(built_test_data) \
+	$(built_test_scripts) \
+	$(NULL)
+
+if ENABLE_INSTALLED_TESTS
+testsdir = ${datadir}/telepathy-idle-tests
+twistedtestsdir = ${testsdir}/twisted
+nobase_dist_twistedtests_DATA = $(dist_test_data)
+twistedtests_DATA = $(built_test_data)
+twistedtests_SCRIPTS = $(built_test_scripts)
+endif
+
 run-test.sh: run-test.sh.in Makefile
 	$(AM_V_GEN)sed \
-			-e 's![@]idletestsdir[@]!${pkglibexecdir}/tests!' \
+			-e 's![@]idletestsdir[@]!${testsdir}!' \
 			-e 's![@]TEST_PYTHON[@]!$(TEST_PYTHON)!' \
 			< $< > $@.tmp && \
 		chmod +x $@.tmp && \
 		mv $@.tmp $@
 
-endif
+dist_test_data = \
+	$(TWISTED_TESTS) \
+	constants.py \
+	idletest.py \
+	servicetest.py \
+	$(NULL)
 
 EXTRA_DIST = \
-	     $(TWISTED_TESTS) \
-	     run-test.sh.in \
-	     servicetest.py \
-	     idletest.py \
-	     constants.py \
-	     $(NULL)
+	$(dist_test_data) \
+	run-test.sh.in \
+	$(NULL)
 
 CLEANFILES = \
 	$(BUILT_SOURCES) \
