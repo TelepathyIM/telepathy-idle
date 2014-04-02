@@ -61,12 +61,12 @@ check-twisted: $(BUILT_SOURCES)
 
 endif
 
-idle-twisted-tests.list: Makefile
+twisted-tests.list: Makefile
 	$(AM_V_GEN)echo $(TWISTED_TESTS) > $@
 
 built_test_data = \
 	config.py \
-	idle-twisted-tests.list \
+	twisted-tests.list \
 	$(NULL)
 
 built_test_scripts = \
