@@ -159,8 +159,9 @@ class SSLIRCServer(BaseIRCServer):
 
     def listen(self, port, factory):
         self.log ("SSLIRCServer listening...")
-        key_file = os.environ.get('IDLE_SSL_KEY', 'tools/idletest.key')
-        cert_file = os.environ.get('IDLE_SSL_CERT', 'tools/idletest.cert')
+        G_TEST_SRCDIR = os.environ.get('G_TEST_SRCDIR', '.')
+        key_file = G_TEST_SRCDIR + '/tools/idletest.key'
+        cert_file = G_TEST_SRCDIR + '/tools/idletest.cert'
         return reactor.listenSSL(port, factory,
                 ssl.DefaultOpenSSLContextFactory(key_file, cert_file))
 

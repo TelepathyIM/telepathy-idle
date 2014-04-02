@@ -34,10 +34,6 @@ else
 fi
 
 config_file="${G_TEST_BUILDDIR}/tools/tmp-session-bus.conf"
-IDLE_SSL_KEY=${G_TEST_SRCDIR}/tools/idletest.key
-export IDLE_SSL_KEY
-IDLE_SSL_CERT=${G_TEST_SRCDIR}/tools/idletest.cert
-export IDLE_SSL_CERT
 
 # Turn off anti-flooding to hurry the tests up (without this,
 # channels/join-muc-channel-bouncer.py will time out, and the rest
