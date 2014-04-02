@@ -114,3 +114,19 @@ CLEANFILES = \
 	$(NULL)
 
 SUBDIRS = tools
+
+%.test: Makefile
+	@$(MKDIR_P) $(dir $*)
+	$(AM_V_GEN)( echo '[Test]'; \
+		echo 'Exec=${twistedtestsdir}/run-test.sh $*.py'; \
+		echo 'Type=session'; \
+		echo 'Output=TAP' ) > $@.tmp
+	@mv $@.tmp $@
+
+insttestdir = ${datadir}/installed-tests/telepathy-idle-1
+
+if ENABLE_INSTALLED_TESTS
+nobase_nodist_insttest_DATA = \
+	$(patsubst %.py,%.test,$(TWISTED_TESTS)) \
+	$(NULL)
+endif
