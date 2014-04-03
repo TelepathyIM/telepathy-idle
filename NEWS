@@ -1,3 +1,18 @@
+telepathy-idle 0.99.10 (2014-04-03)
+===================================
+
+Dependencies:
+
+• telepathy-glib ≥ 0.99.10
+
+Incompatible changes:
+
+• Switch to Telepathy 1 D-Bus API
+
+Enhancements:
+
+• Add IRCCommand interface (fd.o #70434)
+
 telepathy-idle 0.2.0 (2013-10-03)
 =================================
 
