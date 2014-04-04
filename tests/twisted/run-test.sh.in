@@ -49,6 +49,9 @@ config_file="${G_TEST_BUILDDIR}/tools/tmp-session-bus.conf"
 IDLE_DEBUG=all
 export IDLE_DEBUG
 
+G_MESSAGES_DEBUG=all
+export G_MESSAGES_DEBUG
+
 XDG_CONFIG_DIRS="${G_TEST_SRCDIR}"
 export XDG_CONFIG_DIRS
 
@@ -93,6 +96,8 @@ for t in $list ; do
   export XDG_CACHE_HOME
   XDG_CACHE_DIR="${tmp}/cache"
   export XDG_CACHE_DIR
+  IDLE_LOGFILE="${tmp}/cm.log"
+  export IDLE_LOGFILE
 
   CHECK_TWISTED_VERBOSE=1
   export CHECK_TWISTED_VERBOSE
