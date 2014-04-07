@@ -164,13 +164,13 @@ void idle_handle_repos_init(TpHandleRepoIface **handles) {
 	g_assert(handles != NULL);
 
 	handles[TP_ENTITY_TYPE_CONTACT] = (TpHandleRepoIface *) g_object_new(TP_TYPE_DYNAMIC_HANDLE_REPO,
-			"handle-type", TP_ENTITY_TYPE_CONTACT,
+			"entity-type", TP_ENTITY_TYPE_CONTACT,
 			"normalize-function", _nick_normalize_func,
 			"default-normalize-context", NULL,
 			NULL);
 
 	handles[TP_ENTITY_TYPE_ROOM] = (TpHandleRepoIface *) g_object_new(TP_TYPE_DYNAMIC_HANDLE_REPO,
-			"handle-type", TP_ENTITY_TYPE_ROOM,
+			"entity-type", TP_ENTITY_TYPE_ROOM,
 			"normalize-function", _channel_normalize_func,
 			"default-normalize-context", NULL,
 			NULL);

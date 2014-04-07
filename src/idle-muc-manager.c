@@ -763,7 +763,7 @@ _muc_manager_request (
   TpHandleRepoIface *room_repo = tp_base_connection_get_handles (base_conn,
       TP_ENTITY_TYPE_ROOM);
   GError *error = NULL;
-  TpEntityType handle_type;
+  TpEntityType entity_type;
   TpHandle handle;
   const gchar *channel_type;
   IdleMUCChannel *channel;
@@ -774,10 +774,10 @@ _muc_manager_request (
   if (tp_strdiff (channel_type, TP_IFACE_CHANNEL_TYPE_TEXT))
     return FALSE;
 
-  handle_type = tp_asv_get_uint32 (request_properties,
+  entity_type = tp_asv_get_uint32 (request_properties,
         TP_PROP_CHANNEL_TARGET_ENTITY_TYPE, NULL);
 
-  switch (handle_type)
+  switch (entity_type)
     {
       case TP_ENTITY_TYPE_ROOM:
         handle = tp_asv_get_uint32 (request_properties,

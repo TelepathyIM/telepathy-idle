@@ -76,7 +76,7 @@ static void connection_status_changed_cb (IdleConnection* conn, guint status, gu
 static void _im_manager_foreach(TpChannelManager *manager, TpExportableChannelFunc func, gpointer user_data);
 static void _im_manager_type_foreach_class (GType type, TpChannelManagerTypeChannelClassFunc func, gpointer user_data);
 
-//static TpChannelManagerRequestStatus _iface_request(TpChannelFactoryIface *iface, const gchar *chan_type, TpEntityType handle_type, guint handle, gpointer request, TpChannelIface **new_chan, GError **error);
+//static TpChannelManagerRequestStatus _iface_request(TpChannelFactoryIface *iface, const gchar *chan_type, TpEntityType entity_type, guint handle, gpointer request, TpChannelIface **new_chan, GError **error);
 
 static gboolean _im_manager_create_channel(TpChannelManager *manager, TpChannelManagerRequest *request, GHashTable *request_properties);
 static gboolean _im_manager_ensure_channel(TpChannelManager *manager, TpChannelManagerRequest *request, GHashTable *request_properties);
