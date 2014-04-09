@@ -86,11 +86,11 @@ fi
 AC_HEADER_STDC([])
 AC_C_INLINE
 
-AC_DEFINE(GLIB_VERSION_MIN_REQUIRED, GLIB_VERSION_2_28, [Ignore post 2.28 deprecations])
-AC_DEFINE(GLIB_VERSION_MAX_ALLOWED, GLIB_VERSION_2_34, [Prevent post 2.34 APIs])
+AC_DEFINE(GLIB_VERSION_MIN_REQUIRED, GLIB_VERSION_2_30, [Ignore post 2.30 deprecations])
+AC_DEFINE(GLIB_VERSION_MAX_ALLOWED, GLIB_VERSION_2_40, [Prevent post 2.40 APIs])
 
 PKG_CHECK_MODULES([GLIB],
-  [glib-2.0 >= 2.34.0, gobject-2.0 >= 2.34.0, gio-2.0 >= 2.34.0 ])
+  [glib-2.0 >= 2.40, gobject-2.0 >= 2.40, gio-2.0 >= 2.40 ])
 
 PKG_CHECK_MODULES([DBUS], [dbus-1 >= 0.51, dbus-glib-1 >= 0.51])
 
