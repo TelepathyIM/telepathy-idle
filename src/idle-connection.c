@@ -471,7 +471,7 @@ const gchar * const *idle_connection_get_implemented_interfaces (void) {
 static void idle_connection_fill_contact_attributes (TpBaseConnection *base,
     const gchar *dbus_interface,
     TpHandle handle,
-    TpContactAttributeMap *attributes);
+    GVariantDict *attributes);
 
 static void idle_connection_class_init(IdleConnectionClass *klass) {
 	GObjectClass *object_class = G_OBJECT_CLASS(klass);
@@ -1327,7 +1327,7 @@ static gboolean
 conn_aliasing_fill_contact_attributes (IdleConnection *self,
     const gchar *dbus_interface,
     TpHandle handle,
-    TpContactAttributeMap *attributes)
+    GVariantDict *attributes)
 {
   if (!tp_strdiff (dbus_interface, TP_IFACE_CONNECTION_INTERFACE_ALIASING1))
     {
@@ -1336,11 +1336,9 @@ conn_aliasing_fill_contact_attributes (IdleConnection *self,
       const gchar *alias = gimme_an_alias (self, repo, handle);
 
       g_assert (alias != NULL);
-
-      tp_contact_attribute_map_take_sliced_gvalue (attributes,
-          handle, TP_IFACE_CONNECTION_INTERFACE_ALIASING1"/alias",
-          tp_g_value_slice_new_string (alias));
-
+      g_variant_dict_insert_value (attributes,
+          TP_TOKEN_CONNECTION_INTERFACE_ALIASING1_ALIAS,
+          g_variant_new_string (alias));
       return TRUE;
     }
 
@@ -1534,7 +1532,7 @@ static void
 idle_connection_fill_contact_attributes (TpBaseConnection *base,
     const gchar *dbus_interface,
     TpHandle handle,
-    TpContactAttributeMap *attributes)
+    GVariantDict *attributes)
 {
   IdleConnection *self = IDLE_CONNECTION (base);
 
