@@ -334,15 +334,15 @@ _roomlist_channel_closed_cb (IdleRoomlistChannel *chan,
   IdleRoomlistManager *self = IDLE_ROOMLIST_MANAGER (user_data);
   IdleRoomlistManagerPrivate *priv = self->priv;
 
-  tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (self),
-      TP_BASE_CHANNEL (chan));
-
   if (priv->channel)
     {
       g_assert (priv->channel == chan);
       g_object_unref (priv->channel);
       priv->channel = NULL;
     }
+
+  tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (self),
+      TP_BASE_CHANNEL (chan));
 }
 
 

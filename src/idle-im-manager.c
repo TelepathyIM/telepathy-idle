@@ -376,9 +376,6 @@ _im_channel_closed_cb (IdleIMChannel *chan,
 	IdleIMManagerPrivate *priv = IDLE_IM_MANAGER_GET_PRIVATE (self);
 	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
 
-	tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (self),
-													   base);
-
 	if (priv->channels)
 	{
 		TpHandle handle = tp_base_channel_get_target_handle (base);
@@ -387,9 +384,13 @@ _im_channel_closed_cb (IdleIMChannel *chan,
 		{
 			IDLE_DEBUG ("removing channel with handle %u", handle);
 			g_hash_table_remove (priv->channels, GUINT_TO_POINTER (handle));
+			tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (self),
+				base);
 		} else {
 			IDLE_DEBUG ("reopening channel with handle %u due to pending messages",
 				handle);
+			tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (self),
+				base);
 			tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (self),
 				base, NULL);
 		}

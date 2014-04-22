@@ -689,17 +689,20 @@ static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data) {
 
 	g_slist_free(reqs);
 
-	tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (manager),
-		base);
-
 	if (priv->channels) {
 		TpHandle handle = tp_base_channel_get_target_handle (base);
 
-		if (tp_base_channel_is_destroyed (base))
+		if (tp_base_channel_is_destroyed (base)) {
 			g_hash_table_remove(priv->channels, GUINT_TO_POINTER(handle));
-		else
+			tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (manager),
+				base);
+		}
+		else {
+			tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (manager),
+				base);
 			tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (manager), base,
 				NULL);
+		}
 	}
 }
 
