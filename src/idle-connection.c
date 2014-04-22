@@ -250,11 +250,33 @@ idle_connection_constructed (GObject *object)
   void (*chain_up) (GObject *) =
       G_OBJECT_CLASS (idle_connection_parent_class)->constructed;
   IdleConnection *self = IDLE_CONNECTION (object);
+  GDBusObjectSkeleton *skel = G_DBUS_OBJECT_SKELETON (object);
+  GDBusInterfaceSkeleton *iface;
 
   chain_up (object);
 
   self->parser = g_object_new (IDLE_TYPE_PARSER, "connection", self, NULL);
   idle_contact_info_init (self);
+
+  iface = tp_svc_interface_skeleton_new (skel,
+      TP_TYPE_SVC_CONNECTION_INTERFACE_ALIASING1);
+  g_dbus_object_skeleton_add_interface (skel, iface);
+  g_object_unref (iface);
+
+  iface = tp_svc_interface_skeleton_new (skel,
+      TP_TYPE_SVC_CONNECTION_INTERFACE_CONTACT_INFO1);
+  g_dbus_object_skeleton_add_interface (skel, iface);
+  g_object_unref (iface);
+
+  iface = tp_svc_interface_skeleton_new (skel,
+      TP_TYPE_SVC_CONNECTION_INTERFACE_IRC_COMMAND1);
+  g_dbus_object_skeleton_add_interface (skel, iface);
+  g_object_unref (iface);
+
+  iface = tp_svc_interface_skeleton_new (skel,
+      TP_TYPE_SVC_CONNECTION_INTERFACE_RENAMING1);
+  g_dbus_object_skeleton_add_interface (skel, iface);
+  g_object_unref (iface);
 }
 
 static void idle_connection_set_property(GObject *obj, guint prop_id, const GValue *value, GParamSpec *pspec) {
