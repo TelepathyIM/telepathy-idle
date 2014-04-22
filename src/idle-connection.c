@@ -247,7 +247,11 @@ static void idle_connection_init(IdleConnection *obj) {
 static void
 idle_connection_constructed (GObject *object)
 {
+  void (*chain_up) (GObject *) =
+      G_OBJECT_CLASS (idle_connection_parent_class)->constructed;
   IdleConnection *self = IDLE_CONNECTION (object);
+
+  chain_up (object);
 
   self->parser = g_object_new (IDLE_TYPE_PARSER, "connection", self, NULL);
   idle_contact_info_init (self);
