@@ -468,21 +468,6 @@ const gchar * const *idle_connection_get_implemented_interfaces (void) {
 	return interfaces_always_present;
 }
 
-static GPtrArray *
-get_interfaces_always_present (TpBaseConnection *base)
-{
-	GPtrArray *interfaces;
-	const gchar **iter;
-
-	interfaces = TP_BASE_CONNECTION_CLASS (
-		idle_connection_parent_class)->get_interfaces_always_present (base);
-
-	for (iter = interfaces_always_present; *iter != NULL; iter++)
-		g_ptr_array_add (interfaces, (gchar *) *iter);
-
-	return interfaces;
-}
-
 static void idle_connection_fill_contact_attributes (TpBaseConnection *base,
     const gchar *dbus_interface,
     TpHandle handle,
@@ -509,7 +494,6 @@ static void idle_connection_class_init(IdleConnectionClass *klass) {
 	parent_class->disconnected = _iface_disconnected;
 	parent_class->shut_down = _iface_shut_down;
 	parent_class->start_connecting = _iface_start_connecting;
-	parent_class->get_interfaces_always_present = get_interfaces_always_present;
 	parent_class->fill_contact_attributes = idle_connection_fill_contact_attributes;
 
 	param_spec = g_param_spec_string("nickname", "IRC nickname", "The nickname to be visible to others in IRC.", NULL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
