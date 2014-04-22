@@ -24,8 +24,6 @@
 #include <glib-object.h>
 #include <telepathy-glib/telepathy-glib.h>
 
-#include "extensions/extensions.h"
-
 G_BEGIN_DECLS
 
 typedef struct _IdleServerTLSManager IdleServerTLSManager;

@@ -49,9 +49,6 @@ libidle_convenience_la_SOURCES = \
 nodist_libidle_convenience_la_SOURCES = \
 	$(BUILT_SOURCES)
 
-libidle_convenience_la_LIBADD = \
-	$(top_builddir)/extensions/libidle-extensions.la
-
 telepathy_idle_1_SOURCES = \
 	idle.c
 

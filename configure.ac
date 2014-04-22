@@ -142,7 +142,6 @@ AC_CHECK_FUNCS(strnlen)
 
 AC_OUTPUT( Makefile \
 					 data/Makefile \
-					 extensions/Makefile \
            m4/Makefile \
            src/Makefile \
 					 tests/Makefile \

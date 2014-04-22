@@ -1,0 +1,70 @@
+From e09ea00091c776c58b0063af7aaa93275d7ea024 Mon Sep 17 00:00:00 2001
+From: Simon McVittie <simon.mcvittie@collabora.co.uk>
+Date: Wed, 9 Apr 2014 19:18:28 +0100
+Subject: [PATCH] Adapt for GVariant-based tp_group_mixin_change_members
+
+This means we need GLib 2.40 for GVariantDict. Enable GLib 2.28
+deprecations, but not 2.30 because we still use GValueArray.
+---
+ configure.ac           |  6 +++---
+ src/idle-muc-channel.c | 20 +++++++++++---------
+ 2 files changed, 14 insertions(+), 12 deletions(-)
+
+diff --git a/configure.ac b/configure.ac
+index b378afb..1c79d50 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -86,11 +86,11 @@ fi
+ AC_HEADER_STDC([])
+ AC_C_INLINE
+ 
+-AC_DEFINE(GLIB_VERSION_MIN_REQUIRED, GLIB_VERSION_2_28, [Ignore post 2.28 deprecations])
+-AC_DEFINE(GLIB_VERSION_MAX_ALLOWED, GLIB_VERSION_2_34, [Prevent post 2.34 APIs])
++AC_DEFINE(GLIB_VERSION_MIN_REQUIRED, GLIB_VERSION_2_30, [Ignore post 2.30 deprecations])
++AC_DEFINE(GLIB_VERSION_MAX_ALLOWED, GLIB_VERSION_2_40, [Prevent post 2.40 APIs])
+ 
+ PKG_CHECK_MODULES([GLIB],
+-  [glib-2.0 >= 2.34.0, gobject-2.0 >= 2.34.0, gio-2.0 >= 2.34.0 ])
++  [glib-2.0 >= 2.40, gobject-2.0 >= 2.40, gio-2.0 >= 2.40 ])
+ 
+ PKG_CHECK_MODULES([DBUS], [dbus-1 >= 0.51, dbus-glib-1 >= 0.51])
+ 
+diff --git a/src/idle-muc-channel.c b/src/idle-muc-channel.c
+index 4fc2091..7ee6313 100644
+--- a/src/idle-muc-channel.c
++++ b/src/idle-muc-channel.c
+@@ -196,20 +196,22 @@ change_members (GObject *obj,
+     TpHandle actor,
+     TpChannelGroupChangeReason reason)
+ {
+-  GHashTable *details;
++  GVariantDict details;
+ 
+-  details = tp_asv_new (
+-      "actor", G_TYPE_UINT, actor,
+-      "change-reason", G_TYPE_UINT, reason,
+-      NULL);
++  g_variant_dict_init (&details, NULL);
++
++  g_variant_dict_insert_value (&details, "actor",
++      g_variant_new_uint32 (actor));
++  g_variant_dict_insert_value (&details, "change-reason",
++      g_variant_new_uint32 (reason));
+ 
+   if (message != NULL)
+-    tp_asv_set_string (details, "message", message);
++    g_variant_dict_insert_value (&details, "message",
++        g_variant_new_string (message));
+ 
+   tp_group_mixin_change_members (obj,
+-      add, del, add_local_pending, add_remote_pending, details);
+-
+-  g_hash_table_unref (details);
++      add, del, add_local_pending, add_remote_pending,
++      g_variant_dict_end (&details));
+ }
+ 
+ static void
+-- 
+1.9.1
+

@@ -41,8 +41,6 @@
 #include "idle-server-connection.h"
 #include "server-tls-manager.h"
 
-#include "extensions/extensions.h"    /* IRCCommand */
-
 #define DEFAULT_KEEPALIVE_INTERVAL 30 /* sec */
 #define MISSED_KEEPALIVES_BEFORE_DISCONNECTING 3
 

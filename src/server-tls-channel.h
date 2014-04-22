@@ -25,8 +25,6 @@
 
 #include <telepathy-glib/telepathy-glib.h>
 
-#include <extensions/extensions.h>
-
 #include "tls-certificate.h"
 
 G_BEGIN_DECLS

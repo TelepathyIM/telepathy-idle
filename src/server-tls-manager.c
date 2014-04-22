@@ -29,8 +29,6 @@
 #include "idle-connection.h"
 #include "server-tls-channel.h"
 
-#include "extensions/extensions.h"
-
 static void channel_manager_iface_init (gpointer, gpointer);
 
 G_DEFINE_TYPE_WITH_CODE (IdleServerTLSManager, idle_server_tls_manager,
