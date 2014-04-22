@@ -73,7 +73,7 @@ static IdleParserHandlerResult _notice_privmsg_handler(IdleParser *parser, IdleP
 static void _im_manager_close_all(IdleIMManager *manager);
 static void connection_status_changed_cb (IdleConnection* conn, guint status, guint reason, IdleIMManager *self);
 
-static void _im_manager_foreach(TpChannelManager *manager, TpExportableChannelFunc func, gpointer user_data);
+static void _im_manager_foreach(TpChannelManager *manager, TpBaseChannelFunc func, gpointer user_data);
 static void _im_manager_type_foreach_class (GType type, TpChannelManagerTypeChannelClassFunc func, gpointer user_data);
 
 //static TpChannelManagerRequestStatus _iface_request(TpChannelFactoryIface *iface, const gchar *chan_type, TpEntityType entity_type, guint handle, gpointer request, TpChannelIface **new_chan, GError **error);
@@ -227,7 +227,7 @@ static void connection_status_changed_cb (IdleConnection* conn,
 }
 
 struct _ForeachHelperData {
-	TpExportableChannelFunc func;
+	TpBaseChannelFunc func;
 	gpointer user_data;
 };
 
@@ -236,7 +236,7 @@ static void _foreach_helper(gpointer key, gpointer value, gpointer user_data) {
 	data->func(value, data->user_data);
 }
 
-static void _im_manager_foreach(TpChannelManager *manager, TpExportableChannelFunc func, gpointer user_data) {
+static void _im_manager_foreach(TpChannelManager *manager, TpBaseChannelFunc func, gpointer user_data) {
 	IdleIMManagerPrivate *priv = IDLE_IM_MANAGER_GET_PRIVATE(manager);
 	struct _ForeachHelperData data = {func, user_data};
 
@@ -308,7 +308,7 @@ _im_manager_requestotron (IdleIMManager *self,
 		tp_base_connection_get_handles (base_conn, TP_ENTITY_TYPE_CONTACT);
 	TpHandle handle;
 	GError *error = NULL;
-	TpExportableChannel *channel;
+	TpBaseChannel *channel;
 
 	if (tp_strdiff (tp_asv_get_string (request_properties,
 									   TP_IFACE_CHANNEL ".ChannelType"), TP_IFACE_CHANNEL_TYPE_TEXT))
@@ -377,7 +377,7 @@ _im_channel_closed_cb (IdleIMChannel *chan,
 	TpBaseChannel *base = TP_BASE_CHANNEL (chan);
 
 	tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (self),
-													   TP_EXPORTABLE_CHANNEL (chan));
+													   base);
 
 	if (priv->channels)
 	{
@@ -391,7 +391,7 @@ _im_channel_closed_cb (IdleIMChannel *chan,
 			IDLE_DEBUG ("reopening channel with handle %u due to pending messages",
 				handle);
 			tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (self),
-				(TpExportableChannel *) chan, NULL);
+				base, NULL);
 		}
 	}
 }
@@ -430,7 +430,7 @@ _im_manager_new_channel (IdleIMManager *mgr,
 		requests = g_slist_prepend (requests, request);
 
 	tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (mgr),
-      TP_EXPORTABLE_CHANNEL (chan), requests);
+      TP_BASE_CHANNEL (chan), requests);
 
 	g_slist_free (requests);
 

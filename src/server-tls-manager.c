@@ -184,7 +184,7 @@ server_tls_channel_closed_cb (IdleServerTLSChannel *channel,
     }
 
   tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (self),
-      TP_EXPORTABLE_CHANNEL (channel));
+      TP_BASE_CHANNEL (channel));
   g_object_unref (channel);
 }
 
@@ -275,7 +275,7 @@ idle_server_tls_manager_verify_async (IdleServerTLSManager *self,
 
   /* emit NewChannel on the ChannelManager iface */
   tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (self),
-      (TpExportableChannel *) self->priv->channel, NULL);
+      (TpBaseChannel *) self->priv->channel, NULL);
 }
 
 gboolean
@@ -367,14 +367,14 @@ idle_server_tls_manager_class_init (IdleServerTLSManagerClass *klass)
 
 static void
 idle_server_tls_manager_foreach_channel (TpChannelManager *manager,
-    TpExportableChannelFunc func,
+    TpBaseChannelFunc func,
     gpointer user_data)
 {
   IdleServerTLSManager *self = IDLE_SERVER_TLS_MANAGER (manager);
   GList *l;
 
   if (self->priv->channel != NULL)
-    func (TP_EXPORTABLE_CHANNEL (self->priv->channel), user_data);
+    func (TP_BASE_CHANNEL (self->priv->channel), user_data);
 
   for (l = self->priv->completed_channels; l != NULL; l = l->next)
     {

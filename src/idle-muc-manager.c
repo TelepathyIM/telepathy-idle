@@ -285,7 +285,7 @@ static IdleParserHandlerResult _invite_handler(IdleParser *parser, IdleParserMes
 
 	if (!chan) {
 		chan = _muc_manager_new_channel(manager, room_handle, inviter_handle, FALSE);
-		tp_channel_manager_emit_new_channel(TP_CHANNEL_MANAGER (user_data), (TpExportableChannel *) chan, NULL);
+		tp_channel_manager_emit_new_channel(TP_CHANNEL_MANAGER (user_data), (TpBaseChannel *) chan, NULL);
 		idle_muc_channel_invited(chan, inviter_handle);
 	}
 
@@ -399,7 +399,7 @@ struct _ChannelRenameForeachData {
 	TpHandle old_handle, new_handle;
 };
 
-static void _channel_rename_foreach(TpExportableChannel *channel, gpointer user_data) {
+static void _channel_rename_foreach(TpBaseChannel *channel, gpointer user_data) {
 	IdleMUCChannel *muc_chan = IDLE_MUC_CHANNEL(channel);
 	ChannelRenameForeachData *data = user_data;
 
@@ -485,7 +485,7 @@ struct _ChannelQuitForeachData {
 	const gchar *message;
 };
 
-static void _channel_quit_foreach(TpExportableChannel *channel, gpointer user_data) {
+static void _channel_quit_foreach(TpBaseChannel *channel, gpointer user_data) {
 	IdleMUCChannel *muc_chan = IDLE_MUC_CHANNEL(channel);
 	ChannelQuitForeachData *data = user_data;
 
@@ -594,7 +594,7 @@ static void _muc_manager_add_handlers(IdleMUCManager *manager)
 static void
 _muc_manager_foreach_channel (
     TpChannelManager *iface,
-    TpExportableChannelFunc func,
+    TpBaseChannelFunc func,
     gpointer user_data)
 {
   IdleMUCManagerPrivate *priv = IDLE_MUC_MANAGER_GET_PRIVATE (iface);
@@ -610,7 +610,7 @@ _muc_manager_foreach_channel (
 
       g_hash_table_iter_init (&iter, priv->channels);
       while (g_hash_table_iter_next (&iter, NULL, &v))
-        func (TP_EXPORTABLE_CHANNEL (v), user_data);
+        func (TP_BASE_CHANNEL (v), user_data);
     }
 }
 
@@ -690,7 +690,7 @@ static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data) {
 	g_slist_free(reqs);
 
 	tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (manager),
-		TP_EXPORTABLE_CHANNEL (chan));
+		base);
 
 	if (priv->channels) {
 		TpHandle handle = tp_base_channel_get_target_handle (base);
@@ -698,7 +698,7 @@ static void _channel_closed_cb(IdleMUCChannel *chan, gpointer user_data) {
 		if (tp_base_channel_is_destroyed (base))
 			g_hash_table_remove(priv->channels, GUINT_TO_POINTER(handle));
 		else
-			tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (manager), TP_EXPORTABLE_CHANNEL (chan),
+			tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (manager), base,
 				NULL);
 	}
 }
@@ -713,7 +713,7 @@ static void _channel_join_ready_cb(IdleMUCChannel *chan, guint err, gpointer use
 	GSList *l;
 
 	if (err == MUC_CHANNEL_JOIN_ERROR_NONE) {
-		tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (manager), (TpExportableChannel *) chan, reqs);
+		tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (manager), (TpBaseChannel *) chan, reqs);
 		goto out;
 	}
 
@@ -826,7 +826,7 @@ _muc_manager_request (
         {
           tp_channel_manager_emit_request_already_satisfied (
               TP_CHANNEL_MANAGER (self),
-              request, TP_EXPORTABLE_CHANNEL (channel));
+              request, TP_BASE_CHANNEL (channel));
           return TRUE;
         }
     }

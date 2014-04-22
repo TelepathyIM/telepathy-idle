@@ -66,7 +66,7 @@ struct _IdleRoomlistManagerPrivate
 static void _roomlist_manager_close_all (IdleRoomlistManager *self);
 static void connection_status_changed_cb (IdleConnection* conn, guint status, guint reason, IdleRoomlistManager *self);
 
-static void _roomlist_manager_foreach (TpChannelManager *self, TpExportableChannelFunc func, gpointer user_data);
+static void _roomlist_manager_foreach (TpChannelManager *self, TpBaseChannelFunc func, gpointer user_data);
 static void _roomlist_manager_foreach_class (TpChannelManager *self, TpChannelManagerChannelClassFunc func, gpointer user_data);
 
 static gboolean _roomlist_manager_create_channel (TpChannelManager *self, TpChannelManagerRequest *request, GHashTable *request_properties);
@@ -217,7 +217,7 @@ connection_status_changed_cb (IdleConnection* conn,
 
 static void
 _roomlist_manager_foreach (TpChannelManager *manager,
-                           TpExportableChannelFunc func,
+                           TpBaseChannelFunc func,
                            gpointer user_data)
 {
     IdleRoomlistManager *self = IDLE_ROOMLIST_MANAGER (manager);
@@ -229,7 +229,7 @@ _roomlist_manager_foreach (TpChannelManager *manager,
         return;
       }
 
-    func (TP_EXPORTABLE_CHANNEL (priv->channel), user_data);
+    func (TP_BASE_CHANNEL (priv->channel), user_data);
 }
 
 
@@ -316,7 +316,7 @@ _roomlist_manager_requestotron (IdleRoomlistManager *self,
     }
 
   tp_channel_manager_emit_request_already_satisfied (TP_CHANNEL_MANAGER (self),
-      request, TP_EXPORTABLE_CHANNEL (priv->channel));
+      request, TP_BASE_CHANNEL (priv->channel));
   return TRUE;
 
 error:
@@ -335,7 +335,7 @@ _roomlist_channel_closed_cb (IdleRoomlistChannel *chan,
   IdleRoomlistManagerPrivate *priv = self->priv;
 
   tp_channel_manager_emit_channel_closed_for_object (TP_CHANNEL_MANAGER (self),
-      TP_EXPORTABLE_CHANNEL (chan));
+      TP_BASE_CHANNEL (chan));
 
   if (priv->channel)
     {
@@ -366,7 +366,7 @@ _roomlist_manager_new_channel (IdleRoomlistManager *self,
     requests = g_slist_prepend (requests, request);
 
   tp_channel_manager_emit_new_channel (TP_CHANNEL_MANAGER (self),
-      TP_EXPORTABLE_CHANNEL (chan), requests);
+      TP_BASE_CHANNEL (chan), requests);
 
   g_slist_free (requests);
 
