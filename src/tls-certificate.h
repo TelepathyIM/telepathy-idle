@@ -33,8 +33,6 @@ typedef struct _IdleTLSCertificatePrivate IdleTLSCertificatePrivate;
 
 struct _IdleTLSCertificateClass {
   GObjectClass parent_class;
-
-  TpDBusPropertiesMixinClass dbus_props_class;
 };
 
 struct _IdleTLSCertificate {
