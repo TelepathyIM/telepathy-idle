@@ -54,7 +54,7 @@ CLEANFILES = \
     idle-testing.log
 
 if ENABLE_INSTALLED_TESTS
-testsdir = ${datadir}/telepathy-idle-tests
+testsdir = ${datadir}/telepathy-idle-1-tests
 twistedtestsdir = ${testsdir}/twisted
 twistedtoolsdir = ${twistedtestsdir}/tools
 dist_twistedtools_SCRIPTS = $(dist_test_scripts)

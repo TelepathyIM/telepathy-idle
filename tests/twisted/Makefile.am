@@ -79,7 +79,7 @@ BUILT_SOURCES = \
 	$(NULL)
 
 if ENABLE_INSTALLED_TESTS
-testsdir = ${datadir}/telepathy-idle-tests
+testsdir = ${datadir}/telepathy-idle-1-tests
 twistedtestsdir = ${testsdir}/twisted
 nobase_dist_twistedtests_DATA = $(dist_test_data)
 twistedtests_DATA = $(built_test_data)
