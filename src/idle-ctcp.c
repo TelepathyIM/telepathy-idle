@@ -98,13 +98,18 @@ gchar *idle_ctcp_kill_blingbling(const gchar *msg) {
 			case '\x03': /* ^C */
 				iter++;
 
-				while (isdigit(*iter))
+				/* Color codes are 1-2 digits */
+                                if (isdigit(*iter))
+					iter++;
+                                if (isdigit(*iter))
 					iter++;
 
 				if (*iter == ',') {
 					iter++;
 
-					while (isdigit(*iter))
+	                                if (isdigit(*iter))
+						iter++;
+	                                if (isdigit(*iter))
 						iter++;
 				}
 				break;
