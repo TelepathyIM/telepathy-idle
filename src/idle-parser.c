@@ -502,7 +502,9 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 			gchar *id, *bang = NULL;
 			gchar modechar = '\0';
 
-			if (idle_muc_channel_is_modechar(token[0])) {
+      /* Channel names can start with a '!', so don't strip that
+       * (https://tools.ietf.org/html/rfc2811#section-3.2) */
+			if (atom != 'r' && idle_muc_channel_is_modechar(token[0])) {
 				modechar = token[0];
 				token++;
 			}
