@@ -519,8 +519,12 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 			gchar modechar = '\0';
 
 			/* Channel names can start with a '!', so don't strip that
-			 * (https://tools.ietf.org/html/rfc2811#section-3.2) */
-			if (atom != 'r' && idle_muc_channel_is_modechar(token[0])) {
+			 * (https://tools.ietf.org/html/rfc2811#section-3.2), not
+			 * even when expecting a nickname (without mode chars) as
+			 * that ends up for example messing up PRIMSG handling and
+			 * showing the same message as both a channel and a private
+			 * message */
+			if (atom == 'C' && idle_muc_channel_is_modechar(token[0])) {
 				modechar = token[0];
 				token++;
 			}
