@@ -32,7 +32,6 @@
 
 static void _destroyable_iface_init(gpointer, gpointer);
 
-static GPtrArray *idle_im_channel_get_interfaces (TpBaseChannel *channel);
 static void idle_im_channel_close (TpBaseChannel *base);
 static void idle_im_channel_send (GObject *obj, TpMessage *message, TpMessageSendingFlags flags);
 static void idle_im_channel_finalize (GObject *object);
@@ -57,6 +56,9 @@ idle_im_channel_init (IdleIMChannel *obj)
 static void
 idle_im_channel_constructed (GObject *obj)
 {
+  GDBusObjectSkeleton *skel = G_DBUS_OBJECT_SKELETON (obj);
+  GDBusInterfaceSkeleton *iface;
+
   TpChannelTextMessageType types[] = {
       TP_CHANNEL_TEXT_MESSAGE_TYPE_NORMAL,
       TP_CHANNEL_TEXT_MESSAGE_TYPE_ACTION,
@@ -68,6 +70,16 @@ idle_im_channel_constructed (GObject *obj)
   };
 
   G_OBJECT_CLASS (idle_im_channel_parent_class)->constructed (obj);
+
+  iface = tp_svc_interface_skeleton_new (skel,
+      TP_TYPE_SVC_CHANNEL_TYPE_TEXT);
+  g_dbus_object_skeleton_add_interface (skel, iface);
+  g_object_unref (iface);
+
+  iface = tp_svc_interface_skeleton_new (skel,
+      TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE1);
+  g_dbus_object_skeleton_add_interface (skel, iface);
+  g_object_unref (iface);
 
   /* initialize message mixin */
   tp_message_mixin_init (obj, G_STRUCT_OFFSET (IdleIMChannel, message_mixin),
@@ -119,7 +131,6 @@ idle_im_channel_class_init (IdleIMChannelClass *idle_im_channel_class)
   base_class->close = idle_im_channel_close;
   base_class->fill_immutable_properties = idle_im_channel_fill_properties;
   base_class->get_object_path_suffix = idle_im_channel_get_path_suffix;
-  base_class->get_interfaces = idle_im_channel_get_interfaces;
 
   tp_message_mixin_init_dbus_properties (object_class);
 }
@@ -164,18 +175,6 @@ idle_im_channel_close (TpBaseChannel *base)
       IDLE_DEBUG ("%p actually closing, I have no pending messages", obj);
       tp_base_channel_destroyed (base);
     }
-}
-
-static GPtrArray *
-idle_im_channel_get_interfaces (TpBaseChannel *channel)
-{
-  GPtrArray *interfaces =
-      TP_BASE_CHANNEL_CLASS (idle_im_channel_parent_class)->get_interfaces (
-          channel);
-
-  g_ptr_array_add (interfaces, TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE1);
-
-  return interfaces;
 }
 
 /**

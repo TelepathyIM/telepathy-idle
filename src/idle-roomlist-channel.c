@@ -75,8 +75,15 @@ idle_roomlist_channel_constructed (GObject *obj)
   IdleRoomlistChannel *self = IDLE_ROOMLIST_CHANNEL (obj);
   IdleRoomlistChannelPrivate *priv = self->priv;
   TpBaseChannel *base = TP_BASE_CHANNEL (obj);
+  GDBusObjectSkeleton *skel = G_DBUS_OBJECT_SKELETON (obj);
+  GDBusInterfaceSkeleton *iface;
 
   G_OBJECT_CLASS (idle_roomlist_channel_parent_class)->constructed (obj);
+
+  iface = tp_svc_interface_skeleton_new (skel,
+      TP_TYPE_SVC_CHANNEL_TYPE_ROOM_LIST1);
+  g_dbus_object_skeleton_add_interface (skel, iface);
+  g_object_unref (iface);
 
   tp_base_channel_register (base);
 

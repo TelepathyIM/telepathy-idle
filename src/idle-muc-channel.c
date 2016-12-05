@@ -119,16 +119,6 @@ typedef struct {
 	const gchar *topic_toucher_id;
 } IRCChannelModeState;
 
-static const gchar *muc_channel_interfaces[] = {
-	TP_IFACE_CHANNEL_INTERFACE_PASSWORD1,
-	TP_IFACE_CHANNEL_INTERFACE_GROUP1,
-	TP_IFACE_CHANNEL_INTERFACE_ROOM1,
-	TP_IFACE_CHANNEL_INTERFACE_SUBJECT1,
-	TP_IFACE_CHANNEL_INTERFACE_ROOM_CONFIG1,
-	TP_IFACE_CHANNEL_INTERFACE_DESTROYABLE1,
-	NULL
-};
-
 static const gchar *ascii_muc_states[] = {
 	"MUC_STATE_CREATED",
 	"MUC_STATE_JOINING",
@@ -219,6 +209,8 @@ idle_muc_channel_constructed (GObject *obj)
 {
 	IdleMUCChannel *self = IDLE_MUC_CHANNEL (obj);
 	TpBaseChannel *base = TP_BASE_CHANNEL (obj);
+	GDBusObjectSkeleton *skel = G_DBUS_OBJECT_SKELETON (self);
+	GDBusInterfaceSkeleton *iface;
 	IdleMUCChannelPrivate *priv = self->priv;
 	TpBaseConnection *conn = tp_base_channel_get_connection (base);
 	TpHandleRepoIface *room_handles = tp_base_connection_get_handles(conn, TP_ENTITY_TYPE_ROOM);
@@ -235,6 +227,41 @@ idle_muc_channel_constructed (GObject *obj)
 	TpHandle self_handle = tp_base_connection_get_self_handle (conn);
 
 	G_OBJECT_CLASS (idle_muc_channel_parent_class)->constructed (obj);
+
+	iface = tp_svc_interface_skeleton_new (skel,
+		TP_TYPE_SVC_CHANNEL_TYPE_TEXT);
+	g_dbus_object_skeleton_add_interface (skel, iface);
+	g_object_unref (iface);
+
+	iface = tp_svc_interface_skeleton_new (skel,
+		TP_TYPE_SVC_CHANNEL_INTERFACE_GROUP1);
+	g_dbus_object_skeleton_add_interface (skel, iface);
+	g_object_unref (iface);
+
+	iface = tp_svc_interface_skeleton_new (skel,
+		TP_TYPE_SVC_CHANNEL_INTERFACE_PASSWORD1);
+	g_dbus_object_skeleton_add_interface (skel, iface);
+	g_object_unref (iface);
+
+	iface = tp_svc_interface_skeleton_new (skel,
+		TP_TYPE_SVC_CHANNEL_INTERFACE_ROOM1);
+	g_dbus_object_skeleton_add_interface (skel, iface);
+	g_object_unref (iface);
+
+	iface = tp_svc_interface_skeleton_new (skel,
+		TP_TYPE_SVC_CHANNEL_INTERFACE_SUBJECT1);
+	g_dbus_object_skeleton_add_interface (skel, iface);
+	g_object_unref (iface);
+
+	iface = tp_svc_interface_skeleton_new (skel,
+		TP_TYPE_SVC_CHANNEL_INTERFACE_ROOM_CONFIG1);
+	g_dbus_object_skeleton_add_interface (skel, iface);
+	g_object_unref (iface);
+
+	iface = tp_svc_interface_skeleton_new (skel,
+		TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE1);
+	g_dbus_object_skeleton_add_interface (skel, iface);
+	g_object_unref (iface);
 
 	priv->channel_name = tp_handle_inspect (room_handles, tp_base_channel_get_target_handle (base));
 	g_assert (priv->channel_name != NULL);
@@ -332,20 +359,6 @@ idle_muc_channel_fill_immutable_properties (
       NULL);
 }
 
-static GPtrArray *
-idle_muc_channel_get_interfaces (TpBaseChannel *self)
-{
-  TpBaseChannelClass *parent_class =
-      TP_BASE_CHANNEL_CLASS (idle_muc_channel_parent_class);
-  GPtrArray *interfaces = parent_class->get_interfaces (self);
-  const gchar **interface;
-
-  for (interface = muc_channel_interfaces; *interface != NULL; interface++)
-    g_ptr_array_add (interfaces, (gchar *) *interface);
-
-  return interfaces;
-}
-
 static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_class) {
 	GObjectClass *object_class = G_OBJECT_CLASS (idle_muc_channel_class);
 	TpBaseChannelClass *base_channel_class = TP_BASE_CHANNEL_CLASS (idle_muc_channel_class);
@@ -377,7 +390,6 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
 	base_channel_class->close = idle_muc_channel_close;
 	base_channel_class->fill_immutable_properties = idle_muc_channel_fill_immutable_properties;
 	base_channel_class->get_object_path_suffix = idle_muc_channel_get_path_suffix;
-	base_channel_class->get_interfaces = idle_muc_channel_get_interfaces;
 
 	param_spec = g_param_spec_string (
 		"server", "Room.Server", "always empty",
