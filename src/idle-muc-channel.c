@@ -51,8 +51,6 @@ G_DEFINE_TYPE_WITH_CODE(IdleMUCChannel, idle_muc_channel, TP_TYPE_BASE_CHANNEL,
 		G_IMPLEMENT_INTERFACE(TP_TYPE_SVC_CHANNEL_TYPE_TEXT, tp_message_mixin_iface_init);
 		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_ROOM1, NULL);
 		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_SUBJECT1, subject_iface_init);
-		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_ROOM_CONFIG1,
-                                       tp_base_room_config_iface_init);
 		G_IMPLEMENT_INTERFACE (TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE1, destroyable_iface_init);
 		)
 
@@ -254,14 +252,12 @@ idle_muc_channel_constructed (GObject *obj)
 	g_object_unref (iface);
 
 	iface = tp_svc_interface_skeleton_new (skel,
-		TP_TYPE_SVC_CHANNEL_INTERFACE_ROOM_CONFIG1);
-	g_dbus_object_skeleton_add_interface (skel, iface);
-	g_object_unref (iface);
-
-	iface = tp_svc_interface_skeleton_new (skel,
 		TP_TYPE_SVC_CHANNEL_INTERFACE_DESTROYABLE1);
 	g_dbus_object_skeleton_add_interface (skel, iface);
 	g_object_unref (iface);
+
+	priv->room_config =
+		(TpBaseRoomConfig *) idle_room_config_new ((TpBaseChannel *) self);
 
 	priv->channel_name = tp_handle_inspect (room_handles, tp_base_channel_get_target_handle (base));
 	g_assert (priv->channel_name != NULL);
@@ -290,9 +286,6 @@ idle_muc_channel_constructed (GObject *obj)
 			initiator, TP_CHANNEL_GROUP_CHANGE_REASON_NONE);
 		tp_intset_destroy (remote);
 	}
-
-        priv->room_config =
-          (TpBaseRoomConfig *) idle_room_config_new ((TpBaseChannel *) self);
 }
 
 static void
@@ -437,8 +430,6 @@ static void idle_muc_channel_class_init (IdleMUCChannelClass *idle_muc_channel_c
 
 	tp_group_mixin_init_dbus_properties (object_class);
 	tp_group_mixin_class_allow_self_removal (object_class);
-
-        tp_base_room_config_register_class (base_channel_class);
 
 	tp_dbus_properties_mixin_implement_interface (object_class,
 		TP_IFACE_QUARK_CHANNEL_INTERFACE_ROOM1,
@@ -705,8 +696,6 @@ static void change_mode_state(IdleMUCChannel *obj, guint add, guint remove) {
 	}
 
 	tp_group_mixin_change_flags((GObject *)obj, group_add, group_remove);
-
-        tp_base_room_config_emit_properties_changed (priv->room_config);
 
 	priv->mode_state.flags = flags;
 

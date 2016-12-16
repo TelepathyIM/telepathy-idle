@@ -29,9 +29,13 @@
 
 static void idle_room_config_update_configuration_async (
     TpBaseRoomConfig *base_config,
-    GHashTable *validated_properties,
+    GVariant *validated_properties,
     GAsyncReadyCallback callback,
     gpointer user_data);
+static gboolean idle_room_config_update_finish (
+    TpBaseRoomConfig *self,
+    GAsyncResult *result,
+    GError **error);
 
 struct _IdleRoomConfigPrivate {
     gpointer hi_dere;
@@ -89,9 +93,6 @@ idle_room_config_constructed (GObject *object)
       tp_base_room_config_set_property_mutable (self, prop_helper[i], TRUE);
     }
 
-  /* Just to get the mutable properties out there. */
-  tp_base_room_config_emit_properties_changed (self);
-
   /* Let's reset the password back to the empty string when
    * password-protected is set to False. */
   g_signal_connect (self, "notify::password-protected",
@@ -107,6 +108,7 @@ idle_room_config_class_init (IdleRoomConfigClass *klass)
   object_class->constructed = idle_room_config_constructed;
 
   parent_class->update_async = idle_room_config_update_configuration_async;
+  parent_class->update_finish = idle_room_config_update_finish;
   g_type_class_add_private (klass, sizeof (IdleRoomConfigPrivate));
 }
 
@@ -146,19 +148,18 @@ send_mode (IdleRoomConfig *self,
 
 static void
 do_quick_boolean (IdleRoomConfig *self,
-    GHashTable *properties,
-    TpBaseRoomConfigProperty prop_id,
-    const gchar *gobject_property_name,
+    GVariant *properties,
+    const gchar *property_name,
     const gchar irc_mode)
 {
-  if (g_hash_table_lookup (properties, GUINT_TO_POINTER (prop_id)) != NULL)
+  gboolean new_value;
+
+  if (g_variant_lookup (properties, property_name, "b", &new_value))
     {
-      gboolean new_value = tp_asv_get_boolean (properties,
-          GUINT_TO_POINTER (prop_id), NULL);
       gboolean current_value;
 
       g_object_get (self,
-          gobject_property_name, &current_value,
+          property_name, &current_value,
           NULL);
 
       if (current_value != new_value)
@@ -174,7 +175,7 @@ do_quick_boolean (IdleRoomConfig *self,
 static void
 idle_room_config_update_configuration_async (
     TpBaseRoomConfig *base_config,
-    GHashTable *validated_properties,
+    GVariant *validated_properties,
     GAsyncReadyCallback callback,
     gpointer user_data)
 {
@@ -184,11 +185,12 @@ idle_room_config_update_configuration_async (
   gboolean present = FALSE;
   gboolean password_protected = FALSE;
   const gchar *password = NULL;
+  guint limit;
 
-  password_protected = tp_asv_get_boolean (validated_properties,
-      GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD_PROTECTED), &present);
-  password = tp_asv_get_string (validated_properties,
-      GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_PASSWORD));
+  present = g_variant_lookup (validated_properties,
+      "password-protected", "b", &password_protected);
+  g_variant_lookup (validated_properties,
+      "password", "&s", &password);
 
   /* first, do sanity checking for Password & PasswordProtected */
   if (password_protected && tp_str_empty (password))
@@ -220,21 +222,15 @@ idle_room_config_update_configuration_async (
     }
 
   /* okay go and do the quick ones */
-  do_quick_boolean (self, validated_properties,
-      TP_BASE_ROOM_CONFIG_INVITE_ONLY, "invite-only", 'i');
-  do_quick_boolean (self, validated_properties,
-      TP_BASE_ROOM_CONFIG_MODERATED, "moderated", 'm');
-  do_quick_boolean (self, validated_properties,
-      TP_BASE_ROOM_CONFIG_PRIVATE, "private", 's');
+  do_quick_boolean (self, validated_properties, "invite-only", 'i');
+  do_quick_boolean (self, validated_properties, "moderated", 'm');
+  do_quick_boolean (self, validated_properties, "private", 's');
 
   /* now the rest */
 
   /* limit */
-  if (g_hash_table_lookup (validated_properties,
-          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_LIMIT)) != NULL)
+  if (g_variant_lookup (validated_properties, "limit", "u", &limit))
     {
-      guint limit = tp_asv_get_uint32 (validated_properties,
-          GUINT_TO_POINTER (TP_BASE_ROOM_CONFIG_LIMIT), NULL);
       gchar *cmd = NULL;
       guint current;
 
@@ -269,11 +265,8 @@ idle_room_config_update_configuration_async (
       send_mode (self, cmd);
       g_free (cmd);
 
-      /* TODO: this can be removed when we add queueing to these mode
-       * changes */
-      g_object_set (self,
-          "password-protected", TRUE,
-          NULL);
+      g_object_set_data (G_OBJECT (result),
+          "ensure-password-protected", GINT_TO_POINTER (1));
     }
 
   /* unset a password */
@@ -291,4 +284,30 @@ idle_room_config_update_configuration_async (
 
   g_simple_async_result_complete_in_idle (result);
   g_object_unref (result);
+}
+
+static gboolean
+idle_room_config_update_finish (
+    TpBaseRoomConfig *self,
+    GAsyncResult *result,
+    GError **error)
+{
+  g_return_val_if_fail (g_simple_async_result_is_valid (result,
+          G_OBJECT(self), idle_room_config_update_configuration_async),
+      FALSE);
+
+  if (g_simple_async_result_propagate_error (
+      G_SIMPLE_ASYNC_RESULT (result), error))
+    return FALSE;
+
+  /* we do this here instead of update_async,
+   * so that the property change is emitted on the bus
+   * together with the rest of the property changes */
+  if (g_object_get_data (G_OBJECT (result), "ensure-password-protected"))
+    {
+      g_object_set (self,
+          "password-protected", TRUE,
+          NULL);
+    }
+  return TRUE;
 }
