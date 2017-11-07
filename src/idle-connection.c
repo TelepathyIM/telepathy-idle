@@ -600,6 +600,7 @@ _force_disconnect (gpointer data)
 
 	IDLE_DEBUG("gave up waiting, forcibly disconnecting");
 	idle_server_connection_force_disconnect(priv->conn);
+	priv->force_disconnect_id = 0;
 	return FALSE;
 }
 
