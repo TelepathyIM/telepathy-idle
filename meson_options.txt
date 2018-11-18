@@ -1,0 +1,13 @@
+option(
+	'twisted_tests',
+	type: 'boolean',
+	value: true,
+	description: 'Enable tests using Python with Twisted and IRC protocol support',
+)
+
+option(
+	'twisted_sleep',
+	type: 'string',
+	value: '0',
+	description: 'Number of seconds to sleep in twisted tests',
+)

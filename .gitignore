@@ -48,6 +48,7 @@ Makefile.in
 data/org.freedesktop.Telepathy.ConnectionManager.idle.service
 
 extensions/_gen
+!extensions/_gen/meson.build
 extensions/extensions.html
 
 src/telepathy-idle
