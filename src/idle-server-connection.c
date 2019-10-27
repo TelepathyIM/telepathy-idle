@@ -590,7 +590,10 @@ void idle_server_connection_send_async(IdleServerConnection *conn, const gchar *
          * with null bytes gives us cleaner debug messages, without
          * affecting the readability of the code.
          */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
 	strncpy(priv->output_buffer, cmd, output_buffer_size);
+#pragma GCC diagnostic pop
 
 	priv->nwritten = 0;
 
