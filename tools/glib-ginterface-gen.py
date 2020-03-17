@@ -22,6 +22,7 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+import functools
 import sys
 import os.path
 import xml.dom.minidom
@@ -733,7 +734,7 @@ class Generator(object):
 
     def __call__(self):
         nodes = self.dom.getElementsByTagName('node')
-        nodes.sort(cmp_by_name)
+        nodes.sort(key=functools.cmp_to_key(cmp_by_name))
 
         self.h('#include <glib-object.h>')
         self.h('#include <dbus/dbus-glib.h>')
@@ -768,7 +769,7 @@ class Generator(object):
         file_set_contents(self.basename + '-gtk-doc.h', '\n'.join(self.__docs))
 
 def cmdline_error():
-    print """\
+    print ("""\
 usage:
     gen-ginterface [OPTIONS] xmlfile Prefix_
 options:
@@ -788,7 +789,7 @@ options:
             void symbol (DBusGMethodInvocation *context)
         and return some sort of "not implemented" error via
             dbus_g_method_return_error (context, ...)
-"""
+""")
     sys.exit(1)
 
 
