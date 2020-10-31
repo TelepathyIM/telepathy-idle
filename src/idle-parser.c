@@ -151,6 +151,7 @@ struct _IdleParserPrivate {
 
 	/* continuation line buffer */
 	gchar split_buf[IRC_MSG_MAXLEN + 3];
+	guint split_buf_used;
 
 	/* message handlers */
 	GSList *handlers[IDLE_PARSER_LAST_MESSAGE_CODE];
@@ -226,6 +227,13 @@ strnlen(const char *msg, size_t maxlen)
 }
 #endif
 
+static void clear_split_buf(IdleParser *parser) {
+	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
+
+	memset(priv->split_buf, '\0', IRC_MSG_MAXLEN + 3);
+	priv->split_buf_used = 0;
+}
+
 void idle_parser_receive(IdleParser *parser, const gchar *msg) {
 	IdleParserPrivate *priv = IDLE_PARSER_GET_PRIVATE(parser);
 	guint i;
@@ -245,7 +253,7 @@ void idle_parser_receive(IdleParser *parser, const gchar *msg) {
 				if ((lasti == 0) && (priv->split_buf[0] != '\0')) {
 					g_strlcpy(g_stpcpy(concat_buf, priv->split_buf), msg, i + 1);
 					tmp = concat_buf;
-					memset(priv->split_buf, '\0', IRC_MSG_MAXLEN + 3);
+					clear_split_buf(parser);
 				} else {
 					tmp = g_strndup(msg + lasti, i - lasti);
 				}
@@ -264,10 +272,18 @@ void idle_parser_receive(IdleParser *parser, const gchar *msg) {
 		}
 	}
 
-	if (!line_ends)
-		g_strlcpy(priv->split_buf, msg + lasti, (IRC_MSG_MAXLEN + 3) - lasti);
-	else
-		memset(priv->split_buf, '\0', IRC_MSG_MAXLEN + 3);
+	if (!line_ends) {
+		len = strlen(msg + lasti);
+		if (len > (IRC_MSG_MAXLEN + 3) - priv->split_buf_used - 1) {
+			IDLE_DEBUG("Discarding content that exceeds maximum message length: \"%s\"", msg + lasti);
+			clear_split_buf(parser);
+		} else {
+			g_strlcpy(priv->split_buf + priv->split_buf_used, msg + lasti, (IRC_MSG_MAXLEN + 3) - priv->split_buf_used);
+			priv->split_buf_used += len;
+		}
+	} else {
+		clear_split_buf(parser);
+	}
 }
 
 void idle_parser_add_handler(IdleParser *parser, IdleParserMessageCode code, IdleParserMessageHandler handler, gpointer user_data) {
@@ -502,7 +518,13 @@ static gboolean _parse_atom(IdleParser *parser, GValueArray *arr, char atom, con
 			gchar *id, *bang = NULL;
 			gchar modechar = '\0';
 
-			if (idle_muc_channel_is_modechar(token[0])) {
+			/* Channel names can start with a '!', so don't strip that
+			 * (https://tools.ietf.org/html/rfc2811#section-3.2), not
+			 * even when expecting a nickname (without mode chars) as
+			 * that ends up for example messing up PRIMSG handling and
+			 * showing the same message as both a channel and a private
+			 * message */
+			if (atom == 'C' && idle_muc_channel_is_modechar(token[0])) {
 				modechar = token[0];
 				token++;
 			}

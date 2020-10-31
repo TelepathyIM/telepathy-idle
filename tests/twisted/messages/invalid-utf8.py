@@ -33,7 +33,7 @@ def test_with_message(q, stream, parts):
 
     # Idle's default character set is UTF-8. We send it a message which is
     # basically UTF-8, except that one of its code points is invalid.
-    stream.sendMessage('PRIVMSG', stream.nick, ':%s' % invalid_utf8,
+    stream.sendMessage('PRIVMSG', bytes(stream.nick), ':%s' % invalid_utf8,
         prefix='remoteuser')
 
     # Idle should signal that *something* was received. If it hasn't validated
