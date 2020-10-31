@@ -1,3 +1,33 @@
+
+telepathy-idle 0.2.1 (2020-11-01)
+==================================
+
+
+Enhancements:
+
+• Port build tools to Python 3 (Michael Catanzaro)
+
+• Add meson build system (Jan Tojnar)
+
+Fixes:
+
+• Update test to Python 3 (Tomi Leppänen)
+
+• Properly handle long IRC messages (polari#147, Michael Catanzaro)
+
+• Fix a critical message from GLib on disconnecting (Guillaume, Diane Trout)
+
+• Fix message corruption on accident bling removal (Florian Muellner)
+
+• Update the certificate for tests (Diane Trout)
+
+• Fix "Invalid utf8" test for Python 3 (Diane Trout)
+
+• Properly handle channels with a '!' at the start of name (Daniel Landau)
+
+• Properly handle modechars (Daniel Landau)
+
+
 telepathy-idle 0.2.0 (2013-10-03)
 =================================
 
