@@ -88,7 +88,7 @@ def test(q, bus, conn, stream):
     # No topic set
     subject_props = channel.Properties.GetAll(CHANNEL_IFACE_SUBJECT)
     assertEquals('', subject_props['Subject'])
-    assertEquals(0x7fffffffffffffffL, subject_props['Timestamp'])
+    assertEquals(0x7fffffffffffffff, subject_props['Timestamp'])
     assertEquals('', subject_props['Actor'])
     assertEquals(0, subject_props['ActorHandle'])
 

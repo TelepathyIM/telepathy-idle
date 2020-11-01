@@ -14,7 +14,7 @@ def test(q, bus, conn, stream):
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
 
     test_with_message(q, stream, ["I'm no ", " Buddhist"])
-    test_with_message(q, stream, [u"björk"] * 3)
+    test_with_message(q, stream, ["björk"] * 3)
 
     test_with_message(q, stream, ["", "lolllllll"])
     test_with_message(q, stream, ["hello", ""])
@@ -28,12 +28,11 @@ def test(q, bus, conn, stream):
 WELL_FORMED_BUT_INVALID_UTF8_BYTES = "\xed\xa0\x80"
 
 def test_with_message(q, stream, parts):
-    invalid_utf8 = WELL_FORMED_BUT_INVALID_UTF8_BYTES.join(
-        part.encode('utf-8') for part in parts)
+    invalid_utf8 = WELL_FORMED_BUT_INVALID_UTF8_BYTES.join(parts)
 
     # Idle's default character set is UTF-8. We send it a message which is
     # basically UTF-8, except that one of its code points is invalid.
-    stream.sendMessage('PRIVMSG', bytes(stream.nick), ':%s' % invalid_utf8,
+    stream.sendMessage('PRIVMSG', stream.nick, ':%s' % invalid_utf8,
         prefix='remoteuser')
 
     # Idle should signal that *something* was received. If it hasn't validated
@@ -46,17 +45,17 @@ def test_with_message(q, stream, parts):
 
     # Don't make any assumption about how many U+FFFD REPLACEMENT CHARACTERs
     # are used to replace surprising bytes.
-    received_parts = [ part for part in re.split(u"\ufffd|\\?", content)
-                       if part != u''
+    received_parts = [ part for part in re.split("\ufffd|\\?", content)
+                       if part != ''
                      ]
 
-    if parts[0] == u'björk':
+    if parts[0] == 'björk':
         # The valid UTF-8 gets lost in transit, because we fall back
         # to assuming ASCII when g_convert() fails (this didn't happen
         # when we tested with noncharacters - oh well).
         assertEquals(['bj', 'rk', 'bj', 'rk', 'bj', 'rk'], received_parts)
     else:
-        assertEquals(filter(lambda s: s != u'', parts), received_parts)
+        assertEquals([s for s in parts if s != ''], received_parts)
 
 if __name__ == '__main__':
     exec_test(test)

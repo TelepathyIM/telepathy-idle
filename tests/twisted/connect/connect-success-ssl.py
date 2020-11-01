@@ -21,7 +21,7 @@ def test(q, bus, conn, stream):
     cert.Accept()
 
     q.expect('dbus-signal', signal='SelfHandleChanged',
-        args=[1L])
+        args=[1])
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
     call_async(q, conn, 'Disconnect')
     q.expect_many(

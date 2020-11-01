@@ -3,9 +3,9 @@
 Infrastructure code for testing connection managers.
 """
 
-from twisted.internet import glib2reactor
+from twisted.internet import gireactor
 from twisted.internet.protocol import Protocol, Factory, ClientFactory
-glib2reactor.install()
+gireactor.install()
 import sys
 import time
 import os
@@ -36,7 +36,7 @@ class DictionarySupersetOf (object):
         but it turns out that this doesn't work if you have another dict
         nested in the values of your dicts"""
         try:
-            for k,v in self._dictionary.items():
+            for k,v in list(self._dictionary.items()):
                 if k not in other or other[k] != v:
                     return False
             return True
@@ -88,7 +88,7 @@ class EventPattern:
         if event.type != self.type:
             return False
 
-        for key, value in self.properties.iteritems():
+        for key, value in self.properties.items():
             try:
                 if getattr(event, key) != value:
                     return False
@@ -130,7 +130,7 @@ class BaseEventQueue:
 
     def log(self, s):
         if self.verbose:
-            print s
+            print(s)
 
     def log_queues(self, queues):
         self.log ("Waiting for event on: %s" % ", ".join(queues))
@@ -139,7 +139,7 @@ class BaseEventQueue:
         self.log('got event:')
 
         if self.verbose:
-            map(self.log, format_event(event))
+            list(map(self.log, format_event(event)))
 
     def forbid_events(self, patterns):
         """
@@ -267,10 +267,10 @@ class BaseEventQueue:
 
     def queues_available(self, queues):
         if queues == None:
-            return self.event_queues.keys()
+            return list(self.event_queues.keys())
         else:
-            available = self.event_queues.keys()
-            return filter(lambda x: x in available, queues)
+            available = list(self.event_queues.keys())
+            return [x for x in queues if x in available]
 
 
     def pop_next(self, queue):
@@ -364,7 +364,7 @@ class EventQueueTest(unittest.TestCase):
         queue.append(Event('baz-test', x=1))
         queue.append(Event('baz-test', x=2))
 
-        for x in xrange(1,2):
+        for x in range(1,2):
             e = queue.expect ('baz-test')
             assertEquals (x, e.x)
 
@@ -392,18 +392,18 @@ def unwrap(x):
     printed."""
 
     if isinstance(x, list):
-        return map(unwrap, x)
+        return list(map(unwrap, x))
 
     if isinstance(x, tuple):
         return tuple(map(unwrap, x))
 
     if isinstance(x, dict):
-        return dict([(unwrap(k), unwrap(v)) for k, v in x.iteritems()])
+        return dict([(unwrap(k), unwrap(v)) for k, v in x.items()])
 
     if isinstance(x, dbus.Boolean):
         return bool(x)
 
-    for t in [unicode, str, long, int, float]:
+    for t in [str, str, int, int, float]:
         if isinstance(x, t):
             return t(x)
 
@@ -448,7 +448,7 @@ class ProxyWrapper:
             dbus.Interface(object, tp_name_prefix + '.Properties')
         self.interfaces = dict([
             (name, dbus.Interface(object, iface))
-            for name, iface in others.iteritems()])
+            for name, iface in others.items()])
 
     def __getattr__(self, name):
         if name in self.interfaces:
@@ -581,7 +581,7 @@ def watch_tube_signals(q, tube):
         q.append(Event('tube-signal',
             path=kwargs['path'],
             signal=kwargs['member'],
-            args=map(unwrap, args),
+            args=list(map(unwrap, args)),
             tube=tube))
 
     tube.add_signal_receiver(got_signal_cb,
@@ -663,7 +663,7 @@ def install_colourer():
             self.patterns = patterns
 
         def write(self, s):
-            for p, f in self.patterns.items():
+            for p, f in list(self.patterns.items()):
                 if s.startswith(p):
                     self.fh.write(f(p) + s[len(p):])
                     return
@@ -677,7 +677,7 @@ def install_colourer():
 class DummyStream(object):
     def write(self, s):
         if 'CHECK_TWISTED_VERBOSE' in os.environ:
-            print s,
+            print(s, end=' ')
 
     def flush(self):
         pass

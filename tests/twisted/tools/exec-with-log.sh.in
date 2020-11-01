@@ -26,4 +26,8 @@ elif test -n "$IDLE_TEST_REFDBG"; then
 fi
 
 export G_DEBUG=fatal-warnings" ${G_DEBUG}"
-exec @abs_top_builddir@/libtool --mode=execute $IDLE_WRAPPER @abs_top_builddir@/src/telepathy-idle
+if test x"@omit_libtool@" = "xyes"; then
+    exec $IDLE_WRAPPER @abs_top_builddir@/src/telepathy-idle
+else
+    exec @abs_top_builddir@/libtool --mode=execute $IDLE_WRAPPER @abs_top_builddir@/src/telepathy-idle
+fi

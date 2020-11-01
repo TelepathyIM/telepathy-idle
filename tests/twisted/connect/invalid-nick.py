@@ -28,37 +28,37 @@ def test():
     try:
         connect('nick with spaces')
         raise RuntimeError('Invalid nick not rejected')
-    except dbus.DBusException, e:
+    except dbus.DBusException as e:
         assert e.get_dbus_name() == INVALID_HANDLE
 
     try:
         connect('') # empty nick
         raise RuntimeError('Invalid nick not rejected')
-    except dbus.DBusException, e:
+    except dbus.DBusException as e:
         assert e.get_dbus_name() == INVALID_HANDLE
 
     try:
         connect('#foo') # invalid chars
         raise RuntimeError('Invalid nick not rejected')
-    except dbus.DBusException, e:
+    except dbus.DBusException as e:
         assert e.get_dbus_name() == INVALID_HANDLE
 
     try:
-        connect(u'김정은') # unicode
+        connect('김정은') # unicode
         raise RuntimeError('Invalid nick not rejected')
-    except dbus.DBusException, e:
+    except dbus.DBusException as e:
         assert e.get_dbus_name() == INVALID_HANDLE
 
     try:
         connect('12foo') # numbers not allowed as first char
         raise RuntimeError('Invalid nick not rejected')
-    except dbus.DBusException, e:
+    except dbus.DBusException as e:
         assert e.get_dbus_name() == INVALID_HANDLE
 
     try:
         connect('-foo') # '-' not allowed as first char
         raise RuntimeError('Invalid nick not rejected')
-    except dbus.DBusException, e:
+    except dbus.DBusException as e:
         assert e.get_dbus_name() == INVALID_HANDLE
 
     # should pass succeed without an exception

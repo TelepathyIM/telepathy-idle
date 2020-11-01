@@ -1,7 +1,19 @@
+telepathy-idle 0.2.2 (2020-11-01)
+=================================
+
+Enhancements:
+
+• Port tests to Python 3
+
+• Adjust code Meson to use Python 3
+
+Fixes:
+
+• Fix twisted tests for Meson
+
 
 telepathy-idle 0.2.1 (2020-11-01)
 ==================================
-
 
 Enhancements:
 
@@ -10,8 +22,6 @@ Enhancements:
 • Add meson build system (Jan Tojnar)
 
 Fixes:
-
-• Update test to Python 3 (Tomi Leppänen)
 
 • Properly handle long IRC messages (polari#147, Michael Catanzaro)
 
