@@ -38,15 +38,15 @@ idle_deps = [
 ]
 
 xsltproc = find_program('xsltproc')
-python2 = import('python').find_installation('python2')
+python = import('python').find_installation('python3')
 
 # check for a version of python that can run the twisted tests
 if get_option('twisted_tests')
-	if run_command(python2, '-c', '''from sys import version_info; import dbus, dbus.mainloop.glib; raise SystemExit(version_info < (2, 5, 0, 'final', 0))''').returncode() != 0 or run_command(python2, '-c', '''import twisted.words.protocols.irc, twisted.internet.reactor''').returncode() != 0
+	if run_command(python, '-c', '''from sys import version_info; import dbus, dbus.mainloop.glib; raise SystemExit(version_info < (2, 5, 0, 'final', 0))''').returncode() != 0 or run_command(python, '-c', '''import twisted.words.protocols.irc, twisted.internet.reactor''').returncode() != 0
 		error('Missing twisted IRC support')
 	endif
 
-	test_python = python2.path()
+	test_python = python.path()
 endif
 
 # Directories

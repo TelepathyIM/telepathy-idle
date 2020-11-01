@@ -23,7 +23,7 @@ gen_svc = custom_target(
 		'svc.c',
 	],
 	command: [
-		python2,
+		python,
 		'@INPUT0@',
 		'--filename=extensions/_gen/svc',
 		'--signal-marshal-prefix=_idle_ext',
