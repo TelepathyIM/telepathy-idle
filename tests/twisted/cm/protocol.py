@@ -31,7 +31,7 @@ def test(q, bus, conn, server):
     proto_props = unwrap(proto_prop_iface.GetAll(cs.PROTOCOL))
 
     for key in ['Parameters', 'Interfaces', 'ConnectionInterfaces',
-      'RequestableChannelClasses', u'VCardField', u'EnglishName', u'Icon']:
+      'RequestableChannelClasses', 'VCardField', 'EnglishName', 'Icon']:
         a = local_props[cs.PROTOCOL + '.' + key]
         b = proto_props[key]
         assertEquals(a, b)

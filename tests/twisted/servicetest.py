@@ -3,9 +3,9 @@
 Infrastructure code for testing connection managers.
 """
 
-from twisted.internet import glib2reactor
+from twisted.internet import gireactor
 from twisted.internet.protocol import Protocol, Factory, ClientFactory
-glib2reactor.install()
+gireactor.install()
 import sys
 
 import pprint
@@ -62,7 +62,7 @@ class EventPattern:
         if event.type != self.type:
             return False
 
-        for key, value in self.properties.iteritems():
+        for key, value in self.properties.items():
             try:
                 if getattr(event, key) != value:
                     return False
@@ -95,14 +95,14 @@ class BaseEventQueue:
 
     def log(self, s):
         if self.verbose:
-            print s
+            print(s)
 
     def log_event(self, event):
         if self.verbose:
             self.log('got event:')
 
             if self.verbose:
-                map(self.log, format_event(event))
+                list(map(self.log, format_event(event)))
 
     def forbid_events(self, patterns):
         """
@@ -123,9 +123,9 @@ class BaseEventQueue:
     def _check_forbidden(self, event):
         for e in self.forbidden_events:
             if e.match(event):
-                print "forbidden event occurred:"
+                print("forbidden event occurred:")
                 for x in format_event(event):
-                    print x
+                    print(x)
                 assert False
 
     def expect(self, type, **kw):
@@ -303,18 +303,18 @@ def unwrap(x):
     printed."""
 
     if isinstance(x, list):
-        return map(unwrap, x)
+        return list(map(unwrap, x))
 
     if isinstance(x, tuple):
         return tuple(map(unwrap, x))
 
     if isinstance(x, dict):
-        return dict([(unwrap(k), unwrap(v)) for k, v in x.iteritems()])
+        return dict([(unwrap(k), unwrap(v)) for k, v in x.items()])
 
     if isinstance(x, dbus.Boolean):
         return bool(x)
 
-    for t in [unicode, str, long, int, float]:
+    for t in [str, str, int, int, float]:
         if isinstance(x, t):
             return t(x)
 
@@ -354,7 +354,7 @@ class ProxyWrapper:
             dbus.Interface(object, tp_name_prefix + '.Properties')
         self.interfaces = dict([
             (name, dbus.Interface(object, iface))
-            for name, iface in others.iteritems()])
+            for name, iface in others.items()])
 
     def __getattr__(self, name):
         if name in self.interfaces:
@@ -409,7 +409,7 @@ def make_connection(bus, event_func, name, proto, params):
             event_func(
                 Event('dbus-signal',
                     path=unwrap(kw['path']),
-                    signal=kw['member'], args=map(unwrap, args),
+                    signal=kw['member'], args=list(map(unwrap, args)),
                     interface=kw['interface'])),
         None,       # signal name
         None,       # interface
@@ -472,7 +472,7 @@ def watch_tube_signals(q, tube):
         q.handle_event(Event('tube-signal',
             path=kwargs['path'],
             signal=kwargs['member'],
-            args=map(unwrap, args),
+            args=list(map(unwrap, args)),
             tube=tube))
 
     tube.add_signal_receiver(got_signal_cb,

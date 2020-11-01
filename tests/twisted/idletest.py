@@ -146,9 +146,9 @@ class BaseIRCServer(irc.IRC):
             f = getattr(self, 'handle%s' % command)
             try:
                 f(params, prefix)
-            except Exception, e:
+            except Exception as e:
                 self.log('handler failed: %s' % e)
-        except Exception, e:
+        except Exception as e:
             self.log('No handler for command %s: %s' % (command, e))
 
 class SSLIRCServer(BaseIRCServer):
@@ -244,7 +244,7 @@ def exec_test_deferred (funs, params, protocol=None, timeout=None):
         for f in funs:
             conn = make_connection(bus, queue.append, params)
             f(queue, bus, conn, server)
-    except Exception, e:
+    except Exception as e:
         import traceback
         traceback.print_exc()
         error = e
@@ -271,7 +271,7 @@ def exec_test_deferred (funs, params, protocol=None, timeout=None):
             # exited and refdbg can generate its report
             time.sleep(5.5)
 
-    except dbus.DBusException, e:
+    except dbus.DBusException as e:
         pass
 
 def exec_tests(funs, params=None, protocol=None, timeout=None):

@@ -14,7 +14,7 @@ def test(q, bus, conn, stream):
             EventPattern('dbus-signal', signal='StatusChanged', args=[1, 1]),
             EventPattern('irc-connected'))
     q.expect('dbus-signal', signal='SelfHandleChanged',
-        args=[1L])
+        args=[1])
     q.expect('dbus-signal', signal='StatusChanged', args=[0, 1])
     room_handles = conn.RequestHandles(HT_ROOM, ['#idletest'])
     call_async(q, conn, 'RequestChannel', CHANNEL_TYPE_TEXT, HT_ROOM, room_handles[0], True)

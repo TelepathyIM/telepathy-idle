@@ -42,7 +42,7 @@ def test(q, bus, conn, stream):
             EventPattern('dbus-signal', signal='StatusChanged', args=[1, 1]),
             EventPattern('irc-connected'))
     q.expect('dbus-signal', signal='SelfHandleChanged',
-        args=[1L])
+        args=[1])
 
     call_async(q, conn, 'CreateChannel',
         { cs.CHANNEL_TYPE: cs.CHANNEL_TYPE_ROOM_LIST },
@@ -65,7 +65,7 @@ def test(q, bus, conn, stream):
         predicate=looks_like_a_room_list)
 
     chan = bus.get_object(conn.bus_name, path)
-    list_chan = dbus.Interface(chan, tp_name_prefix + u'.Channel.Type.RoomList')
+    list_chan = dbus.Interface(chan, tp_name_prefix + '.Channel.Type.RoomList')
     list_chan.ListRooms();
     q.expect('dbus-signal', signal='GotRooms', predicate=lambda x:check_rooms(x.args[0]))
 
