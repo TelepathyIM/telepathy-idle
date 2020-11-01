@@ -1,6 +1,6 @@
 xmls = files(
 	'all.xml',
-	'Connection_Interface_IRC_Command1.xml',
+	'Connection_Interface_Renaming.xml',
 )
 
 subdir('_gen')
