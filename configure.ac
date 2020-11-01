@@ -11,7 +11,7 @@ AC_PREREQ([2.59])
 
 m4_define([idle_major_version], [0])
 m4_define([idle_minor_version], [2])
-m4_define([idle_micro_version], [1])
+m4_define([idle_micro_version], [2])
 m4_define([idle_nano_version], [0])
 
 m4_define([idle_base_version],
