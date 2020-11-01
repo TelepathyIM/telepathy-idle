@@ -77,7 +77,6 @@ run_test = configure_file(
 test(
 	'check',
 	run_test,
-	args: twisted_tests,
 	env: [
 		'IDLE_TEST_UNINSTALLED=1',
 		'IDLE_ABS_TOP_SRCDIR=@0@'.format(abs_top_srcdir),
