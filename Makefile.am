@@ -8,3 +8,8 @@ check-twisted : all
 check-all: check check-twisted
 
 include tools/telepathy.am
+
+EXTRA_DIST = \
+	meson.build \
+	meson_options.txt \
+	$(NULL)

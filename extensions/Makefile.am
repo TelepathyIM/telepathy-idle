@@ -2,7 +2,10 @@ tools_dir = $(top_srcdir)/tools
 
 EXTRA_DIST = \
     all.xml \
-    Connection_Interface_Renaming.xml
+    Connection_Interface_Renaming.xml \
+    meson.build \
+    _gen/meson.build \
+    $(NULL)
 
 noinst_LTLIBRARIES = libidle-extensions.la
 

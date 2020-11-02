@@ -87,6 +87,7 @@ EXTRA_DIST = \
 	     servicetest.py \
 	     idletest.py \
 	     constants.py \
+	     meson.build \
 	     $(NULL)
 
 CLEANFILES = \

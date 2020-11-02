@@ -35,3 +35,7 @@ ALL_LIBS = \
 TESTS = $(check_PROGRAMS)
 
 SUBDIRS = twisted
+
+EXTRA_DIST= \
+	meson.build \
+	$(NULL)

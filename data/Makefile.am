@@ -15,5 +15,6 @@ $(service_DATA): $(service_in_files) Makefile
 	@sed -e "s|\@libexecdir\@|$(libexecdir)|" $< > $@
 
 EXTRA_DIST= \
+	meson.build \
 	${service_in_files} \
 	${manager_DATA}

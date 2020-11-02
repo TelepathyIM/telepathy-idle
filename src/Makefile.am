@@ -81,7 +81,10 @@ ALL_LIBS = \
 
 man_MANS = telepathy-idle.8
 
-EXTRA_DIST = telepathy-idle.8.in
+EXTRA_DIST = \
+	telepathy-idle.8.in \
+	meson.build \
+	$(NULL)
 
 %.8: %.8.in Makefile
 	$(AM_V_GEN)sed -e 's,[@]libexecdir[@],@libexecdir@,' < $< > $@
