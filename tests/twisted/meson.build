@@ -87,6 +87,7 @@ test(
 		test_list,
 	],
 	suite: 'twisted',
+	timeout: 2 * 60,
 )
 
 subdir('tools')
