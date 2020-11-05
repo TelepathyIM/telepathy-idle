@@ -1355,9 +1355,6 @@ idle_muc_channel_destroy (
 
 	IDLE_DEBUG ("called on %p", self);
 
-	if (priv->state == MUC_STATE_JOINED)
-		part_from_channel (self, NULL);
-
 	/* FIXME: this is wrong if called while JOIN is in flight. */
 	if (priv->state < MUC_STATE_JOINED)
 		tp_base_channel_destroyed (base);
