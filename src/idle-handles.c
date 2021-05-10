@@ -69,6 +69,12 @@ gboolean idle_nickname_is_valid(const gchar *nickname, gboolean strict_mode) {
 				}
 				break;
 
+			/* '/' is used by common IRC bridges that spoof nicknames */
+			case '/':
+				if (strict_mode)
+					return FALSE;
+				break;
+
 			default:
 				if (strict_mode) {
 						/* only accept ascii characters in strict mode */
